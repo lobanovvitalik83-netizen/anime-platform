@@ -7,7 +7,6 @@ from crud.role import create_role, get_role_by_slug
 from crud.user import create_user
 from models import Permission, User
 
-
 OWNER_ROLE_SLUG = "owner"
 
 

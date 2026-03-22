@@ -2,25 +2,15 @@
 
 Платформа управления Telegram + VK ботами, контентом, кодами и аналитикой.
 
-## Стек
-- FastAPI
-- PostgreSQL
-- Redis
-- Docker
-- SQLAlchemy
-
 ## Что уже есть
 - запуск API через Docker
-- подключение PostgreSQL / Redis
+- PostgreSQL / Redis
 - модели users / roles / permissions
-- сидирование permissions
+- автосидирование permissions
 - автоматическое создание первого owner
-- базовые API для пользователей, ролей и permissions
-
-## Запуск
-1. Скопировать `.env.example` в `.env`
-2. Запустить:
-   docker-compose up -d --build
+- JWT auth
+- login / refresh / me
+- базовая защита роутов
 
 ## Полезные URL
 - API root: http://localhost:8000

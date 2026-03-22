@@ -2,19 +2,27 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from crud.user import create_user, get_user_by_id, list_users, update_user
-from deps import get_db
+from deps import get_current_user, get_db
+from models import User
 from schemas import UserCreate, UserRead, UserUpdate
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 
 @router.get("", response_model=list[UserRead])
-def users_list(db: Session = Depends(get_db)):
+def users_list(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     return list_users(db)
 
 
 @router.post("", response_model=UserRead, status_code=status.HTTP_201_CREATED)
-def users_create(payload: UserCreate, db: Session = Depends(get_db)):
+def users_create(
+    payload: UserCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     return create_user(
         db,
         email=payload.email,
@@ -26,7 +34,11 @@ def users_create(payload: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/{user_id}", response_model=UserRead)
-def users_get(user_id: int, db: Session = Depends(get_db)):
+def users_get(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     user = get_user_by_id(db, user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -34,7 +46,12 @@ def users_get(user_id: int, db: Session = Depends(get_db)):
 
 
 @router.patch("/{user_id}", response_model=UserRead)
-def users_update(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)):
+def users_update_route(
+    user_id: int,
+    payload: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     user = get_user_by_id(db, user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")

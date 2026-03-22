@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from crud.permission import get_permissions_by_keys
 from crud.role import get_roles_by_slugs
 from models import User
-from security import hash_password
+from security import hash_password, verify_password
 
 
 def list_users(db: Session) -> list[User]:
@@ -17,11 +17,20 @@ def get_user_by_id(db: Session, user_id: int) -> User | None:
 
 
 def get_user_by_email_or_username(db: Session, email: str, username: str) -> User | None:
-    return db.scalar(
-        select(User).where(
-            or_(User.email == email, User.username == username)
-        )
-    )
+    return db.scalar(select(User).where(or_(User.email == email, User.username == username)))
+
+
+def get_user_by_login(db: Session, email_or_username: str) -> User | None:
+    return db.scalar(select(User).where(or_(User.email == email_or_username, User.username == email_or_username)))
+
+
+def authenticate_user(db: Session, email_or_username: str, password: str) -> User | None:
+    user = get_user_by_login(db, email_or_username)
+    if user is None or not user.is_active:
+        return None
+    if not verify_password(password, user.password_hash):
+        return None
+    return user
 
 
 def create_user(
@@ -36,10 +45,7 @@ def create_user(
 ) -> User:
     existing = get_user_by_email_or_username(db, email=email, username=username)
     if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="User with same email or username already exists",
-        )
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User with same email or username already exists")
 
     user = User(
         email=email,
