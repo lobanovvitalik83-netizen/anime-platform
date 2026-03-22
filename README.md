@@ -1,18 +1,13 @@
 # Anime Platform
 
-Платформа управления Telegram + VK ботами, контентом, кодами и аналитикой.
-
 ## Что уже есть
-- запуск API через Docker
+- FastAPI backend
 - PostgreSQL / Redis
-- модели users / roles / permissions
-- автосидирование permissions
-- автоматическое создание первого owner
 - JWT auth
-- login / refresh / me
-- базовая защита роутов
+- users / roles / permissions
+- базовая web admin панель на Next.js
 
-## Полезные URL
-- API root: http://localhost:8000
-- Health: http://localhost:8000/health
-- Docs: http://localhost:8000/docs
+## URL
+- API: http://185.250.45.184:8000
+- Swagger: http://185.250.45.184:8000/docs
+- Admin panel: http://185.250.45.184:3000

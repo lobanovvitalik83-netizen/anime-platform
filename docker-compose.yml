@@ -35,5 +35,16 @@ services:
     ports:
       - "8000:8000"
 
+  admin_web:
+    build: ./apps/admin_web
+    container_name: anime_admin_web
+    restart: always
+    depends_on:
+      - api
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+
 volumes:
   postgres_data:
