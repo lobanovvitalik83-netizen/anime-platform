@@ -1,13 +1,42 @@
-# Anime Platform
+# Anime Admin Release
 
-## Что уже есть
-- FastAPI backend
-- PostgreSQL / Redis
-- JWT auth
-- users / roles / permissions
-- базовая web admin панель на Next.js
+Это готовый фронтенд-пакет панели управления.
 
-## URL
-- API: http://185.250.45.184:8000
-- Swagger: http://185.250.45.184:8000/docs
-- Admin panel: http://185.250.45.184:3000
+## Что внутри
+- Next.js 14
+- React 18
+- Тёмный релизный интерфейс
+- Разделы: dashboard, content, media, users, roles, security, integrations, analytics, settings
+- Простое создание карточки с прямой загрузкой фото или видео
+
+## Как запустить локально
+1. Распакуй архив
+2. Открой папку проекта
+3. Выполни:
+
+```bash
+npm install
+npm run dev
+```
+
+4. Открой в браузере:
+
+```text
+http://localhost:3000
+```
+
+## Как загрузить на VPS
+1. Залей папку в GitHub или скопируй на сервер
+2. На сервере установи Node.js 20+
+3. Выполни:
+
+```bash
+npm install
+npm run build
+npm run start
+```
+
+## Что делать дальше
+1. Подтверди внешний вид интерфейса
+2. После этого подключаем реальный backend API
+3. Затем собираем единый прод-репозиторий с frontend + backend + docker
