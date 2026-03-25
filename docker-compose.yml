@@ -1,4 +1,5 @@
-version: '3.9'
+version: "3.9"
+
 services:
   api:
     build: ./backend
@@ -9,6 +10,7 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
+
   admin:
     build: ./frontend
     container_name: anime_admin_release
@@ -18,5 +20,13 @@ services:
       - "3000:3000"
     volumes:
       - ./frontend:/app
+    depends_on:
+      - api
+
+  telegram_bot:
+    build: ./bot
+    container_name: anime_tg_bot_release
+    env_file:
+      - ./bot/.env
     depends_on:
       - api

@@ -5,19 +5,19 @@ from app.core.config import settings
 
 PERMISSION_KEYS = [
     "users.view","users.create","users.update","users.block",
-    "roles.view","roles.create","roles.update","roles.assign",
-    "permissions.view","permissions.assign","settings.view","settings.update"
+    "roles.view","permissions.view","settings.view","settings.update",
+    "content.view","content.create","content.update","content.delete"
 ]
 
 def ensure_seed_data(db: Session) -> None:
     permissions = []
     for key in PERMISSION_KEYS:
-        existing = db.query(Permission).filter(Permission.key == key).first()
-        if not existing:
-            existing = Permission(key=key, description=key)
-            db.add(existing)
+        item = db.query(Permission).filter(Permission.key == key).first()
+        if not item:
+            item = Permission(key=key, description=key)
+            db.add(item)
             db.flush()
-        permissions.append(existing)
+        permissions.append(item)
 
     owner_role = db.query(Role).filter(Role.slug == "owner").first()
     if not owner_role:
@@ -28,9 +28,8 @@ def ensure_seed_data(db: Session) -> None:
 
     creator_role = db.query(Role).filter(Role.slug == "creator").first()
     if not creator_role:
-        creator_perms = [p for p in permissions if p.key in {"users.view","roles.view","permissions.view"}]
         creator_role = Role(name="Creator", slug="creator", description="Content creator role")
-        creator_role.permissions = creator_perms
+        creator_role.permissions = [p for p in permissions if p.key.startswith("content.") or p.key == "users.view"]
         db.add(creator_role)
         db.flush()
 
@@ -39,7 +38,7 @@ def ensure_seed_data(db: Session) -> None:
         owner = User(
             email=settings.owner_email,
             username=settings.owner_username,
-            password_hash=hash_password(settings.owner_password[:72]),
+            password_hash=hash_password(settings.owner_password),
             is_active=True,
             is_superuser=True,
             roles=[owner_role],
@@ -49,10 +48,12 @@ def ensure_seed_data(db: Session) -> None:
     defaults = {
         "project_name": "Anime Platform",
         "support_email": settings.owner_email,
-        "telegram_bot_enabled": "true",
+        "telegram_bot_enabled": "true" if settings.telegram_bot_enabled else "false",
+        "telegram_bot_username": settings.telegram_bot_username,
+        "telegram_admin_chat_id": settings.telegram_admin_chat_id,
     }
     for key, value in defaults.items():
-        existing = db.query(AppSetting).filter(AppSetting.key == key).first()
-        if not existing:
+        row = db.query(AppSetting).filter(AppSetting.key == key).first()
+        if not row:
             db.add(AppSetting(key=key, value=value))
     db.commit()

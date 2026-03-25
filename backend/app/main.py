@@ -3,12 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import engine, SessionLocal
+from app.services.bootstrap import ensure_seed_data
 from app.api.v1.auth import router as auth_router
 from app.api.v1.users import router as users_router
 from app.api.v1.roles import router as roles_router
 from app.api.v1.permissions import router as permissions_router
 from app.api.v1.settings import router as settings_router
-from app.services.bootstrap import ensure_seed_data
+from app.api.v1.content import router as content_router
+from app import models  # noqa: F401
 
 Base.metadata.create_all(bind=engine)
 with SessionLocal() as db:
@@ -37,3 +39,4 @@ app.include_router(users_router, prefix=settings.api_v1_prefix)
 app.include_router(roles_router, prefix=settings.api_v1_prefix)
 app.include_router(permissions_router, prefix=settings.api_v1_prefix)
 app.include_router(settings_router, prefix=settings.api_v1_prefix)
+app.include_router(content_router, prefix=settings.api_v1_prefix)

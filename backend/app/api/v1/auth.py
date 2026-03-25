@@ -7,7 +7,6 @@ from app.core.config import settings
 from app.db.session import get_db
 from app.models.user import User, PasswordResetToken
 from app.schemas.auth import LoginRequest, TokenResponse, RefreshRequest, ForgotPasswordRequest, ResetPasswordRequest
-from app.schemas.user import UserOut
 from app.services.emailer import send_reset_email
 from app.services.security import verify_password, create_access_token, create_refresh_token, decode_token, hash_password
 
@@ -76,7 +75,7 @@ def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db))
     user = db.query(User).filter(User.id == record.user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    user.password_hash = hash_password(payload.new_password[:72])
+    user.password_hash = hash_password(payload.new_password)
     record.used = True
     db.commit()
     return {"status": "ok"}

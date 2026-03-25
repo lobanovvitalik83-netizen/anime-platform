@@ -1,4 +1,3 @@
-import json
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.api.deps import require_permission
@@ -14,6 +13,8 @@ def read_settings(db: Session):
         "project_name": rows.get("project_name", "Anime Platform"),
         "support_email": rows.get("support_email", "owner@example.com"),
         "telegram_bot_enabled": rows.get("telegram_bot_enabled", "true") == "true",
+        "telegram_bot_username": rows.get("telegram_bot_username", ""),
+        "telegram_admin_chat_id": rows.get("telegram_admin_chat_id", ""),
     }
 
 @router.get("")
@@ -26,12 +27,14 @@ def update_settings(payload: SettingsUpdate, db: Session = Depends(get_db), _: U
         "project_name": payload.project_name,
         "support_email": payload.support_email,
         "telegram_bot_enabled": "true" if payload.telegram_bot_enabled else "false",
+        "telegram_bot_username": payload.telegram_bot_username,
+        "telegram_admin_chat_id": payload.telegram_admin_chat_id,
     }
     for key, value in values.items():
         row = db.query(AppSetting).filter(AppSetting.key == key).first()
         if row:
-            row.value = value
+            row.value = str(value)
         else:
-            db.add(AppSetting(key=key, value=value))
+            db.add(AppSetting(key=key, value=str(value)))
     db.commit()
     return read_settings(db)

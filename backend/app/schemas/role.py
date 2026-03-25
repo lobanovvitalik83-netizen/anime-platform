@@ -7,5 +7,4 @@ class RoleOut(BaseModel):
     slug: str | None = None
     description: str | None = None
     permissions: list[PermissionOut] = []
-
     model_config = {"from_attributes": True}

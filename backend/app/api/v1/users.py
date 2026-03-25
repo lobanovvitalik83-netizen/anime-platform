@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from app.api.deps import get_current_user, require_permission
+from app.api.deps import require_permission
 from app.db.session import get_db
 from app.models.user import User, Role
 from app.schemas.user import UserCreate, UserUpdate
@@ -37,7 +37,7 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db), _: User = De
     user = User(
         email=payload.email,
         username=payload.username,
-        password_hash=hash_password(payload.password[:72]),
+        password_hash=hash_password(payload.password),
         is_active=True,
         is_superuser=False,
         roles=roles,
@@ -57,7 +57,7 @@ def update_user(user_id: int, payload: UserUpdate, db: Session = Depends(get_db)
     if payload.username is not None:
         user.username = payload.username
     if payload.password is not None:
-        user.password_hash = hash_password(payload.password[:72])
+        user.password_hash = hash_password(payload.password)
     if payload.is_active is not None:
         user.is_active = payload.is_active
     if payload.role_ids is not None:

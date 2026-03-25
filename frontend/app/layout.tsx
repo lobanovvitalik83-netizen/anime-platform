@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Anime Platform Admin",
-  description: "Real admin panel connected to your API",
+  description: "Working admin panel connected to backend and telegram bot",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
