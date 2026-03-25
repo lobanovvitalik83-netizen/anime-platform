@@ -1,42 +1,28 @@
-# Anime Admin Release
+# Anime Platform Release
 
-Это готовый фронтенд-пакет панели управления.
+В этом архиве:
+- backend FastAPI с реальными endpoint-ами для auth, users, roles, permissions, settings
+- frontend Next.js admin с живыми данными из backend
+- docker-compose для запуска всей системы
 
-## Что внутри
-- Next.js 14
-- React 18
-- Тёмный релизный интерфейс
-- Разделы: dashboard, content, media, users, roles, security, integrations, analytics, settings
-- Простое создание карточки с прямой загрузкой фото или видео
+## Реально работает
+- вход
+- refresh token
+- current user
+- список пользователей
+- создание пользователя
+- список ролей
+- список permissions
+- чтение и обновление settings
+- forgot/reset password
 
-## Как запустить локально
-1. Распакуй архив
-2. Открой папку проекта
-3. Выполни:
-
+## Запуск
+1. Скопируй `.env.example` в `.env` в папках `backend` и `frontend`.
+2. Подними:
 ```bash
-npm install
-npm run dev
+docker-compose up -d --build
 ```
 
-4. Открой в браузере:
-
-```text
-http://localhost:3000
-```
-
-## Как загрузить на VPS
-1. Залей папку в GitHub или скопируй на сервер
-2. На сервере установи Node.js 20+
-3. Выполни:
-
-```bash
-npm install
-npm run build
-npm run start
-```
-
-## Что делать дальше
-1. Подтверди внешний вид интерфейса
-2. После этого подключаем реальный backend API
-3. Затем собираем единый прод-репозиторий с frontend + backend + docker
+## Дефолтный вход
+- username: owner
+- password: ChangeThisOwnerPassword123!
