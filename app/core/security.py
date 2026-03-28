@@ -13,12 +13,21 @@ password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7
 
 
+def _normalize_password_for_bcrypt(password: str) -> str:
+    password_bytes = password.encode("utf-8")
+    if len(password_bytes) <= 72:
+        return password
+    return hashlib.sha256(password_bytes).hexdigest()
+
+
 def hash_password(password: str) -> str:
-    return password_context.hash(password)
+    normalized = _normalize_password_for_bcrypt(password)
+    return password_context.hash(normalized)
 
 
 def verify_password(plain_password: str, password_hash: str) -> bool:
-    return password_context.verify(plain_password, password_hash)
+    normalized = _normalize_password_for_bcrypt(plain_password)
+    return password_context.verify(normalized, password_hash)
 
 
 def _sign(payload: bytes) -> str:
