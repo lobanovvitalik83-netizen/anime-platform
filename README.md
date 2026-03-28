@@ -1,21 +1,17 @@
-# Stage 2 - Core + DB
+# Stage 3 - Schemas + Repositories + Services + Auth
 
 Готово:
-- конфиг
-- FastAPI app
-- PostgreSQL
-- SQLAlchemy models
-- Alembic migration
-- security helpers
-- health endpoint
+- core + db
+- auto init tables on startup
+- signed session cookie auth
+- admin login/logout/me
+- media title CRUD API
+- access code CRUD/generate API
+- repositories + services
 
-Запуск:
-1. pip install -r requirements.txt
-2. cp .env.example .env
-3. заполнить DATABASE_URL
-4. alembic upgrade head
-5. python scripts/create_admin.py
-6. python run.py
-
-Health:
+Проверка после деплоя:
 - GET /health
+- POST /api/auth/login
+- GET /api/auth/me
+- GET /api/media-titles
+- GET /api/access-codes
