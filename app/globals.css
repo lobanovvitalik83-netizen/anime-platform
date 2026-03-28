@@ -1,7 +1,0 @@
-* { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; font-family: Inter, Arial, sans-serif; background: #020617; color: white; }
-body { min-height: 100vh; }
-button, input, textarea, select { font: inherit; }
-table { border-collapse: collapse; }
-th, td { text-align: left; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); vertical-align: top; }
-thead th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: #94a3b8; }
