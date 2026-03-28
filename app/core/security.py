@@ -2,32 +2,54 @@ import base64
 import hashlib
 import hmac
 import json
+import secrets
 import time
 from typing import Any
 
-from passlib.context import CryptContext
-
 from app.core.config import settings
 
-password_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7
-
-
-def _normalize_password_for_bcrypt(password: str) -> str:
-    password_bytes = password.encode("utf-8")
-    if len(password_bytes) <= 72:
-        return password
-    return hashlib.sha256(password_bytes).hexdigest()
+PBKDF2_ITERATIONS = 390000
+PASSWORD_SCHEME = "pbkdf2_sha256"
 
 
 def hash_password(password: str) -> str:
-    normalized = _normalize_password_for_bcrypt(password)
-    return password_context.hash(normalized)
+    salt = secrets.token_bytes(16)
+    derived_key = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt,
+        PBKDF2_ITERATIONS,
+    )
+    salt_b64 = base64.urlsafe_b64encode(salt).decode("utf-8").rstrip("=")
+    hash_b64 = base64.urlsafe_b64encode(derived_key).decode("utf-8").rstrip("=")
+    return f"{PASSWORD_SCHEME}${PBKDF2_ITERATIONS}${salt_b64}${hash_b64}"
 
 
 def verify_password(plain_password: str, password_hash: str) -> bool:
-    normalized = _normalize_password_for_bcrypt(plain_password)
-    return password_context.verify(normalized, password_hash)
+    try:
+        scheme, iterations_str, salt_b64, hash_b64 = password_hash.split("$", 3)
+        if scheme != PASSWORD_SCHEME:
+            return False
+
+        iterations = int(iterations_str)
+        salt = _urlsafe_b64decode(salt_b64)
+        expected_hash = _urlsafe_b64decode(hash_b64)
+
+        actual_hash = hashlib.pbkdf2_hmac(
+            "sha256",
+            plain_password.encode("utf-8"),
+            salt,
+            iterations,
+        )
+        return hmac.compare_digest(actual_hash, expected_hash)
+    except Exception:
+        return False
+
+
+def _urlsafe_b64decode(value: str) -> bytes:
+    padded = value + "=" * (-len(value) % 4)
+    return base64.urlsafe_b64decode(padded.encode("utf-8"))
 
 
 def _sign(payload: bytes) -> str:
@@ -53,8 +75,7 @@ def create_session_token(admin_id: int) -> str:
 def verify_session_token(token: str) -> dict[str, Any] | None:
     try:
         payload_part, signature_part = token.split(".", 1)
-        padded = payload_part + "=" * (-len(payload_part) % 4)
-        raw = base64.urlsafe_b64decode(padded.encode("utf-8"))
+        raw = _urlsafe_b64decode(payload_part)
 
         expected_signature = _sign(raw)
         if not hmac.compare_digest(signature_part, expected_signature):
