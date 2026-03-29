@@ -6,12 +6,16 @@ class PublicLookupResponse(BaseModel):
     title_id: int | None
     title: str | None
     original_title: str | None
+    title_type: str | None
+    title_status: str | None
+    year: int | None
     season_id: int | None
     season_number: int | None
     season_name: str | None
     episode_id: int | None
     episode_number: int | None
     episode_name: str | None
+    episode_status: str | None
     description: str | None
     asset_id: int | None
     asset_type: str | None
@@ -19,3 +23,4 @@ class PublicLookupResponse(BaseModel):
     telegram_file_id: str | None
     external_url: str | None
     mime_type: str | None
+    has_media: bool

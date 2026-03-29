@@ -40,17 +40,29 @@ class PublicLookupService:
         elif title and title.description:
             description = title.description
 
+        has_media = bool(
+            selected_asset
+            and (
+                selected_asset.telegram_file_id
+                or selected_asset.external_url
+            )
+        )
+
         return PublicLookupResponse(
             code=access_code.code,
             title_id=title.id if title else None,
             title=title.title if title else None,
             original_title=title.original_title if title else None,
+            title_type=title.type if title else None,
+            title_status=title.status if title else None,
+            year=title.year if title else None,
             season_id=season.id if season else None,
             season_number=season.season_number if season else None,
             season_name=season.name if season else None,
             episode_id=episode.id if episode else None,
             episode_number=episode.episode_number if episode else None,
             episode_name=episode.name if episode else None,
+            episode_status=episode.status if episode else None,
             description=description,
             asset_id=selected_asset.id if selected_asset else None,
             asset_type=selected_asset.asset_type if selected_asset else None,
@@ -58,6 +70,7 @@ class PublicLookupService:
             telegram_file_id=selected_asset.telegram_file_id if selected_asset else None,
             external_url=selected_asset.external_url if selected_asset else None,
             mime_type=selected_asset.mime_type if selected_asset else None,
+            has_media=has_media,
         )
 
     def _pick_best_asset(self, title_id: int | None, season_id: int | None, episode_id: int | None) -> MediaAsset | None:
@@ -78,10 +91,20 @@ class PublicLookupService:
                 return 2
             return 3
 
-        def type_priority(asset: MediaAsset) -> int:
+        def primary_priority(asset: MediaAsset) -> int:
+            return 0 if asset.is_primary else 1
+
+        def media_priority(asset: MediaAsset) -> int:
             if asset.asset_type == "video":
                 return 0
             if asset.asset_type in {"image", "poster"}:
+                return 1
+            return 2
+
+        def source_priority(asset: MediaAsset) -> int:
+            if asset.storage_kind == "telegram_file_id" and asset.telegram_file_id:
+                return 0
+            if asset.storage_kind == "external_url" and asset.external_url:
                 return 1
             return 2
 
@@ -89,8 +112,9 @@ class PublicLookupService:
             candidates,
             key=lambda item: (
                 scope_priority(item),
-                0 if item.is_primary else 1,
-                type_priority(item),
+                primary_priority(item),
+                media_priority(item),
+                source_priority(item),
                 -item.id,
             ),
         )

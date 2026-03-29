@@ -1,11 +1,19 @@
-# Stage 8 - Telegram Bot Lookup + Stage 7 Fix Included
+# Stage 9 - Bot Card Pipeline
 
 В архиве:
-- весь stage 7
-- Telegram bot polling
-- /start handler
-- lookup по цифровому коду
-- выдача текста / photo / video
-- fallback для нецифрового ввода
+- весь stage 8
+- улучшенный public lookup payload
+- улучшенный выбор primary asset
+- более понятная карточка для Telegram
+- более безопасная отправка image / poster / video
+- fallback на текстовую карточку, если медиа не отправилось
+- нормализация caption под Telegram
 
-Для работы бота нужен TELEGRAM_BOT_TOKEN в .env
+Что проверять:
+- /admin/assets
+- /admin/lookup-test
+- Telegram: /start
+- Telegram: валидный код
+- Telegram: код с image
+- Telegram: код с video
+- Telegram: код без ассета
