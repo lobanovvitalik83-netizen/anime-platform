@@ -25,6 +25,7 @@
     <a class="btn secondary" href="/admin/people">Сотрудники</a>
     <a class="btn secondary" href="/admin/chats">Сообщения</a>
     <a class="btn secondary" href="/admin/profile">Мой профиль</a>
+    <a class="btn secondary" href="/admin/analytics">Аналитика</a>
     {% if current_admin.role in ["admin", "superadmin"] %}<a class="btn secondary" href="/admin/team">Пользователи</a>{% endif %}
     {% if current_admin.role == "superadmin" %}<a class="btn secondary" href="/admin/settings/general">Настройки</a>{% endif %}
   </div>

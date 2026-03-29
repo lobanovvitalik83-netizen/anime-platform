@@ -30,7 +30,7 @@
         <a href="{{ result.external_url }}" target="_blank">{{ result.external_url }}</a>
         {% endif %}
       </p>
-      <p><a class="btn secondary" href="/api/public/code-lookup/{{ result.code }}" target="_blank">Открыть raw JSON</a></p>
+      <p><a class="btn secondary" href="/api/public/code-lookup/{{ result.code }}" target="_blank">Открыть raw JSON</a> <a class="btn secondary" href="/admin/analytics/codes/{{ result.code }}">Аналитика кода</a></p>
     </div>
   {% endif %}
 </div>

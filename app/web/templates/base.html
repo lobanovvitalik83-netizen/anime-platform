@@ -70,6 +70,7 @@
         <a href="/admin/chats">Сообщения</a>
         {% if current_admin.role in ["admin", "superadmin"] %}<a href="/admin/import-export">Импорт/экспорт</a>{% endif %}
         <a href="/admin/lookup-test">Тест lookup</a>
+        <a href="/admin/analytics">Аналитика</a>
         {% if current_admin.role in ["admin", "superadmin"] %}<a href="/admin/team">Пользователи</a>{% endif %}
         {% if current_admin.role == "superadmin" %}<a href="/admin/settings/general">Настройки</a>{% endif %}
         <a href="/admin/profile">Профиль</a>

@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="btn-row" style="margin-bottom:16px;">
+  <h1 style="margin:0; flex:1;">Аналитика и аудит</h1>
+  <a class="btn secondary" href="/admin">Назад</a>
+</div>
+
+<div class="grid cards" style="margin-bottom:18px;">
+  <div class="card"><div class="stat">{{ summary.total_attempts }}</div><div>Всего попыток</div></div>
+  <div class="card"><div class="stat">{{ summary.found_attempts }}</div><div>Найдено</div></div>
+  <div class="card"><div class="stat">{{ summary.not_found_attempts }}</div><div>Не найдено</div></div>
+  <div class="card"><div class="stat">{{ summary.unique_codes }}</div><div>Уникальных кодов</div></div>
+  <div class="card"><div class="stat">{{ summary.unique_found_codes }}</div><div>Уникальных найденных</div></div>
+  <div class="card"><div class="stat">{{ summary.unique_not_found_codes }}</div><div>Уникальных ненайденных</div></div>
+</div>
+
+<div class="card" style="margin-bottom:18px;">
+  <form method="get" action="/admin/analytics" class="form-grid">
+    <div>
+      <label>Поиск по коду / карточке / статусу</label>
+      <input name="q" value="{{ filters.q }}" placeholder="Например: 12345678">
+    </div>
+    <div>
+      <label>Тип выдачи</label>
+      <select name="outcome">
+        <option value="">Все</option>
+        <option value="found" {% if filters.outcome == 'found' %}selected{% endif %}>Только найденные</option>
+        <option value="not_found" {% if filters.outcome == 'not_found' %}selected{% endif %}>Только ненайденные</option>
+      </select>
+    </div>
+    <div class="btn-row" style="align-items:end;">
+      <button class="btn" type="submit">Применить</button>
+      <a class="btn secondary" href="/admin/analytics">Сбросить</a>
+    </div>
+  </form>
+</div>
+
+<div class="card" style="margin-bottom:18px;">
+  <h2>Коды</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Код</th>
+        <th>Карточка</th>
+        <th>Статус кода</th>
+        <th>Всего</th>
+        <th>Найдено</th>
+        <th>Не найдено</th>
+        <th>Последний запрос</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in code_rows %}
+      <tr>
+        <td><a href="/admin/analytics/codes/{{ row.code_value }}"><span class="code">{{ row.code_value }}</span></a></td>
+        <td>{{ row.title_name or "—" }}</td>
+        <td>{{ row.access_code_status or "нет в базе" }}</td>
+        <td>{{ row.total_attempts }}</td>
+        <td>{{ row.found_attempts }}</td>
+        <td>{{ row.not_found_attempts }}</td>
+        <td>{{ row.last_seen }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="7"><span class="muted">Данных пока нет.</span></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="grid" style="grid-template-columns: minmax(0,1fr) minmax(0,1fr);">
+  <div class="card">
+    <h2>Последние попытки поиска кода</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Когда</th>
+          <th>Код</th>
+          <th>Результат</th>
+          <th>Источник</th>
+          <th>Ошибка</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in recent_lookup_events %}
+        <tr>
+          <td>{{ item.created_at }}</td>
+          <td><a href="/admin/analytics/codes/{{ item.code_value }}"><span class="code">{{ item.code_value }}</span></a></td>
+          <td>{% if item.is_found %}найден{% else %}не найден{% endif %}</td>
+          <td>{{ item.source }}</td>
+          <td>{{ item.error_text or "—" }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5"><span class="muted">Нет попыток.</span></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Последние действия админов</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Когда</th>
+          <th>Admin ID</th>
+          <th>Action</th>
+          <th>Entity</th>
+          <th>Payload</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in recent_audit_logs %}
+        <tr>
+          <td>{{ item.created_at }}</td>
+          <td>{{ item.admin_id or "—" }}</td>
+          <td>{{ item.action }}</td>
+          <td>{{ item.entity_type }} / {{ item.entity_id }}</td>
+          <td>{{ item.payload_json or "—" }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5"><span class="muted">Нет действий.</span></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

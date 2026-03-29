@@ -5,6 +5,7 @@ from starlette.responses import RedirectResponse
 from app.core.config import settings
 from app.core.database import get_db_session
 from app.core.exceptions import AuthenticationError
+from app.services.analytics_service import AnalyticsService
 from app.services.asset_service import AssetService
 from app.services.auth_service import AuthService
 from app.services.chat_service import ChatService
@@ -516,7 +517,7 @@ def admin_lookup_test(request: Request, db: Session = Depends(get_db_session), c
     error = None
     if code:
         try:
-            result = PublicLookupService(db).lookup(code)
+            result = PublicLookupService(db).lookup(code, source="admin_lookup")
         except Exception as exc:
             db.rollback()
             error = str(exc)
@@ -846,3 +847,48 @@ async def admin_settings_general_submit(request: Request, db: Session = Depends(
     service = SiteSettingService(db)
     service.set_messages_enabled(enabled)
     return render_template("settings_general.html", request, page_title="Общие настройки", current_admin=current_admin, messages_enabled=service.is_messages_enabled(), error=None, success="Настройки обновлены.")
+
+
+@router.get("/admin/analytics")
+def admin_analytics_page(
+    request: Request,
+    db: Session = Depends(get_db_session),
+    q: str = "",
+    outcome: str = "",
+):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+
+    service = AnalyticsService(db)
+    return render_template(
+        "analytics_dashboard.html",
+        request,
+        page_title="Аналитика и аудит",
+        current_admin=current_admin,
+        summary=service.get_summary(),
+        code_rows=service.list_code_rows(q=q, outcome=outcome),
+        recent_lookup_events=service.list_recent_lookup_events(limit=120),
+        recent_audit_logs=service.list_recent_audit_logs(limit=120),
+        filters={"q": q, "outcome": outcome},
+    )
+
+
+@router.get("/admin/analytics/codes/{code_value}")
+def admin_analytics_code_detail(
+    code_value: str,
+    request: Request,
+    db: Session = Depends(get_db_session),
+):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+
+    detail = AnalyticsService(db).get_code_detail(code_value)
+    return render_template(
+        "code_analytics_detail.html",
+        request,
+        page_title=f"Аналитика кода {code_value}",
+        current_admin=current_admin,
+        detail=detail,
+    )

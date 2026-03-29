@@ -10,4 +10,4 @@ router = APIRouter(prefix="/api/public", tags=["public-lookup"])
 
 @router.get("/code-lookup/{code}", response_model=PublicLookupResponse)
 def public_code_lookup(code: str, db: Session = Depends(get_db_session)) -> PublicLookupResponse:
-    return PublicLookupService(db).lookup(code)
+    return PublicLookupService(db).lookup(code, source="public_api")

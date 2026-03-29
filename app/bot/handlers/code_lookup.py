@@ -16,7 +16,7 @@ async def code_lookup_handler(message: Message) -> None:
 
     with SessionLocal() as session:
         try:
-            result = PublicLookupService(session).lookup(code)
+            result = PublicLookupService(session).lookup(code, source="telegram_bot")
         except Exception:
             await message.answer("Код не найден или неактивен.")
             return

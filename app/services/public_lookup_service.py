@@ -1,8 +1,10 @@
 from sqlalchemy.orm import Session
 
 from app.models.media_asset import MediaAsset
+from app.repositories.access_code_repository import AccessCodeRepository
 from app.repositories.media_asset_repository import MediaAssetRepository
 from app.schemas.public_lookup import PublicLookupResponse
+from app.services.analytics_service import AnalyticsService
 from app.services.code_service import CodeService
 from app.services.media_service import MediaService
 
@@ -11,12 +13,35 @@ class PublicLookupService:
     def __init__(self, session: Session):
         self.session = session
         self.codes = CodeService(session)
+        self.access_codes = AccessCodeRepository(session)
         self.media = MediaService(session)
         self.assets = MediaAssetRepository(session)
+        self.analytics = AnalyticsService(session)
 
-    def lookup(self, code: str) -> PublicLookupResponse:
-        access_code = self.codes.lookup_active_code(code)
+    def lookup(self, code: str, source: str = "public_api") -> PublicLookupResponse:
+        try:
+            access_code = self.codes.lookup_active_code(code)
+            response = self._build_response(access_code)
+            self.analytics.record_lookup_attempt(
+                code_value=code,
+                is_found=True,
+                source=source,
+                access_code=access_code,
+                error_text=None,
+            )
+            return response
+        except Exception as exc:
+            fallback_code = self.access_codes.get_by_code(code)
+            self.analytics.record_lookup_attempt(
+                code_value=code,
+                is_found=False,
+                source=source,
+                access_code=fallback_code,
+                error_text=str(exc),
+            )
+            raise
 
+    def _build_response(self, access_code) -> PublicLookupResponse:
         title = self.media.get_title(access_code.title_id) if access_code.title_id else None
         season = self.media.get_season(access_code.season_id) if access_code.season_id else None
         episode = self.media.get_episode(access_code.episode_id) if access_code.episode_id else None
@@ -34,10 +59,7 @@ class PublicLookupService:
             episode_id=episode.id if episode else None,
         )
 
-        has_media = bool(
-            selected_asset
-            and (selected_asset.telegram_file_id or selected_asset.external_url)
-        )
+        has_media = bool(selected_asset and (selected_asset.telegram_file_id or selected_asset.external_url))
 
         return PublicLookupResponse(
             code=access_code.code,
