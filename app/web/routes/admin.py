@@ -7,6 +7,7 @@ from app.core.database import get_db_session
 from app.core.exceptions import AuthenticationError
 from app.services.asset_service import AssetService
 from app.services.auth_service import AuthService
+from app.services.chat_service import ChatService
 from app.services.code_service import CodeService
 from app.services.media_card_service import MediaCardService
 from app.services.import_export_service import ImportExportService
@@ -24,6 +25,10 @@ def to_int(value: str | None) -> int | None:
     return int(value)
 
 
+def render_template(name: str, request: Request, **context):
+    return templates.TemplateResponse(name, {"request": request, **context})
+
+
 def get_admin_or_redirect(request: Request, db: Session, min_role: str = "editor"):
     admin = get_current_admin_from_request(request, db)
     if not admin:
@@ -39,12 +44,25 @@ def get_admin_or_redirect(request: Request, db: Session, min_role: str = "editor
     return admin, None
 
 
-def render_template(name: str, request: Request, **context):
-    return templates.TemplateResponse(name, {"request": request, **context})
+def _render_media_cards(request: Request, current_admin, db: Session, q: str = "", genre: str = "", status: str = "", error: str | None = None):
+    cards = MediaCardService(db).list_cards(q=q, genre=genre, status=status)
+    return render_template(
+        "media_cards_list.html",
+        request,
+        page_title="Медиа",
+        current_admin=current_admin,
+        cards=cards,
+        filters={"q": q, "genre": genre, "status": status},
+        error=error,
+    )
 
 
-def _render_error(name: str, request: Request, current_admin, error: str, **context):
-    return render_template(name, request, current_admin=current_admin, error=error, **context)
+def _team_manageable_ids(current_admin, admins):
+    if current_admin.role == "superadmin":
+        return {item.id for item in admins if item.id != current_admin.id and item.role in {"admin", "editor"}}
+    if current_admin.role == "admin":
+        return {item.id for item in admins if item.role == "editor"}
+    return set()
 
 
 @router.get("/")
@@ -100,1228 +118,14 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db_session)):
         current_admin=current_admin,
         counts={
             "titles": len(media_service.list_titles()),
-            "seasons": len(media_service.list_seasons()),
-            "episodes": len(media_service.list_episodes()),
             "assets": len(asset_service.list_assets()),
             "codes": len(code_service.list_codes()),
         },
     )
 
 
-@router.get("/admin/titles")
-def admin_titles(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    return render_template(
-        "titles_list.html",
-        request,
-        page_title="Тайтлы",
-        current_admin=current_admin,
-        titles=MediaService(db).list_titles(),
-    )
-
-
-@router.get("/admin/titles/new")
-def admin_title_new_page(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    return render_template(
-        "title_form.html",
-        request,
-        page_title="Новый тайтл",
-        current_admin=current_admin,
-        error=None,
-        values={},
-        action_url="/admin/titles/new",
-        submit_label="Сохранить",
-    )
-
-
-@router.post("/admin/titles/new")
-async def admin_title_new_submit(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    form = await request.form()
-    payload = {
-        "type": str(form.get("type", "")).strip(),
-        "title": str(form.get("title", "")).strip(),
-        "original_title": str(form.get("original_title", "")).strip() or None,
-        "description": str(form.get("description", "")).strip() or None,
-        "year": to_int(str(form.get("year", "")).strip() or None),
-        "status": str(form.get("status", "draft")).strip(),
-    }
-
-    try:
-        MediaService(db).create_title(current_admin.id, payload)
-    except Exception as exc:
-        db.rollback()
-        return _render_error(
-            "title_form.html",
-            request,
-            current_admin,
-            str(exc),
-            page_title="Новый тайтл",
-            values=payload,
-            action_url="/admin/titles/new",
-            submit_label="Сохранить",
-        )
-
-    return redirect_to("/admin/titles")
-
-
-@router.get("/admin/titles/{title_id}/edit")
-def admin_title_edit_page(title_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    item = MediaService(db).get_title(title_id)
-    values = {
-        "type": item.type,
-        "title": item.title,
-        "original_title": item.original_title or "",
-        "description": item.description or "",
-        "year": item.year or "",
-        "status": item.status,
-    }
-    return render_template(
-        "title_form.html",
-        request,
-        page_title=f"Редактировать тайтл #{item.id}",
-        current_admin=current_admin,
-        error=None,
-        values=values,
-        action_url=f"/admin/titles/{item.id}/edit",
-        submit_label="Сохранить изменения",
-    )
-
-
-@router.post("/admin/titles/{title_id}/edit")
-async def admin_title_edit_submit(title_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    form = await request.form()
-    payload = {
-        "type": str(form.get("type", "")).strip(),
-        "title": str(form.get("title", "")).strip(),
-        "original_title": str(form.get("original_title", "")).strip() or None,
-        "description": str(form.get("description", "")).strip() or None,
-        "year": to_int(str(form.get("year", "")).strip() or None),
-        "status": str(form.get("status", "draft")).strip(),
-    }
-
-    try:
-        MediaService(db).update_title(current_admin.id, title_id, payload)
-    except Exception as exc:
-        db.rollback()
-        return _render_error(
-            "title_form.html",
-            request,
-            current_admin,
-            str(exc),
-            page_title=f"Редактировать тайтл #{title_id}",
-            values=payload,
-            action_url=f"/admin/titles/{title_id}/edit",
-            submit_label="Сохранить изменения",
-        )
-
-    return redirect_to("/admin/titles")
-
-
-@router.post("/admin/titles/{title_id}/delete")
-def admin_title_delete(title_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-    MediaService(db).delete_title(current_admin.id, title_id)
-    return redirect_to("/admin/titles")
-
-
-@router.get("/admin/seasons")
-def admin_seasons(request: Request, db: Session = Depends(get_db_session), title_id: int | None = None):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    media_service = MediaService(db)
-    return render_template(
-        "seasons_list.html",
-        request,
-        page_title="Сезоны",
-        current_admin=current_admin,
-        seasons=media_service.list_seasons(title_id=title_id),
-        titles=media_service.list_titles(),
-        selected_title_id=title_id,
-    )
-
-
-@router.get("/admin/seasons/new")
-def admin_season_new_page(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    return render_template(
-        "season_form.html",
-        request,
-        page_title="Новый сезон",
-        current_admin=current_admin,
-        titles=MediaService(db).list_titles(),
-        error=None,
-        values={},
-        action_url="/admin/seasons/new",
-        submit_label="Сохранить",
-    )
-
-
-@router.post("/admin/seasons/new")
-async def admin_season_new_submit(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    titles = MediaService(db).list_titles()
-    form = await request.form()
-    payload = {
-        "title_id": int(str(form.get("title_id")).strip()),
-        "season_number": int(str(form.get("season_number")).strip()),
-        "name": str(form.get("name", "")).strip() or None,
-        "description": str(form.get("description", "")).strip() or None,
-    }
-
-    try:
-        MediaService(db).create_season(current_admin.id, payload)
-    except Exception as exc:
-        db.rollback()
-        return _render_error(
-            "season_form.html",
-            request,
-            current_admin,
-            str(exc),
-            page_title="Новый сезон",
-            titles=titles,
-            values=payload,
-            action_url="/admin/seasons/new",
-            submit_label="Сохранить",
-        )
-
-    return redirect_to("/admin/seasons")
-
-
-@router.get("/admin/seasons/{season_id}/edit")
-def admin_season_edit_page(season_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    item = MediaService(db).get_season(season_id)
-    values = {
-        "title_id": item.title_id,
-        "season_number": item.season_number,
-        "name": item.name or "",
-        "description": item.description or "",
-    }
-    return render_template(
-        "season_form.html",
-        request,
-        page_title=f"Редактировать сезон #{item.id}",
-        current_admin=current_admin,
-        titles=MediaService(db).list_titles(),
-        error=None,
-        values=values,
-        action_url=f"/admin/seasons/{item.id}/edit",
-        submit_label="Сохранить изменения",
-    )
-
-
-@router.post("/admin/seasons/{season_id}/edit")
-async def admin_season_edit_submit(season_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    titles = MediaService(db).list_titles()
-    form = await request.form()
-    payload = {
-        "title_id": int(str(form.get("title_id")).strip()),
-        "season_number": int(str(form.get("season_number")).strip()),
-        "name": str(form.get("name", "")).strip() or None,
-        "description": str(form.get("description", "")).strip() or None,
-    }
-
-    try:
-        MediaService(db).update_season(current_admin.id, season_id, payload)
-    except Exception as exc:
-        db.rollback()
-        return _render_error(
-            "season_form.html",
-            request,
-            current_admin,
-            str(exc),
-            page_title=f"Редактировать сезон #{season_id}",
-            titles=titles,
-            values=payload,
-            action_url=f"/admin/seasons/{season_id}/edit",
-            submit_label="Сохранить изменения",
-        )
-
-    return redirect_to("/admin/seasons")
-
-
-@router.post("/admin/seasons/{season_id}/delete")
-def admin_season_delete(season_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-    MediaService(db).delete_season(current_admin.id, season_id)
-    return redirect_to("/admin/seasons")
-
-
-@router.get("/admin/episodes")
-def admin_episodes(
-    request: Request,
-    db: Session = Depends(get_db_session),
-    title_id: int | None = None,
-    season_id: int | None = None,
-):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    media_service = MediaService(db)
-    return render_template(
-        "episodes_list.html",
-        request,
-        page_title="Эпизоды",
-        current_admin=current_admin,
-        episodes=media_service.list_episodes(title_id=title_id, season_id=season_id),
-        titles=media_service.list_titles(),
-        seasons=media_service.list_seasons(title_id=title_id),
-        selected_title_id=title_id,
-        selected_season_id=season_id,
-    )
-
-
-@router.get("/admin/episodes/new")
-def admin_episode_new_page(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    media_service = MediaService(db)
-    return render_template(
-        "episode_form.html",
-        request,
-        page_title="Новый эпизод",
-        current_admin=current_admin,
-        titles=media_service.list_titles(),
-        seasons=media_service.list_seasons(),
-        error=None,
-        values={},
-        action_url="/admin/episodes/new",
-        submit_label="Сохранить",
-    )
-
-
-@router.post("/admin/episodes/new")
-async def admin_episode_new_submit(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    media_service = MediaService(db)
-    titles = media_service.list_titles()
-    seasons = media_service.list_seasons()
-
-    form = await request.form()
-    payload = {
-        "title_id": int(str(form.get("title_id")).strip()),
-        "season_id": to_int(str(form.get("season_id", "")).strip() or None),
-        "episode_number": int(str(form.get("episode_number")).strip()),
-        "name": str(form.get("name", "")).strip() or None,
-        "synopsis": str(form.get("synopsis", "")).strip() or None,
-        "status": str(form.get("status", "draft")).strip(),
-    }
-
-    try:
-        MediaService(db).create_episode(current_admin.id, payload)
-    except Exception as exc:
-        db.rollback()
-        return _render_error(
-            "episode_form.html",
-            request,
-            current_admin,
-            str(exc),
-            page_title="Новый эпизод",
-            titles=titles,
-            seasons=seasons,
-            values=payload,
-            action_url="/admin/episodes/new",
-            submit_label="Сохранить",
-        )
-
-    return redirect_to("/admin/episodes")
-
-
-@router.get("/admin/episodes/{episode_id}/edit")
-def admin_episode_edit_page(episode_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    item = MediaService(db).get_episode(episode_id)
-    media_service = MediaService(db)
-    values = {
-        "title_id": item.title_id,
-        "season_id": item.season_id or "",
-        "episode_number": item.episode_number,
-        "name": item.name or "",
-        "synopsis": item.synopsis or "",
-        "status": item.status,
-    }
-    return render_template(
-        "episode_form.html",
-        request,
-        page_title=f"Редактировать эпизод #{item.id}",
-        current_admin=current_admin,
-        titles=media_service.list_titles(),
-        seasons=media_service.list_seasons(),
-        error=None,
-        values=values,
-        action_url=f"/admin/episodes/{item.id}/edit",
-        submit_label="Сохранить изменения",
-    )
-
-
-@router.post("/admin/episodes/{episode_id}/edit")
-async def admin_episode_edit_submit(episode_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    media_service = MediaService(db)
-    titles = media_service.list_titles()
-    seasons = media_service.list_seasons()
-
-    form = await request.form()
-    payload = {
-        "title_id": int(str(form.get("title_id")).strip()),
-        "season_id": to_int(str(form.get("season_id", "")).strip() or None),
-        "episode_number": int(str(form.get("episode_number")).strip()),
-        "name": str(form.get("name", "")).strip() or None,
-        "synopsis": str(form.get("synopsis", "")).strip() or None,
-        "status": str(form.get("status", "draft")).strip(),
-    }
-
-    try:
-        MediaService(db).update_episode(current_admin.id, episode_id, payload)
-    except Exception as exc:
-        db.rollback()
-        return _render_error(
-            "episode_form.html",
-            request,
-            current_admin,
-            str(exc),
-            page_title=f"Редактировать эпизод #{episode_id}",
-            titles=titles,
-            seasons=seasons,
-            values=payload,
-            action_url=f"/admin/episodes/{episode_id}/edit",
-            submit_label="Сохранить изменения",
-        )
-
-    return redirect_to("/admin/episodes")
-
-
-@router.post("/admin/episodes/{episode_id}/delete")
-def admin_episode_delete(episode_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-    MediaService(db).delete_episode(current_admin.id, episode_id)
-    return redirect_to("/admin/episodes")
-
-
-@router.get("/admin/assets")
-def admin_assets(
-    request: Request,
-    db: Session = Depends(get_db_session),
-    title_id: int | None = None,
-    season_id: int | None = None,
-    episode_id: int | None = None,
-):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    asset_service = AssetService(db)
-    return render_template(
-        "assets_list.html",
-        request,
-        page_title="Ассеты",
-        current_admin=current_admin,
-        assets=asset_service.list_assets(title_id=title_id, season_id=season_id, episode_id=episode_id),
-    )
-
-
-@router.get("/admin/assets/new")
-def admin_asset_new_page(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    return render_template(
-        "asset_form_simple.html",
-        request,
-        page_title="Новый ассет",
-        current_admin=current_admin,
-        error=None,
-        values={},
-        action_url="/admin/assets/new",
-        submit_label="Сохранить",
-    )
-
-
-@router.post("/admin/assets/new")
-async def admin_asset_new_submit(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    form = await request.form()
-    payload = {
-        "title_id": to_int(str(form.get("title_id", "")).strip() or None),
-        "season_id": to_int(str(form.get("season_id", "")).strip() or None),
-        "episode_id": to_int(str(form.get("episode_id", "")).strip() or None),
-        "asset_type": str(form.get("asset_type", "")).strip(),
-        "storage_kind": str(form.get("storage_kind", "")).strip(),
-        "telegram_file_id": str(form.get("telegram_file_id", "")).strip() or None,
-        "external_url": str(form.get("external_url", "")).strip() or None,
-        "mime_type": str(form.get("mime_type", "")).strip() or None,
-        "is_primary": form.get("is_primary") == "on",
-    }
-
-    try:
-        AssetService(db).create_asset(current_admin.id, payload)
-    except Exception as exc:
-        db.rollback()
-        return _render_error(
-            "asset_form_simple.html",
-            request,
-            current_admin,
-            str(exc),
-            page_title="Новый ассет",
-            values=payload,
-            action_url="/admin/assets/new",
-            submit_label="Сохранить",
-        )
-
-    return redirect_to("/admin/assets")
-
-
-@router.get("/admin/assets/{asset_id}/edit")
-def admin_asset_edit_page(asset_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    item = AssetService(db).get_asset(asset_id)
-    values = {
-        "title_id": item.title_id or "",
-        "season_id": item.season_id or "",
-        "episode_id": item.episode_id or "",
-        "asset_type": item.asset_type,
-        "storage_kind": item.storage_kind,
-        "telegram_file_id": item.telegram_file_id or "",
-        "external_url": item.external_url or "",
-        "mime_type": item.mime_type or "",
-        "is_primary": item.is_primary,
-    }
-    return render_template(
-        "asset_form_simple.html",
-        request,
-        page_title=f"Редактировать ассет #{item.id}",
-        current_admin=current_admin,
-        error=None,
-        values=values,
-        action_url=f"/admin/assets/{item.id}/edit",
-        submit_label="Сохранить изменения",
-    )
-
-
-@router.post("/admin/assets/{asset_id}/edit")
-async def admin_asset_edit_submit(asset_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    form = await request.form()
-    payload = {
-        "title_id": to_int(str(form.get("title_id", "")).strip() or None),
-        "season_id": to_int(str(form.get("season_id", "")).strip() or None),
-        "episode_id": to_int(str(form.get("episode_id", "")).strip() or None),
-        "asset_type": str(form.get("asset_type", "")).strip(),
-        "storage_kind": str(form.get("storage_kind", "")).strip(),
-        "telegram_file_id": str(form.get("telegram_file_id", "")).strip() or None,
-        "external_url": str(form.get("external_url", "")).strip() or None,
-        "mime_type": str(form.get("mime_type", "")).strip() or None,
-        "is_primary": form.get("is_primary") == "on",
-    }
-
-    try:
-        AssetService(db).update_asset(current_admin.id, asset_id, payload)
-    except Exception as exc:
-        db.rollback()
-        return _render_error(
-            "asset_form_simple.html",
-            request,
-            current_admin,
-            str(exc),
-            page_title=f"Редактировать ассет #{asset_id}",
-            values=payload,
-            action_url=f"/admin/assets/{asset_id}/edit",
-            submit_label="Сохранить изменения",
-        )
-
-    return redirect_to("/admin/assets")
-
-
-@router.post("/admin/assets/{asset_id}/delete")
-def admin_asset_delete(asset_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-    AssetService(db).delete_asset(current_admin.id, asset_id)
-    return redirect_to("/admin/assets")
-
-
-@router.get("/admin/codes")
-def admin_codes(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-
-    return render_template(
-        "codes_list.html",
-        request,
-        page_title="Коды",
-        current_admin=current_admin,
-        codes=CodeService(db).list_codes(),
-    )
-
-
-@router.get("/admin/codes/generate")
-def admin_codes_generate_page(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-
-    media_service = MediaService(db)
-    return render_template(
-        "code_generate.html",
-        request,
-        page_title="Генерация кодов",
-        current_admin=current_admin,
-        titles=media_service.list_titles(),
-        seasons=media_service.list_seasons(),
-        episodes=media_service.list_episodes(),
-        error=None,
-        values={},
-        generated_codes=None,
-    )
-
-
-@router.post("/admin/codes/generate")
-async def admin_codes_generate_submit(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-
-    media_service = MediaService(db)
-    titles = media_service.list_titles()
-    seasons = media_service.list_seasons()
-    episodes = media_service.list_episodes()
-
-    form = await request.form()
-    payload = {
-        "quantity": int(str(form.get("quantity")).strip()),
-        "title_id": to_int(str(form.get("title_id", "")).strip() or None),
-        "season_id": to_int(str(form.get("season_id", "")).strip() or None),
-        "episode_id": to_int(str(form.get("episode_id", "")).strip() or None),
-        "status": str(form.get("status", "active")).strip(),
-    }
-
-    try:
-        generated_codes = CodeService(db).generate_codes(current_admin.id, payload)
-    except Exception as exc:
-        db.rollback()
-        return _render_error(
-            "code_generate.html",
-            request,
-            current_admin,
-            str(exc),
-            page_title="Генерация кодов",
-            titles=titles,
-            seasons=seasons,
-            episodes=episodes,
-            values=payload,
-            generated_codes=None,
-        )
-
-    return render_template(
-        "code_generate.html",
-        request,
-        page_title="Генерация кодов",
-        current_admin=current_admin,
-        titles=titles,
-        seasons=seasons,
-        episodes=episodes,
-        error=None,
-        values=payload,
-        generated_codes=generated_codes,
-    )
-
-
-@router.get("/admin/codes/{code_id}/edit")
-def admin_code_edit_page(code_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-
-    code_service = CodeService(db)
-    media_service = MediaService(db)
-    item = code_service.get_code(code_id)
-    values = {
-        "code": item.code,
-        "title_id": item.title_id or "",
-        "season_id": item.season_id or "",
-        "episode_id": item.episode_id or "",
-        "status": item.status,
-    }
-    return render_template(
-        "code_form.html",
-        request,
-        page_title=f"Редактировать код #{item.id}",
-        current_admin=current_admin,
-        titles=media_service.list_titles(),
-        seasons=media_service.list_seasons(),
-        episodes=media_service.list_episodes(),
-        error=None,
-        values=values,
-        action_url=f"/admin/codes/{item.id}/edit",
-        submit_label="Сохранить изменения",
-    )
-
-
-@router.post("/admin/codes/{code_id}/edit")
-async def admin_code_edit_submit(code_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-
-    media_service = MediaService(db)
-    form = await request.form()
-    payload = {
-        "code": str(form.get("code", "")).strip(),
-        "title_id": to_int(str(form.get("title_id", "")).strip() or None),
-        "season_id": to_int(str(form.get("season_id", "")).strip() or None),
-        "episode_id": to_int(str(form.get("episode_id", "")).strip() or None),
-        "status": str(form.get("status", "active")).strip(),
-    }
-
-    try:
-        CodeService(db).update_code(current_admin.id, code_id, payload)
-    except Exception as exc:
-        db.rollback()
-        return _render_error(
-            "code_form.html",
-            request,
-            current_admin,
-            str(exc),
-            page_title=f"Редактировать код #{code_id}",
-            titles=media_service.list_titles(),
-            seasons=media_service.list_seasons(),
-            episodes=media_service.list_episodes(),
-            values=payload,
-            action_url=f"/admin/codes/{code_id}/edit",
-            submit_label="Сохранить изменения",
-        )
-
-    return redirect_to("/admin/codes")
-
-
-@router.post("/admin/codes/{code_id}/deactivate")
-def admin_code_deactivate(code_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-    CodeService(db).deactivate_code(current_admin.id, code_id)
-    return redirect_to("/admin/codes")
-
-
-@router.post("/admin/codes/{code_id}/delete")
-def admin_code_delete(code_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-    CodeService(db).delete_code(current_admin.id, code_id)
-    return redirect_to("/admin/codes")
-
-
-@router.get("/admin/lookup-test")
-def admin_lookup_test(request: Request, db: Session = Depends(get_db_session), code: str | None = None):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    result = None
-    error = None
-    if code:
-        try:
-            result = PublicLookupService(db).lookup(code)
-        except Exception as exc:
-            db.rollback()
-            error = str(exc)
-
-    return render_template(
-        "lookup_test.html",
-        request,
-        page_title="Тест lookup",
-        current_admin=current_admin,
-        code=code or "",
-        result=result,
-        error=error,
-    )
-
-
-@router.post("/admin/codes/{code_id}/activate")
-def admin_code_activate(code_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-    CodeService(db).activate_code(current_admin.id, code_id)
-    return redirect_to("/admin/codes")
-
-
-@router.post("/admin/codes/bulk-action")
-async def admin_codes_bulk_action(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-
-    form = await request.form()
-    action = str(form.get("bulk_action", "")).strip()
-    selected_values = form.getlist("selected_ids")
-
-    if not action:
-        return render_template(
-            "codes_list.html",
-            request,
-            page_title="Коды",
-            current_admin=current_admin,
-            codes=CodeService(db).list_codes(),
-            error="Не выбрано массовое действие.",
-        )
-
-    if not selected_values:
-        return render_template(
-            "codes_list.html",
-            request,
-            page_title="Коды",
-            current_admin=current_admin,
-            codes=CodeService(db).list_codes(),
-            error="Не выбраны коды.",
-        )
-
-    code_service = CodeService(db)
-    try:
-        for raw_id in selected_values:
-            code_id = int(str(raw_id))
-            if action == "activate":
-                code_service.activate_code(current_admin.id, code_id)
-            elif action == "deactivate":
-                code_service.deactivate_code(current_admin.id, code_id)
-            elif action == "delete":
-                code_service.delete_code(current_admin.id, code_id)
-            else:
-                raise ValueError("Unknown bulk action")
-    except Exception as exc:
-        db.rollback()
-        return render_template(
-            "codes_list.html",
-            request,
-            page_title="Коды",
-            current_admin=current_admin,
-            codes=CodeService(db).list_codes(),
-            error=str(exc),
-        )
-
-    return redirect_to("/admin/codes")
-
-
-@router.get("/admin/import-export")
-def admin_import_export_page(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-
-    return render_template(
-        "import_export.html",
-        request,
-        page_title="Импорт / экспорт",
-        current_admin=current_admin,
-        error=None,
-        success=None,
-    )
-
-
-@router.get("/admin/import-jobs")
-def admin_import_jobs_page(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-
-    jobs = ImportExportService(db).list_jobs()
-    return render_template(
-        "import_jobs_list.html",
-        request,
-        page_title="Import jobs",
-        current_admin=current_admin,
-        jobs=jobs,
-    )
-
-
-@router.get("/admin/export/titles.csv")
-def admin_export_titles_csv(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-    content = ImportExportService(db).export_titles_csv()
-    return Response(
-        content=content,
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": "attachment; filename=titles.csv"},
-    )
-
-
-@router.get("/admin/export/seasons.csv")
-def admin_export_seasons_csv(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-    content = ImportExportService(db).export_seasons_csv()
-    return Response(
-        content=content,
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": "attachment; filename=seasons.csv"},
-    )
-
-
-@router.get("/admin/export/episodes.csv")
-def admin_export_episodes_csv(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-    content = ImportExportService(db).export_episodes_csv()
-    return Response(
-        content=content,
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": "attachment; filename=episodes.csv"},
-    )
-
-
-@router.get("/admin/export/assets.csv")
-def admin_export_assets_csv(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-    content = ImportExportService(db).export_assets_csv()
-    return Response(
-        content=content,
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": "attachment; filename=assets.csv"},
-    )
-
-
-@router.get("/admin/export/codes.csv")
-def admin_export_codes_csv(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-    content = ImportExportService(db).export_codes_csv()
-    return Response(
-        content=content,
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": "attachment; filename=codes.csv"},
-    )
-
-
-@router.post("/admin/import/titles/csv")
-async def admin_import_titles_csv(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-
-    try:
-        content = await file.read()
-        job = ImportExportService(db).import_titles_csv(
-            current_admin.id,
-            file.filename or "titles.csv",
-            content,
-        )
-        success = f"Импорт titles завершён. Успешно: {job.success_rows}, ошибок: {job.failed_rows}."
-        return render_template(
-            "import_export.html",
-            request,
-            page_title="Импорт / экспорт",
-            current_admin=current_admin,
-            error=None,
-            success=success,
-        )
-    except Exception as exc:
-        db.rollback()
-        return render_template(
-            "import_export.html",
-            request,
-            page_title="Импорт / экспорт",
-            current_admin=current_admin,
-            error=str(exc),
-            success=None,
-        )
-
-
-@router.post("/admin/import/codes/csv")
-async def admin_import_codes_csv(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-
-    try:
-        content = await file.read()
-        job = ImportExportService(db).import_codes_csv(
-            current_admin.id,
-            file.filename or "codes.csv",
-            content,
-        )
-        success = f"Импорт codes завершён. Успешно: {job.success_rows}, ошибок: {job.failed_rows}."
-        return render_template(
-            "import_export.html",
-            request,
-            page_title="Импорт / экспорт",
-            current_admin=current_admin,
-            error=None,
-            success=success,
-        )
-    except Exception as exc:
-        db.rollback()
-        return render_template(
-            "import_export.html",
-            request,
-            page_title="Импорт / экспорт",
-            current_admin=current_admin,
-            error=str(exc),
-            success=None,
-        )
-
-
-@router.post("/admin/titles/bulk-delete")
-async def admin_titles_bulk_delete(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    form = await request.form()
-    selected_ids = [int(item) for item in form.getlist("selected_ids")]
-    media_service = MediaService(db)
-
-    if not selected_ids:
-        return render_template(
-            "titles_list.html",
-            request,
-            page_title="Тайтлы",
-            current_admin=current_admin,
-            titles=media_service.list_titles(),
-            error="Не выбраны тайтлы.",
-        )
-
-    try:
-        for item_id in selected_ids:
-            media_service.delete_title(current_admin.id, item_id)
-    except Exception as exc:
-        db.rollback()
-        return render_template(
-            "titles_list.html",
-            request,
-            page_title="Тайтлы",
-            current_admin=current_admin,
-            titles=media_service.list_titles(),
-            error=str(exc),
-        )
-
-    return redirect_to("/admin/titles")
-
-
-@router.post("/admin/seasons/bulk-delete")
-async def admin_seasons_bulk_delete(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    form = await request.form()
-    selected_ids = [int(item) for item in form.getlist("selected_ids")]
-    media_service = MediaService(db)
-
-    if not selected_ids:
-        return render_template(
-            "seasons_list.html",
-            request,
-            page_title="Сезоны",
-            current_admin=current_admin,
-            seasons=media_service.list_seasons(),
-            titles=media_service.list_titles(),
-            selected_title_id=None,
-            error="Не выбраны сезоны.",
-        )
-
-    try:
-        for item_id in selected_ids:
-            media_service.delete_season(current_admin.id, item_id)
-    except Exception as exc:
-        db.rollback()
-        return render_template(
-            "seasons_list.html",
-            request,
-            page_title="Сезоны",
-            current_admin=current_admin,
-            seasons=media_service.list_seasons(),
-            titles=media_service.list_titles(),
-            selected_title_id=None,
-            error=str(exc),
-        )
-
-    return redirect_to("/admin/seasons")
-
-
-@router.post("/admin/episodes/bulk-delete")
-async def admin_episodes_bulk_delete(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    form = await request.form()
-    selected_ids = [int(item) for item in form.getlist("selected_ids")]
-    media_service = MediaService(db)
-
-    if not selected_ids:
-        return render_template(
-            "episodes_list.html",
-            request,
-            page_title="Эпизоды",
-            current_admin=current_admin,
-            episodes=media_service.list_episodes(),
-            titles=media_service.list_titles(),
-            seasons=media_service.list_seasons(),
-            selected_title_id=None,
-            selected_season_id=None,
-            error="Не выбраны серии.",
-        )
-
-    try:
-        for item_id in selected_ids:
-            media_service.delete_episode(current_admin.id, item_id)
-    except Exception as exc:
-        db.rollback()
-        return render_template(
-            "episodes_list.html",
-            request,
-            page_title="Эпизоды",
-            current_admin=current_admin,
-            episodes=media_service.list_episodes(),
-            titles=media_service.list_titles(),
-            seasons=media_service.list_seasons(),
-            selected_title_id=None,
-            selected_season_id=None,
-            error=str(exc),
-        )
-
-    return redirect_to("/admin/episodes")
-
-
-@router.post("/admin/assets/bulk-delete")
-async def admin_assets_bulk_delete(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-
-    form = await request.form()
-    selected_ids = [int(item) for item in form.getlist("selected_ids")]
-    asset_service = AssetService(db)
-
-    if not selected_ids:
-        return render_template(
-            "assets_list.html",
-            request,
-            page_title="Ассеты",
-            current_admin=current_admin,
-            assets=asset_service.list_assets(),
-            error="Не выбраны ассеты.",
-        )
-
-    try:
-        for item_id in selected_ids:
-            asset_service.delete_asset(current_admin.id, item_id)
-    except Exception as exc:
-        db.rollback()
-        return render_template(
-            "assets_list.html",
-            request,
-            page_title="Ассеты",
-            current_admin=current_admin,
-            assets=asset_service.list_assets(),
-            error=str(exc),
-        )
-
-    return redirect_to("/admin/assets")
-
-
-
-def _render_media_cards(
-    request: Request,
-    current_admin,
-    db: Session,
-    q: str = "",
-    genre: str = "",
-    status: str = "",
-    error: str | None = None,
-):
-    cards = MediaCardService(db).list_cards(q=q, genre=genre, status=status)
-    return render_template(
-        "media_cards_list.html",
-        request,
-        page_title="Медиа",
-        current_admin=current_admin,
-        cards=cards,
-        filters={"q": q, "genre": genre, "status": status},
-        error=error,
-    )
-
-
 @router.get("/admin/media")
-def admin_media_cards(
-    request: Request,
-    db: Session = Depends(get_db_session),
-    q: str = "",
-    genre: str = "",
-    status: str = "",
-):
+def admin_media_cards(request: Request, db: Session = Depends(get_db_session), q: str = "", genre: str = "", status: str = ""):
     current_admin, redirect = get_admin_or_redirect(request, db)
     if redirect:
         return redirect
@@ -1578,6 +382,333 @@ async def admin_card_builder_submit(request: Request, db: Session = Depends(get_
         )
 
 
+@router.get("/admin/codes")
+def admin_codes(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+
+    return render_template(
+        "codes_list.html",
+        request,
+        page_title="Коды",
+        current_admin=current_admin,
+        codes=CodeService(db).list_codes(),
+        error=None,
+    )
+
+
+@router.get("/admin/codes/generate")
+def admin_codes_generate_page(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+
+    media_service = MediaService(db)
+    return render_template(
+        "code_generate.html",
+        request,
+        page_title="Генерация кодов",
+        current_admin=current_admin,
+        titles=media_service.list_titles(),
+        seasons=media_service.list_seasons(),
+        episodes=media_service.list_episodes(),
+        error=None,
+        values={},
+        generated_codes=None,
+    )
+
+
+@router.post("/admin/codes/generate")
+async def admin_codes_generate_submit(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+
+    media_service = MediaService(db)
+    titles = media_service.list_titles()
+    seasons = media_service.list_seasons()
+    episodes = media_service.list_episodes()
+
+    form = await request.form()
+    payload = {
+        "quantity": int(str(form.get("quantity")).strip()),
+        "title_id": to_int(str(form.get("title_id", "")).strip() or None),
+        "season_id": to_int(str(form.get("season_id", "")).strip() or None),
+        "episode_id": to_int(str(form.get("episode_id", "")).strip() or None),
+        "status": str(form.get("status", "active")).strip(),
+    }
+
+    try:
+        generated_codes = CodeService(db).generate_codes(current_admin.id, payload)
+    except Exception as exc:
+        db.rollback()
+        return render_template(
+            "code_generate.html",
+            request,
+            page_title="Генерация кодов",
+            current_admin=current_admin,
+            titles=titles,
+            seasons=seasons,
+            episodes=episodes,
+            error=str(exc),
+            values=payload,
+            generated_codes=None,
+        )
+
+    return render_template(
+        "code_generate.html",
+        request,
+        page_title="Генерация кодов",
+        current_admin=current_admin,
+        titles=titles,
+        seasons=seasons,
+        episodes=episodes,
+        error=None,
+        values=payload,
+        generated_codes=generated_codes,
+    )
+
+
+@router.get("/admin/codes/{code_id}/edit")
+def admin_code_edit_page(code_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+
+    code_service = CodeService(db)
+    media_service = MediaService(db)
+    item = code_service.get_code(code_id)
+    values = {
+        "code": item.code,
+        "title_id": item.title_id or "",
+        "season_id": item.season_id or "",
+        "episode_id": item.episode_id or "",
+        "status": item.status,
+    }
+    return render_template(
+        "code_form.html",
+        request,
+        page_title=f"Редактировать код #{item.id}",
+        current_admin=current_admin,
+        titles=media_service.list_titles(),
+        seasons=media_service.list_seasons(),
+        episodes=media_service.list_episodes(),
+        error=None,
+        values=values,
+        action_url=f"/admin/codes/{item.id}/edit",
+        submit_label="Сохранить изменения",
+    )
+
+
+@router.post("/admin/codes/{code_id}/edit")
+async def admin_code_edit_submit(code_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+
+    media_service = MediaService(db)
+    form = await request.form()
+    payload = {
+        "code": str(form.get("code", "")).strip(),
+        "title_id": to_int(str(form.get("title_id", "")).strip() or None),
+        "season_id": to_int(str(form.get("season_id", "")).strip() or None),
+        "episode_id": to_int(str(form.get("episode_id", "")).strip() or None),
+        "status": str(form.get("status", "active")).strip(),
+    }
+
+    try:
+        CodeService(db).update_code(current_admin.id, code_id, payload)
+    except Exception as exc:
+        db.rollback()
+        return render_template(
+            "code_form.html",
+            request,
+            page_title=f"Редактировать код #{code_id}",
+            current_admin=current_admin,
+            titles=media_service.list_titles(),
+            seasons=media_service.list_seasons(),
+            episodes=media_service.list_episodes(),
+            error=str(exc),
+            values=payload,
+            action_url=f"/admin/codes/{code_id}/edit",
+            submit_label="Сохранить изменения",
+        )
+
+    return redirect_to("/admin/codes")
+
+
+@router.post("/admin/codes/{code_id}/activate")
+def admin_code_activate(code_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+    CodeService(db).activate_code(current_admin.id, code_id)
+    return redirect_to("/admin/codes")
+
+
+@router.post("/admin/codes/{code_id}/deactivate")
+def admin_code_deactivate(code_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+    CodeService(db).deactivate_code(current_admin.id, code_id)
+    return redirect_to("/admin/codes")
+
+
+@router.post("/admin/codes/{code_id}/delete")
+def admin_code_delete(code_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+    CodeService(db).delete_code(current_admin.id, code_id)
+    return redirect_to("/admin/codes")
+
+
+@router.post("/admin/codes/bulk-action")
+async def admin_codes_bulk_action(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    action = str(form.get("bulk_action", "")).strip()
+    selected_values = form.getlist("selected_ids")
+
+    if not action:
+        return render_template("codes_list.html", request, page_title="Коды", current_admin=current_admin, codes=CodeService(db).list_codes(), error="Не выбрано массовое действие.")
+    if not selected_values:
+        return render_template("codes_list.html", request, page_title="Коды", current_admin=current_admin, codes=CodeService(db).list_codes(), error="Не выбраны коды.")
+
+    code_service = CodeService(db)
+    try:
+        for raw_id in selected_values:
+            code_id = int(str(raw_id))
+            if action == "activate":
+                code_service.activate_code(current_admin.id, code_id)
+            elif action == "deactivate":
+                code_service.deactivate_code(current_admin.id, code_id)
+            elif action == "delete":
+                code_service.delete_code(current_admin.id, code_id)
+            else:
+                raise ValueError("Unknown bulk action")
+    except Exception as exc:
+        db.rollback()
+        return render_template("codes_list.html", request, page_title="Коды", current_admin=current_admin, codes=CodeService(db).list_codes(), error=str(exc))
+
+    return redirect_to("/admin/codes")
+
+
+@router.get("/admin/import-export")
+def admin_import_export_page(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+    return render_template("import_export.html", request, page_title="Импорт / экспорт", current_admin=current_admin, error=None, success=None)
+
+
+@router.get("/admin/import-jobs")
+def admin_import_jobs_page(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+    jobs = ImportExportService(db).list_jobs()
+    return render_template("import_jobs_list.html", request, page_title="Import jobs", current_admin=current_admin, jobs=jobs)
+
+
+@router.get("/admin/export/titles.csv")
+def admin_export_titles_csv(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+    content = ImportExportService(db).export_titles_csv()
+    return Response(content=content, media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=titles.csv"})
+
+
+@router.get("/admin/export/seasons.csv")
+def admin_export_seasons_csv(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+    content = ImportExportService(db).export_seasons_csv()
+    return Response(content=content, media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=seasons.csv"})
+
+
+@router.get("/admin/export/episodes.csv")
+def admin_export_episodes_csv(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+    content = ImportExportService(db).export_episodes_csv()
+    return Response(content=content, media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=episodes.csv"})
+
+
+@router.get("/admin/export/assets.csv")
+def admin_export_assets_csv(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+    content = ImportExportService(db).export_assets_csv()
+    return Response(content=content, media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=assets.csv"})
+
+
+@router.get("/admin/export/codes.csv")
+def admin_export_codes_csv(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+    content = ImportExportService(db).export_codes_csv()
+    return Response(content=content, media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=codes.csv"})
+
+
+@router.post("/admin/import/titles/csv")
+async def admin_import_titles_csv(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+
+    try:
+        content = await file.read()
+        job = ImportExportService(db).import_titles_csv(current_admin.id, file.filename or "titles.csv", content)
+        success = f"Импорт titles завершён. Успешно: {job.success_rows}, ошибок: {job.failed_rows}."
+        return render_template("import_export.html", request, page_title="Импорт / экспорт", current_admin=current_admin, error=None, success=success)
+    except Exception as exc:
+        db.rollback()
+        return render_template("import_export.html", request, page_title="Импорт / экспорт", current_admin=current_admin, error=str(exc), success=None)
+
+
+@router.post("/admin/import/codes/csv")
+async def admin_import_codes_csv(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+
+    try:
+        content = await file.read()
+        job = ImportExportService(db).import_codes_csv(current_admin.id, file.filename or "codes.csv", content)
+        success = f"Импорт codes завершён. Успешно: {job.success_rows}, ошибок: {job.failed_rows}."
+        return render_template("import_export.html", request, page_title="Импорт / экспорт", current_admin=current_admin, error=None, success=success)
+    except Exception as exc:
+        db.rollback()
+        return render_template("import_export.html", request, page_title="Импорт / экспорт", current_admin=current_admin, error=str(exc), success=None)
+
+
+@router.get("/admin/lookup-test")
+def admin_lookup_test(request: Request, db: Session = Depends(get_db_session), code: str | None = None):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    result = None
+    error = None
+    if code:
+        try:
+            result = PublicLookupService(db).lookup(code)
+        except Exception as exc:
+            db.rollback()
+            error = str(exc)
+
+    return render_template("lookup_test.html", request, page_title="Тест lookup", current_admin=current_admin, code=code or "", result=result, error=error)
 
 
 @router.get("/admin/profile")
@@ -1585,16 +716,7 @@ def admin_profile_page(request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db)
     if redirect:
         return redirect
-    return render_template(
-        "profile.html",
-        request,
-        page_title="Мой профиль",
-        current_admin=current_admin,
-        error=None,
-        success=None,
-        password_error=None,
-        password_success=None,
-    )
+    return render_template("profile.html", request, page_title="Мой профиль", current_admin=current_admin, error=None, success=None, password_error=None, password_success=None)
 
 
 @router.post("/admin/profile")
@@ -1609,7 +731,8 @@ async def admin_profile_submit(request: Request, db: Session = Depends(get_db_se
 
     try:
         service.update_profile(
-            current_admin.id,
+            current_admin,
+            username=str(form.get("username", "")).strip() or None,
             full_name=str(form.get("full_name", "")).strip() or None,
             position=str(form.get("position", "")).strip() or None,
             about=str(form.get("about", "")).strip() or None,
@@ -1618,37 +741,14 @@ async def admin_profile_submit(request: Request, db: Session = Depends(get_db_se
 
         if avatar_file and getattr(avatar_file, "filename", ""):
             content = await avatar_file.read()
-            service.upload_profile_avatar(
-                current_admin.id,
-                file_bytes=content,
-                file_name=avatar_file.filename,
-                content_type=getattr(avatar_file, "content_type", None),
-            )
+            service.upload_profile_avatar(current_admin.id, file_bytes=content, file_name=avatar_file.filename, content_type=getattr(avatar_file, "content_type", None))
 
         refreshed = AuthService(db).get_admin(current_admin.id)
-        return render_template(
-            "profile.html",
-            request,
-            page_title="Мой профиль",
-            current_admin=refreshed,
-            error=None,
-            success="Профиль обновлён.",
-            password_error=None,
-            password_success=None,
-        )
+        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, error=None, success="Профиль обновлён.", password_error=None, password_success=None)
     except Exception as exc:
         db.rollback()
         refreshed = AuthService(db).get_admin(current_admin.id)
-        return render_template(
-            "profile.html",
-            request,
-            page_title="Мой профиль",
-            current_admin=refreshed,
-            error=str(exc),
-            success=None,
-            password_error=None,
-            password_success=None,
-        )
+        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, error=str(exc), success=None, password_error=None, password_success=None)
 
 
 @router.post("/admin/profile/password")
@@ -1664,38 +764,11 @@ async def admin_profile_password_submit(request: Request, db: Session = Depends(
     try:
         AuthService(db).change_own_password(current_admin.id, current_password, new_password)
         refreshed = AuthService(db).get_admin(current_admin.id)
-        return render_template(
-            "profile.html",
-            request,
-            page_title="Мой профиль",
-            current_admin=refreshed,
-            error=None,
-            success=None,
-            password_error=None,
-            password_success="Пароль изменён.",
-        )
+        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, error=None, success=None, password_error=None, password_success="Пароль изменён.")
     except Exception as exc:
         db.rollback()
         refreshed = AuthService(db).get_admin(current_admin.id)
-        return render_template(
-            "profile.html",
-            request,
-            page_title="Мой профиль",
-            current_admin=refreshed,
-            error=None,
-            success=None,
-            password_error=str(exc),
-            password_success=None,
-        )
-
-
-def _manageable_ids_for_actor(current_admin, admins):
-    service = AuthService(db=None)  # placeholder, not used
-    managed_roles = {
-        "superadmin": {"admin", "editor"},
-        "admin": {"editor"},
-    }.get(current_admin.role, set())
-    return {item.id for item in admins if item.id != current_admin.id and item.role in managed_roles}
+        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, error=None, success=None, password_error=str(exc), password_success=None)
 
 
 @router.get("/admin/team")
@@ -1706,19 +779,8 @@ def admin_team_page(request: Request, db: Session = Depends(get_db_session)):
 
     service = AuthService(db)
     admins = service.list_admins_for_actor(current_admin)
-    manageable_ids = {item.id for item in admins if item.id != current_admin.id and item.role in {"editor", "admin"}}
-    if current_admin.role == "admin":
-        manageable_ids = {item.id for item in admins if item.role == "editor"}
-
-    return render_template(
-        "team_list.html",
-        request,
-        page_title="Пользователи",
-        current_admin=current_admin,
-        admins=admins,
-        manageable_ids=manageable_ids,
-        error=None,
-    )
+    manageable_ids = _team_manageable_ids(current_admin, admins)
+    return render_template("team_list.html", request, page_title="Пользователи", current_admin=current_admin, admins=admins, manageable_ids=manageable_ids, error=None)
 
 
 @router.get("/admin/team/new")
@@ -1841,20 +903,15 @@ async def admin_team_edit_submit(admin_id: int, request: Request, db: Session = 
 
     service = AuthService(db)
     allowed_roles = service.allowed_create_roles(current_admin)
-
     form = await request.form()
     values = {
+        "username": str(form.get("username", "")).strip(),
         "role": str(form.get("role", "editor")).strip(),
         "is_active": form.get("is_active") == "on",
     }
 
     try:
-        managed = service.update_managed_admin(
-            current_admin,
-            admin_id,
-            role=values["role"],
-            is_active=values["is_active"],
-        )
+        managed = service.update_managed_admin(current_admin, admin_id, username=values["username"], role=values["role"], is_active=values["is_active"])
         return render_template(
             "team_form.html",
             request,
@@ -1949,18 +1006,7 @@ def admin_team_deactivate(admin_id: int, request: Request, db: Session = Depends
     except Exception as exc:
         db.rollback()
         admins = service.list_admins_for_actor(current_admin)
-        manageable_ids = {item.id for item in admins if item.id != current_admin.id and item.role in {"editor", "admin"}}
-        if current_admin.role == "admin":
-            manageable_ids = {item.id for item in admins if item.role == "editor"}
-        return render_template(
-            "team_list.html",
-            request,
-            page_title="Пользователи",
-            current_admin=current_admin,
-            admins=admins,
-            manageable_ids=manageable_ids,
-            error=str(exc),
-        )
+        return render_template("team_list.html", request, page_title="Пользователи", current_admin=current_admin, admins=admins, manageable_ids=_team_manageable_ids(current_admin, admins), error=str(exc))
 
 
 @router.post("/admin/team/{admin_id}/activate")
@@ -1976,15 +1022,97 @@ def admin_team_activate(admin_id: int, request: Request, db: Session = Depends(g
     except Exception as exc:
         db.rollback()
         admins = service.list_admins_for_actor(current_admin)
-        manageable_ids = {item.id for item in admins if item.id != current_admin.id and item.role in {"editor", "admin"}}
-        if current_admin.role == "admin":
-            manageable_ids = {item.id for item in admins if item.role == "editor"}
-        return render_template(
-            "team_list.html",
-            request,
-            page_title="Пользователи",
-            current_admin=current_admin,
-            admins=admins,
-            manageable_ids=manageable_ids,
-            error=str(exc),
-        )
+        return render_template("team_list.html", request, page_title="Пользователи", current_admin=current_admin, admins=admins, manageable_ids=_team_manageable_ids(current_admin, admins), error=str(exc))
+
+
+@router.post("/admin/team/{admin_id}/delete")
+def admin_team_delete(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="superadmin")
+    if redirect:
+        return redirect
+
+    service = AuthService(db)
+    try:
+        service.delete_managed_admin(current_admin, admin_id)
+        return redirect_to("/admin/team")
+    except Exception as exc:
+        db.rollback()
+        admins = service.list_admins_for_actor(current_admin)
+        return render_template("team_list.html", request, page_title="Пользователи", current_admin=current_admin, admins=admins, manageable_ids=_team_manageable_ids(current_admin, admins), error=str(exc))
+
+
+@router.get("/admin/chats")
+def admin_chats_page(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    chats = ChatService(db).list_chats_for_admin(current_admin)
+    return render_template("chat_list.html", request, page_title="Чаты", current_admin=current_admin, chats=chats, error=None)
+
+
+@router.get("/admin/chats/new")
+def admin_chat_new_page(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    admins = [item for item in ChatService(db).list_active_admins() if item.id != current_admin.id]
+    return render_template("chat_new.html", request, page_title="Создать чат", current_admin=current_admin, admins=admins, error=None, values={}, selected_ids=[])
+
+
+@router.post("/admin/chats/new")
+async def admin_chat_new_submit(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    title = str(form.get("title", "")).strip()
+    selected_ids = [int(item) for item in form.getlist("participant_ids")]
+    service = ChatService(db)
+    admins = [item for item in service.list_active_admins() if item.id != current_admin.id]
+
+    try:
+        chat = service.create_chat(current_admin, title=title, participant_ids=selected_ids)
+        return redirect_to(f"/admin/chats/{chat.id}")
+    except Exception as exc:
+        db.rollback()
+        return render_template("chat_new.html", request, page_title="Создать чат", current_admin=current_admin, admins=admins, error=str(exc), values={"title": title}, selected_ids=selected_ids)
+
+
+@router.get("/admin/chats/{chat_id}")
+def admin_chat_room(chat_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    try:
+        chat = ChatService(db).get_chat_for_admin(current_admin, chat_id)
+        return render_template("chat_room.html", request, page_title=chat.title, current_admin=current_admin, chat=chat, error=None)
+    except Exception as exc:
+        db.rollback()
+        chats = ChatService(db).list_chats_for_admin(current_admin)
+        return render_template("chat_list.html", request, page_title="Чаты", current_admin=current_admin, chats=chats, error=str(exc))
+
+
+@router.post("/admin/chats/{chat_id}/message")
+async def admin_chat_send_message(chat_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    content = str(form.get("content", "")).strip()
+
+    try:
+        chat = ChatService(db).post_message(current_admin, chat_id, content)
+        return render_template("chat_room.html", request, page_title=chat.title, current_admin=current_admin, chat=chat, error=None)
+    except Exception as exc:
+        db.rollback()
+        try:
+            chat = ChatService(db).get_chat_for_admin(current_admin, chat_id)
+            return render_template("chat_room.html", request, page_title=chat.title, current_admin=current_admin, chat=chat, error=str(exc))
+        except Exception:
+            chats = ChatService(db).list_chats_for_admin(current_admin)
+            return render_template("chat_list.html", request, page_title="Чаты", current_admin=current_admin, chats=chats, error=str(exc))

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="btn-row" style="margin-bottom:16px;">
+  <h1 style="margin:0; flex:1;">Чаты</h1>
+  <a class="btn green" href="/admin/chats/new">Создать чат</a>
+</div>
+
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+<div class="grid">
+  {% for chat in chats %}
+  <div class="card">
+    <div class="btn-row" style="justify-content:space-between; align-items:center;">
+      <div>
+        <h3 style="margin-bottom:6px;">{{ chat.title }}</h3>
+        <div class="muted">
+          Участники:
+          {% for participant in chat.participants if participant.admin and participant.admin.is_active %}
+            {{ participant.admin.full_name or participant.admin.username }}{% if not loop.last %}, {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      <a class="btn secondary" href="/admin/chats/{{ chat.id }}">Открыть</a>
+    </div>
+  </div>
+  {% else %}
+  <div class="card"><div class="muted">Пока нет чатов.</div></div>
+  {% endfor %}
+</div>
+{% endblock %}

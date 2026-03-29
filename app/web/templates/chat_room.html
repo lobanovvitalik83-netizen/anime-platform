@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="margin-bottom:16px;">
+  <div class="btn-row" style="justify-content:space-between; align-items:center;">
+    <div>
+      <h1 style="margin-bottom:6px;">{{ chat.title }}</h1>
+      <div class="muted">
+        Участники:
+        {% for participant in chat.participants if participant.admin and participant.admin.is_active %}
+          {{ participant.admin.full_name or participant.admin.username }}{% if not loop.last %}, {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    <a class="btn secondary" href="/admin/chats">Назад к чатам</a>
+  </div>
+</div>
+
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+<div class="grid" style="margin-bottom:16px;">
+  {% for message in chat.messages %}
+  <div class="message-box {% if message.admin_id == current_admin.id %}me{% endif %}">
+    <div class="muted" style="margin-bottom:6px;">
+      {{ message.admin.full_name if message.admin and message.admin.full_name else (message.admin.username if message.admin else "Удалённый пользователь") }}
+      · {{ message.created_at }}
+    </div>
+    <div>{{ message.content }}</div>
+  </div>
+  {% else %}
+  <div class="card"><div class="muted">Сообщений пока нет.</div></div>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <form method="post" action="/admin/chats/{{ chat.id }}/message" class="grid">
+    <div>
+      <label>Новое сообщение</label>
+      <textarea name="content" required></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn green" type="submit">Отправить</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

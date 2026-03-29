@@ -1,6 +1,5 @@
 import mimetypes
 import secrets
-from pathlib import Path
 
 from app.core.config import settings
 from app.core.exceptions import ValidationError
@@ -22,11 +21,7 @@ class AvatarStorageService:
         if len(file_bytes) > settings.max_avatar_size_bytes:
             raise ValidationError("Аватар слишком большой.")
 
-        extension_map = {
-            "image/jpeg": ".jpg",
-            "image/png": ".png",
-            "image/webp": ".webp",
-        }
+        extension_map = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
         extension = extension_map.get(detected_mime, ".bin")
         token = secrets.token_hex(8)
         filename = f"admin_{admin_id}_{token}{extension}"

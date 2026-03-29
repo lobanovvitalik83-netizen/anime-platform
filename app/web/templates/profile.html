@@ -24,7 +24,11 @@
       <div class="form-grid">
         <div>
           <label>Логин</label>
+          {% if current_admin.role == "superadmin" %}
+          <input name="username" value="{{ current_admin.username }}" required>
+          {% else %}
           <input value="{{ current_admin.username }}" readonly disabled>
+          {% endif %}
         </div>
         <div>
           <label>Роль</label>

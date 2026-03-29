@@ -25,8 +25,8 @@
     <tr>
       <td>{{ item.id }}</td>
       <td>{{ item.username }}</td>
-      <td>{{ item.full_name or "" }}</td>
-      <td>{{ item.position or "" }}</td>
+      <td>{% if item.is_active %}{{ item.full_name or "" }}{% else %}<span class="muted">Профиль скрыт</span>{% endif %}</td>
+      <td>{% if item.is_active %}{{ item.position or "" }}{% else %}<span class="muted">Профиль скрыт</span>{% endif %}</td>
       <td>{{ item.role }}</td>
       <td>{{ "yes" if item.is_active else "no" }}</td>
       <td>{{ item.created_at }}</td>
@@ -44,6 +44,11 @@
           {% else %}
           <form method="post" action="/admin/team/{{ item.id }}/activate" class="inline">
             <button class="btn green" type="submit">Разблокировать</button>
+          </form>
+          {% endif %}
+          {% if current_admin.role == "superadmin" %}
+          <form method="post" action="/admin/team/{{ item.id }}/delete" class="inline">
+            <button class="btn" style="background:#dc2626;" type="submit">Удалить</button>
           </form>
           {% endif %}
           {% else %}

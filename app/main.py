@@ -34,11 +34,7 @@ async def lifespan(_: FastAPI):
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(
-        title=settings.app_name,
-        debug=settings.is_development,
-        lifespan=lifespan,
-    )
+    app = FastAPI(title=settings.app_name, debug=settings.is_development, lifespan=lifespan)
     settings.public_upload_dir.mkdir(parents=True, exist_ok=True)
     app.mount("/uploads", StaticFiles(directory=str(settings.public_upload_dir)), name="uploads")
 

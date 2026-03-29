@@ -17,7 +17,7 @@
     <div class="form-grid">
       <div>
         <label>Логин</label>
-        {% if is_edit %}
+        {% if is_edit and current_admin.role != "superadmin" %}
           <input value="{{ values.get('username', '') }}" readonly disabled>
         {% else %}
           <input name="username" value="{{ values.get('username', '') }}" required>

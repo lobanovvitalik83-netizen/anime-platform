@@ -12,6 +12,10 @@ class AdminRepository:
         statement = select(Admin).order_by(Admin.id.asc())
         return list(self.session.scalars(statement))
 
+    def list_active(self) -> list[Admin]:
+        statement = select(Admin).where(Admin.is_active.is_(True)).order_by(Admin.username.asc())
+        return list(self.session.scalars(statement))
+
     def list_by_roles(self, roles: list[str]) -> list[Admin]:
         statement = select(Admin).where(Admin.role.in_(roles)).order_by(Admin.id.asc())
         return list(self.session.scalars(statement))
