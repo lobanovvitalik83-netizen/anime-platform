@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="btn-row" style="margin-bottom:16px;">
+  <h1 style="margin:0; flex:1;">Команда</h1>
+  <a class="btn green" href="/admin/team/new">Новый пользователь</a>
+</div>
+
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Username</th>
+      <th>Role</th>
+      <th>Active</th>
+      <th>Created</th>
+      <th>Действия</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in admins %}
+    <tr>
+      <td>{{ item.id }}</td>
+      <td>{{ item.username }}</td>
+      <td>{{ item.role }}</td>
+      <td>{{ "yes" if item.is_active else "no" }}</td>
+      <td>{{ item.created_at }}</td>
+      <td>
+        <div class="btn-row">
+          <a class="btn secondary" href="/admin/team/{{ item.id }}/edit">Редактировать</a>
+          {% if item.is_active %}
+          <form method="post" action="/admin/team/{{ item.id }}/deactivate" class="inline" onsubmit="return confirm('Отключить пользователя?');">
+            <button class="btn" style="background:#d97706;" type="submit">Отключить</button>
+          </form>
+          {% else %}
+          <form method="post" action="/admin/team/{{ item.id }}/activate" class="inline" onsubmit="return confirm('Включить пользователя?');">
+            <button class="btn green" type="submit">Включить</button>
+          </form>
+          {% endif %}
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>{{ page_title }}</h1>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  {% if success %}<div class="success">{{ success }}</div>{% endif %}
+
+  <form method="post" action="{{ action_url }}" class="grid">
+    <div class="form-grid">
+      <div>
+        <label>Username</label>
+        <input name="username" value="{{ values.get('username', '') }}" required>
+      </div>
+      <div>
+        <label>Role</label>
+        <select name="role" required>
+          <option value="editor" {% if values.get('role') == 'editor' %}selected{% endif %}>editor</option>
+          <option value="admin" {% if values.get('role') == 'admin' %}selected{% endif %}>admin</option>
+          <option value="superadmin" {% if values.get('role') == 'superadmin' %}selected{% endif %}>superadmin</option>
+        </select>
+      </div>
+      <div>
+        <label>Password{% if is_edit %} (если не менять — оставь пусто){% endif %}</label>
+        <input type="password" name="password" value="">
+      </div>
+      <div>
+        <label style="display:flex; gap:8px; align-items:center; font-weight:600; margin-top:30px;">
+          <input type="checkbox" name="is_active" {% if values.get('is_active', True) %}checked{% endif %} style="width:auto;">
+          Активен
+        </label>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn green" type="submit">{{ submit_label }}</button>
+      <a class="btn secondary" href="/admin/team">Назад</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

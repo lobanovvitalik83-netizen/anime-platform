@@ -7,6 +7,19 @@ from app.models.admin import Admin
 from app.repositories.admin_repository import AdminRepository
 
 
+ROLE_LEVELS = {
+    "editor": 1,
+    "admin": 2,
+    "superadmin": 3,
+}
+
+
+def has_required_role(admin: Admin | None, min_role: str = "editor") -> bool:
+    if not admin:
+        return False
+    return ROLE_LEVELS.get(admin.role, 0) >= ROLE_LEVELS.get(min_role, 1)
+
+
 def get_current_admin_from_request(request: Request, db) -> Admin | None:
     token = request.cookies.get(settings.session_cookie_name)
     if not token:

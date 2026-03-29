@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>Доступ запрещён</h1>
+  <div class="error">{{ error or "У вас недостаточно прав для этого раздела." }}</div>
+  <div class="btn-row">
+    <a class="btn secondary" href="/admin">Назад</a>
+  </div>
+</div>
+{% endblock %}

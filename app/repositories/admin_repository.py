@@ -8,6 +8,10 @@ class AdminRepository:
     def __init__(self, session: Session):
         self.session = session
 
+    def list_all(self) -> list[Admin]:
+        statement = select(Admin).order_by(Admin.id.asc())
+        return list(self.session.scalars(statement))
+
     def get_by_id(self, admin_id: int) -> Admin | None:
         return self.session.get(Admin, admin_id)
 
@@ -20,3 +24,13 @@ class AdminRepository:
         self.session.add(entity)
         self.session.flush()
         return entity
+
+    def update(self, entity: Admin, **kwargs) -> Admin:
+        for key, value in kwargs.items():
+            setattr(entity, key, value)
+        self.session.flush()
+        return entity
+
+    def delete(self, entity: Admin) -> None:
+        self.session.delete(entity)
+        self.session.flush()

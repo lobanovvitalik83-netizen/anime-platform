@@ -55,10 +55,11 @@
         <a href="/admin">Панель</a>
         <a href="/admin/media">Медиа</a>
         <a href="/admin/card-builder">Создание карточки</a>
-        <a href="/admin/import-export">Импорт/экспорт</a>
+        {% if current_admin.role in ["admin", "superadmin"] %}<a href="/admin/import-export">Импорт/экспорт</a>{% endif %}
         <a href="/admin/lookup-test">Тест lookup</a>
+        {% if current_admin.role == "superadmin" %}<a href="/admin/team">Команда</a>{% endif %}
         <a href="/docs">API docs</a>
-        <a href="/admin/logout">Выход ({{ current_admin.username }})</a>
+        <a href="/admin/logout">Выход ({{ current_admin.username }} / {{ current_admin.role }})</a>
       </div>
     </div>
   </div>
