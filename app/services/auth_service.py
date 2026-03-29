@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.exceptions import AuthenticationError, ConflictError
 from app.core.security import hash_password, verify_password
 from app.models.admin import Admin
@@ -17,7 +18,6 @@ class AuthService:
         admin = self.admins.get_by_username(username)
         if not admin or not admin.is_active:
             raise AuthenticationError("Invalid credentials")
-
         if not verify_password(password, admin.password_hash):
             raise AuthenticationError("Invalid credentials")
 
@@ -31,7 +31,10 @@ class AuthService:
         self.session.commit()
         return admin
 
-    def ensure_default_admin(self, username: str, password: str) -> Admin | None:
+    def ensure_default_admin(self) -> Admin | None:
+        username = settings.admin_default_username
+        password = settings.admin_default_password
+
         if not username or not password:
             return None
 
@@ -58,7 +61,6 @@ class AuthService:
         existing = self.admins.get_by_username(username)
         if existing:
             raise ConflictError("Admin already exists")
-
         created = self.admins.create(
             username=username,
             password_hash=hash_password(password),
@@ -69,7 +71,7 @@ class AuthService:
             action="create_admin",
             entity_type="admin",
             entity_id=str(created.id),
-            payload={"username": created.username, "role": created.role},
+            payload={"username": created.username},
         )
         self.session.commit()
         return created

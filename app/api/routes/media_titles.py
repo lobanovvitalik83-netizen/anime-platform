@@ -46,9 +46,5 @@ def update_media_title(
     current_admin: Admin = Depends(get_current_admin),
     db: Session = Depends(get_db_session),
 ) -> MediaTitleRead:
-    item = MediaService(db).update_title(
-        current_admin.id,
-        title_id,
-        payload.model_dump(exclude_unset=True),
-    )
+    item = MediaService(db).update_title(current_admin.id, title_id, payload.model_dump(exclude_unset=True))
     return MediaTitleRead.model_validate(item)

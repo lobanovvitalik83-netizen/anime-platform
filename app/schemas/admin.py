@@ -1,4 +1,4 @@
-from app.schemas.common import ORMBaseModel, TimestampReadMixin
+from app.schemas.common import TimestampReadMixin
 
 
 class AdminRead(TimestampReadMixin):

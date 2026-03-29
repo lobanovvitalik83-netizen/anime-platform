@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_admin
 from app.core.config import settings
-from app.core.database import SessionLocal, get_db_session
+from app.core.database import get_db_session
 from app.core.exceptions import AuthenticationError
 from app.core.security import create_session_token
 from app.models.admin import Admin
@@ -52,13 +52,9 @@ def me(current_admin: Admin = Depends(get_current_admin)) -> AdminRead:
 
 
 @router.post("/bootstrap-default-admin", response_model=AdminRead)
-def bootstrap_default_admin() -> AdminRead:
-    with SessionLocal() as session:
-        service = AuthService(session)
-        admin = service.ensure_default_admin(
-            username=settings.admin_default_username,
-            password=settings.admin_default_password,
-        )
-        if not admin:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Default admin credentials are not configured")
-        return AdminRead.model_validate(admin)
+def bootstrap_default_admin(db: Session = Depends(get_db_session)) -> AdminRead:
+    service = AuthService(db)
+    admin = service.ensure_default_admin()
+    if not admin:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Default admin credentials are not configured")
+    return AdminRead.model_validate(admin)

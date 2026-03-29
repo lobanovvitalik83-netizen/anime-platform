@@ -1,17 +1,18 @@
-# Stage 3 - Schemas + Repositories + Services + Auth
+# Stage 4 - Seasons + Episodes + Assets + Public Lookup
 
 Готово:
-- core + db
-- auto init tables on startup
-- signed session cookie auth
-- admin login/logout/me
-- media title CRUD API
-- access code CRUD/generate API
-- repositories + services
+- stage 3 auth/api foundation
+- seasons CRUD API
+- episodes CRUD API
+- assets CRUD API
+- public lookup by code
+- content binding for titles/seasons/episodes/assets
 
-Проверка после деплоя:
+Проверка:
 - GET /health
 - POST /api/auth/login
 - GET /api/auth/me
-- GET /api/media-titles
-- GET /api/access-codes
+- POST /api/media-seasons
+- POST /api/media-episodes
+- POST /api/media-assets
+- GET /api/public/code-lookup/{code}

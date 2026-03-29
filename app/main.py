@@ -5,10 +5,14 @@ from fastapi import FastAPI
 from app.api.routes.access_codes import router as access_codes_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.health import router as health_router
+from app.api.routes.media_assets import router as media_assets_router
+from app.api.routes.media_episodes import router as media_episodes_router
+from app.api.routes.media_seasons import router as media_seasons_router
 from app.api.routes.media_titles import router as media_titles_router
-from app.core.config import settings
+from app.api.routes.public_lookup import router as public_lookup_router
 from app.core.database import init_database
 from app.core.logging import configure_logging, get_logger
+from app.services.bootstrap_service import ensure_default_admin_exists
 
 configure_logging()
 logger = get_logger(__name__)
@@ -17,19 +21,20 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_database()
+    ensure_default_admin_exists()
     logger.info("Application startup completed")
     yield
     logger.info("Application shutdown completed")
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(
-        title=settings.app_name,
-        debug=settings.is_development,
-        lifespan=lifespan,
-    )
+    app = FastAPI(title="Media Bridge", debug=False, lifespan=lifespan)
     app.include_router(health_router)
     app.include_router(auth_router)
     app.include_router(media_titles_router)
+    app.include_router(media_seasons_router)
+    app.include_router(media_episodes_router)
+    app.include_router(media_assets_router)
     app.include_router(access_codes_router)
+    app.include_router(public_lookup_router)
     return app

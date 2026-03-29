@@ -15,17 +15,8 @@ class AdminRepository:
         statement = select(Admin).where(Admin.username == username)
         return self.session.scalar(statement)
 
-    def list_all(self) -> list[Admin]:
-        statement = select(Admin).order_by(Admin.id.asc())
-        return list(self.session.scalars(statement))
-
     def create(self, username: str, password_hash: str, role: str = "admin") -> Admin:
-        admin = Admin(
-            username=username,
-            password_hash=password_hash,
-            role=role,
-            is_active=True,
-        )
-        self.session.add(admin)
+        entity = Admin(username=username, password_hash=password_hash, role=role, is_active=True)
+        self.session.add(entity)
         self.session.flush()
-        return admin
+        return entity

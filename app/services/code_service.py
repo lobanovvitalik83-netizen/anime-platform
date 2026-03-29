@@ -7,6 +7,7 @@ from app.core.exceptions import ConflictError, NotFoundError
 from app.models.access_code import AccessCode
 from app.repositories.access_code_repository import AccessCodeRepository
 from app.services.audit_service import AuditService
+from app.services.media_service import MediaService
 
 
 class CodeService:
@@ -14,6 +15,7 @@ class CodeService:
         self.session = session
         self.codes = AccessCodeRepository(session)
         self.audit = AuditService(session)
+        self.media = MediaService(session)
 
     def list_codes(self) -> list[AccessCode]:
         return self.codes.list_all()
@@ -31,26 +33,17 @@ class CodeService:
         return entity
 
     def create_code(self, admin_id: int, payload: dict) -> AccessCode:
-        existing = self.codes.get_by_code(payload["code"])
-        if existing:
+        if self.codes.get_by_code(payload["code"]):
             raise ConflictError("Code already exists")
-
-        entity = self.codes.create(
-            **payload,
-            created_by_admin_id=admin_id,
-        )
-        self.audit.log(
-            admin_id=admin_id,
-            action="create_access_code",
-            entity_type="access_code",
-            entity_id=str(entity.id),
-            payload={"code": entity.code},
-        )
+        self._validate_target(payload)
+        entity = self.codes.create(**payload, created_by_admin_id=admin_id)
+        self.audit.log(admin_id, "create_access_code", "access_code", str(entity.id), {"code": entity.code})
         self.session.commit()
         self.session.refresh(entity)
         return entity
 
     def generate_codes(self, admin_id: int, payload: dict) -> list[AccessCode]:
+        self._validate_target(payload)
         quantity = payload["quantity"]
         generated: list[AccessCode] = []
         used_in_batch: set[str] = set()
@@ -74,14 +67,13 @@ class CodeService:
             generated.append(entity)
 
         self.audit.log(
-            admin_id=admin_id,
-            action="bulk_generate_access_codes",
-            entity_type="access_code",
-            entity_id="batch",
-            payload={"quantity": len(generated)},
+            admin_id,
+            "bulk_generate_access_codes",
+            "access_code",
+            "batch",
+            {"quantity": len(generated)},
         )
         self.session.commit()
-
         for entity in generated:
             self.session.refresh(entity)
         return generated
@@ -91,3 +83,11 @@ class CodeService:
         if digits[0] == "0":
             digits = str(secrets.randbelow(9) + 1) + digits[1:]
         return digits
+
+    def _validate_target(self, payload: dict) -> None:
+        if payload.get("title_id") is not None:
+            self.media.get_title(payload["title_id"])
+        if payload.get("season_id") is not None:
+            self.media.get_season(payload["season_id"])
+        if payload.get("episode_id") is not None:
+            self.media.get_episode(payload["episode_id"])

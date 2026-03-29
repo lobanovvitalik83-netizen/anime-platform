@@ -1,0 +1,97 @@
+from sqlalchemy.orm import Session
+
+from app.models.media_asset import MediaAsset
+from app.repositories.media_asset_repository import MediaAssetRepository
+from app.schemas.public_lookup import PublicLookupResponse
+from app.services.code_service import CodeService
+from app.services.media_service import MediaService
+
+
+class PublicLookupService:
+    def __init__(self, session: Session):
+        self.session = session
+        self.codes = CodeService(session)
+        self.media = MediaService(session)
+        self.assets = MediaAssetRepository(session)
+
+    def lookup(self, code: str) -> PublicLookupResponse:
+        access_code = self.codes.lookup_active_code(code)
+
+        title = self.media.get_title(access_code.title_id) if access_code.title_id else None
+        season = self.media.get_season(access_code.season_id) if access_code.season_id else None
+        episode = self.media.get_episode(access_code.episode_id) if access_code.episode_id else None
+
+        if episode and not title:
+            title = self.media.get_title(episode.title_id)
+        if episode and not season and episode.season_id:
+            season = self.media.get_season(episode.season_id)
+        if season and not title:
+            title = self.media.get_title(season.title_id)
+
+        selected_asset = self._pick_best_asset(
+            title_id=title.id if title else None,
+            season_id=season.id if season else None,
+            episode_id=episode.id if episode else None,
+        )
+
+        description = None
+        if episode and episode.synopsis:
+            description = episode.synopsis
+        elif title and title.description:
+            description = title.description
+
+        return PublicLookupResponse(
+            code=access_code.code,
+            title_id=title.id if title else None,
+            title=title.title if title else None,
+            original_title=title.original_title if title else None,
+            season_id=season.id if season else None,
+            season_number=season.season_number if season else None,
+            season_name=season.name if season else None,
+            episode_id=episode.id if episode else None,
+            episode_number=episode.episode_number if episode else None,
+            episode_name=episode.name if episode else None,
+            description=description,
+            asset_id=selected_asset.id if selected_asset else None,
+            asset_type=selected_asset.asset_type if selected_asset else None,
+            storage_kind=selected_asset.storage_kind if selected_asset else None,
+            telegram_file_id=selected_asset.telegram_file_id if selected_asset else None,
+            external_url=selected_asset.external_url if selected_asset else None,
+            mime_type=selected_asset.mime_type if selected_asset else None,
+        )
+
+    def _pick_best_asset(self, title_id: int | None, season_id: int | None, episode_id: int | None) -> MediaAsset | None:
+        candidates = self.assets.list_lookup_candidates(
+            title_id=title_id,
+            season_id=season_id,
+            episode_id=episode_id,
+        )
+        if not candidates:
+            return None
+
+        def scope_priority(asset: MediaAsset) -> int:
+            if episode_id and asset.episode_id == episode_id:
+                return 0
+            if season_id and asset.season_id == season_id:
+                return 1
+            if title_id and asset.title_id == title_id:
+                return 2
+            return 3
+
+        def type_priority(asset: MediaAsset) -> int:
+            if asset.asset_type == "video":
+                return 0
+            if asset.asset_type in {"image", "poster"}:
+                return 1
+            return 2
+
+        ordered = sorted(
+            candidates,
+            key=lambda item: (
+                scope_priority(item),
+                0 if item.is_primary else 1,
+                type_priority(item),
+                -item.id,
+            ),
+        )
+        return ordered[0]
