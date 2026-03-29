@@ -1,21 +1,27 @@
-# Stage 11 - Import / Export / Bulk Operations
+# Stage 12 - Card Builder + Media Upload
 
 В архиве:
-- весь stage 10
-- импорт titles из CSV
-- импорт codes из CSV
-- экспорт titles / seasons / episodes / assets / codes в CSV
-- журнал import jobs
-- массовые действия по кодам из админки
-- activate / deactivate / delete для кодов
+- весь stage 11
+- единое окно создания карточки контента
+- автоматическая генерация кода внутри карточки
+- загрузка изображения/видео в Telegram и сохранение telegram_file_id
+- fallback на external_url
+- результат создания карточки прямо на странице
 
-Новые страницы:
-- /admin/import-export
-- /admin/import-jobs
+Новые ENV:
+- TELEGRAM_MEDIA_UPLOAD_CHAT_ID
+- ALLOWED_IMAGE_MIME
+- ALLOWED_VIDEO_MIME
+- MAX_IMAGE_SIZE_BYTES
+- MAX_VIDEO_SIZE_BYTES
+
+Новая страница:
+- /admin/card-builder
 
 Что проверять:
-- экспорт CSV
-- импорт titles CSV
-- импорт codes CSV
-- список import jobs
-- bulk action для codes
+- /admin/card-builder
+- создание карточки без медиа
+- создание карточки с external_url
+- создание карточки с upload image
+- создание карточки с upload video
+- generated code в карточке и в боте

@@ -7,6 +7,7 @@ from app.core.exceptions import AuthenticationError
 from app.services.asset_service import AssetService
 from app.services.auth_service import AuthService
 from app.services.code_service import CodeService
+from app.services.card_builder_service import CardBuilderService
 from app.services.import_export_service import ImportExportService
 from app.services.media_service import MediaService
 from app.services.public_lookup_service import PublicLookupService
@@ -1119,4 +1120,105 @@ async def admin_import_codes_csv(request: Request, file: UploadFile = File(...),
             current_admin=current_admin,
             error=str(exc),
             success=None,
+        )
+
+
+@router.get("/admin/card-builder")
+def admin_card_builder_page(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    return render_template(
+        "card_builder.html",
+        request,
+        page_title="Создание карточки",
+        current_admin=current_admin,
+        error=None,
+        success=None,
+        values={"generate_code": True, "code_status": "active", "title_status": "draft", "episode_status": "draft", "asset_type": "image"},
+        result=None,
+    )
+
+
+@router.post("/admin/card-builder")
+async def admin_card_builder_submit(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    upload = form.get("media_file")
+
+    def _text(name: str) -> str:
+        return str(form.get(name, "")).strip()
+
+    def _optional_int(name: str):
+        raw = _text(name)
+        if not raw:
+            return None
+        return int(raw)
+
+    values = {
+        "title_type": _text("title_type"),
+        "title": _text("title"),
+        "original_title": _text("original_title"),
+        "title_description": _text("title_description"),
+        "year": _optional_int("year"),
+        "title_status": _text("title_status") or "draft",
+        "season_number": _optional_int("season_number"),
+        "season_name": _text("season_name"),
+        "season_description": _text("season_description"),
+        "episode_number": _optional_int("episode_number"),
+        "episode_name": _text("episode_name"),
+        "episode_synopsis": _text("episode_synopsis"),
+        "episode_status": _text("episode_status") or "draft",
+        "asset_type": _text("asset_type") or "image",
+        "external_url": _text("external_url"),
+        "mime_type": _text("mime_type"),
+        "is_primary": form.get("is_primary") == "on",
+        "generate_code": form.get("generate_code") == "on",
+        "code_status": _text("code_status") or "active",
+    }
+
+    file_name = None
+    file_content_type = None
+    file_bytes = None
+
+    if upload and getattr(upload, "filename", ""):
+        file_name = upload.filename
+        file_content_type = getattr(upload, "content_type", None)
+        file_bytes = await upload.read()
+
+    try:
+        result = await CardBuilderService(db).create_card(
+            admin_id=current_admin.id,
+            payload=values,
+            upload_file_name=file_name,
+            upload_file_content_type=file_content_type,
+            upload_file_bytes=file_bytes,
+        )
+        db.commit()
+        success = "Карточка успешно создана."
+        return render_template(
+            "card_builder.html",
+            request,
+            page_title="Создание карточки",
+            current_admin=current_admin,
+            error=None,
+            success=success,
+            values={"generate_code": True, "code_status": "active", "title_status": "draft", "episode_status": "draft", "asset_type": "image"},
+            result=result,
+        )
+    except Exception as exc:
+        db.rollback()
+        return render_template(
+            "card_builder.html",
+            request,
+            page_title="Создание карточки",
+            current_admin=current_admin,
+            error=str(exc),
+            success=None,
+            values=values,
+            result=None,
         )

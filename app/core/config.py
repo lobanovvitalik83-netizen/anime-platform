@@ -1,3 +1,4 @@
+import re
 from functools import lru_cache
 
 from pydantic import Field, field_validator
@@ -23,6 +24,7 @@ class Settings(BaseSettings):
 
     telegram_bot_token: str = Field(default="", alias="TELEGRAM_BOT_TOKEN")
     telegram_bot_username: str = Field(default="", alias="TELEGRAM_BOT_USERNAME")
+    telegram_media_upload_chat_id: str = Field(default="", alias="TELEGRAM_MEDIA_UPLOAD_CHAT_ID")
 
     admin_default_username: str = Field(default="admin", alias="ADMIN_DEFAULT_USERNAME")
     admin_default_password: str = Field(default="", alias="ADMIN_DEFAULT_PASSWORD")
@@ -33,6 +35,11 @@ class Settings(BaseSettings):
     session_cookie_samesite: str = Field(default="lax", alias="SESSION_COOKIE_SAMESITE")
 
     code_length: int = Field(default=8, alias="CODE_LENGTH")
+
+    allowed_image_mime_raw: str = Field(default="image/jpeg,image/png,image/webp", alias="ALLOWED_IMAGE_MIME")
+    allowed_video_mime_raw: str = Field(default="video/mp4", alias="ALLOWED_VIDEO_MIME")
+    max_image_size_bytes: int = Field(default=5_242_880, alias="MAX_IMAGE_SIZE_BYTES")
+    max_video_size_bytes: int = Field(default=52_428_800, alias="MAX_VIDEO_SIZE_BYTES")
 
     @field_validator("app_env")
     @classmethod
@@ -68,6 +75,23 @@ class Settings(BaseSettings):
     @property
     def is_development(self) -> bool:
         return self.app_env == "development"
+
+    @property
+    def allowed_image_mime(self) -> set[str]:
+        return {item.strip().lower() for item in self.allowed_image_mime_raw.split(",") if item.strip()}
+
+    @property
+    def allowed_video_mime(self) -> set[str]:
+        return {item.strip().lower() for item in self.allowed_video_mime_raw.split(",") if item.strip()}
+
+    @property
+    def resolved_media_upload_chat_id(self):
+        value = self.telegram_media_upload_chat_id.strip()
+        if not value:
+            return None
+        if re.fullmatch(r"-?\d+", value):
+            return int(value)
+        return value
 
 
 @lru_cache(maxsize=1)
