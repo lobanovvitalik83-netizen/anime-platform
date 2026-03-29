@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     telegram_bot_token: str = Field(default="", alias="TELEGRAM_BOT_TOKEN")
     telegram_bot_username: str = Field(default="", alias="TELEGRAM_BOT_USERNAME")
     telegram_media_upload_chat_id: str = Field(default="", alias="TELEGRAM_MEDIA_UPLOAD_CHAT_ID")
+    telegram_help_contact_text: str = Field(default="УКАЖИ_СВОЙ_КОНТАКТ", alias="TELEGRAM_HELP_CONTACT")
 
     media_storage_backend_raw: str = Field(default="auto", alias="MEDIA_STORAGE_BACKEND")
     public_base_url_raw: str = Field(default="", alias="PUBLIC_BASE_URL")
