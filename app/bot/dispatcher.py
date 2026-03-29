@@ -22,8 +22,8 @@ def build_dispatcher() -> Dispatcher:
     dispatcher = Dispatcher()
     dispatcher.include_router(start_router)
     dispatcher.include_router(code_lookup_router)
-    dispatcher.include_router(fallback_router)
     dispatcher.include_router(report_support_router)
+    dispatcher.include_router(fallback_router)
     return dispatcher
 
 
@@ -31,11 +31,11 @@ async def start_bot_polling() -> None:
     global _dispatcher, _bot, _polling_task
 
     if not settings.telegram_bot_token:
-        logger.info("Telegram bot polling skipped: TELEGRAM_BOT_TOKEN is empty")
+        logger.info("Telegram bot token is not configured. Polling will not start.")
         return
 
     if _polling_task and not _polling_task.done():
-        logger.info("Telegram bot polling already running")
+        logger.info("Telegram bot polling already running.")
         return
 
     _dispatcher = build_dispatcher()
@@ -43,23 +43,32 @@ async def start_bot_polling() -> None:
         token=settings.telegram_bot_token,
         default=DefaultBotProperties(parse_mode="HTML"),
     )
-    _polling_task = asyncio.create_task(
-        _dispatcher.start_polling(_bot, handle_signals=False)
-    )
-    logger.info("Telegram bot polling started")
+
+    async def _runner() -> None:
+        logger.info("Telegram bot polling started")
+        try:
+            await _dispatcher.start_polling(_bot)
+        finally:
+            logger.info("Telegram bot polling stopped")
+
+    _polling_task = asyncio.create_task(_runner())
 
 
 async def stop_bot_polling() -> None:
     global _dispatcher, _bot, _polling_task
 
+    if _dispatcher:
+        with suppress(Exception):
+            await _dispatcher.stop_polling()
+
     if _polling_task:
-        _polling_task.cancel()
-        with suppress(asyncio.CancelledError):
+        with suppress(Exception):
             await _polling_task
         _polling_task = None
 
     if _bot:
-        await _bot.session.close()
+        with suppress(Exception):
+            await _bot.session.close()
         _bot = None
 
     _dispatcher = None

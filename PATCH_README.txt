@@ -1,25 +1,18 @@
-PATCH: Telegram bot menu buttons
+FIX PATCH: репорты не приходят в веб-панель
 
-Что делает патч:
-- добавляет кнопки:
-  - Поиск по коду
-  - Репорт
-  - Помощь
-- репорты отправляются только после нажатия кнопки «Репорт»
-- помощь показывает инструкцию и контакт
-- поиск по коду идёт через кнопку «Поиск по коду»
+Причина:
+- report handler шёл после fallback handler
+- fallback перехватывал текст раньше
+- из-за этого обращения в поддержку не создавались
 
-Что вписать в .env:
-TELEGRAM_HELP_CONTACT=УКАЖИ_СВОЙ_КОНТАКТ
+Что исправлено:
+- report_support_router перенесён выше fallback_router
 
-Какие файлы заменить:
-- .env.example
-- app/core/config.py
-- app/bot/handlers/start.py
-- app/bot/handlers/fallback.py
-- app/bot/handlers/code_lookup.py
-- app/bot/handlers/report_support.py
+Что заменить:
+- app/bot/dispatcher.py
 
-Какие новые файлы добавить:
-- app/bot/keyboards/main_menu.py
-- app/bot/state/session_state.py
+После замены:
+1. redeploy
+2. в боте нажать "Репорт"
+3. отправить обычный текст
+4. проверить /admin/reports
