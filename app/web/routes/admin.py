@@ -179,14 +179,30 @@ def admin_media_edit_page(title_id: int, request: Request, db: Session = Depends
         "season_number": card["season"].season_number if card["season"] else "",
         "episode_number": card["episode"].episode_number if card["episode"] else "",
         "asset_type": card["asset"].asset_type if card["asset"] else "image",
-        "external_url": card["asset"].external_url if card["asset"] else "",
+        "external_url": card["asset"].external_url if card["asset"] and getattr(card["asset"], "storage_provider", None) == "external_reference" else "",
+        "import_url": getattr(card["asset"], "source_url", "") if card["asset"] and getattr(card["asset"], "uploaded_by_system", False) else "",
+        "source_label": getattr(card["asset"], "source_label", "") if card["asset"] else "",
         "mime_type": card["asset"].mime_type if card["asset"] else "",
         "is_primary": card["asset"].is_primary if card["asset"] else True,
         "generate_code": True,
         "status": card["title"].status,
     }
-    return render_template("card_builder.html", request, page_title=f"Редактирование карточки #{title_id}", current_admin=current_admin, error=None, success=None, values=values, result=None, action_url=f"/admin/media/{title_id}/edit", submit_label="Сохранить карточку", upload_chat_ready=bool(settings.resolved_media_upload_chat_id))
 
+    return render_template(
+        "card_builder.html",
+        request,
+        page_title=f"Редактирование карточки #{title_id}",
+        current_admin=current_admin,
+        error=None,
+        success=None,
+        values=values,
+        result=None,
+        action_url=f"/admin/media/{title_id}/edit",
+        submit_label="Сохранить карточку",
+        upload_ready=settings.media_upload_enabled,
+        upload_help_text=settings.media_upload_help_text,
+        upload_backend_label=settings.media_storage_backend_label,
+    )
 
 @router.post("/admin/media/{title_id}/edit")
 async def admin_media_edit_submit(title_id: int, request: Request, db: Session = Depends(get_db_session)):
@@ -212,6 +228,8 @@ async def admin_media_edit_submit(title_id: int, request: Request, db: Session =
         "episode_number": _optional_int("episode_number"),
         "asset_type": _text("asset_type") or "image",
         "external_url": _text("external_url"),
+        "import_url": _text("import_url"),
+        "source_label": _text("source_label"),
         "mime_type": _text("mime_type"),
         "is_primary": form.get("is_primary") == "on",
         "generate_code": form.get("generate_code") == "on",
@@ -227,20 +245,76 @@ async def admin_media_edit_submit(title_id: int, request: Request, db: Session =
         file_bytes = await upload.read()
 
     try:
-        result = await MediaCardService(db).update_card(current_admin.id, title_id, values, upload_file_name=file_name, upload_file_content_type=file_content_type, upload_file_bytes=file_bytes)
-        return render_template("card_builder.html", request, page_title=f"Редактирование карточки #{title_id}", current_admin=current_admin, error=None, success="Карточка обновлена.", values=values, result=result, action_url=f"/admin/media/{title_id}/edit", submit_label="Сохранить карточку", upload_chat_ready=bool(settings.resolved_media_upload_chat_id))
+        result = await MediaCardService(db).update_card(
+            current_admin.id,
+            title_id,
+            values,
+            upload_file_name=file_name,
+            upload_file_content_type=file_content_type,
+            upload_file_bytes=file_bytes,
+        )
+        return render_template(
+            "card_builder.html",
+            request,
+            page_title=f"Редактирование карточки #{title_id}",
+            current_admin=current_admin,
+            error=None,
+            success="Карточка обновлена.",
+            values=values,
+            result=result,
+            action_url=f"/admin/media/{title_id}/edit",
+            submit_label="Сохранить карточку",
+            upload_ready=settings.media_upload_enabled,
+            upload_help_text=settings.media_upload_help_text,
+            upload_backend_label=settings.media_storage_backend_label,
+        )
     except Exception as exc:
         db.rollback()
-        return render_template("card_builder.html", request, page_title=f"Редактирование карточки #{title_id}", current_admin=current_admin, error=str(exc), success=None, values=values, result=None, action_url=f"/admin/media/{title_id}/edit", submit_label="Сохранить карточку", upload_chat_ready=bool(settings.resolved_media_upload_chat_id))
-
+        return render_template(
+            "card_builder.html",
+            request,
+            page_title=f"Редактирование карточки #{title_id}",
+            current_admin=current_admin,
+            error=str(exc),
+            success=None,
+            values=values,
+            result=None,
+            action_url=f"/admin/media/{title_id}/edit",
+            submit_label="Сохранить карточку",
+            upload_ready=settings.media_upload_enabled,
+            upload_help_text=settings.media_upload_help_text,
+            upload_backend_label=settings.media_storage_backend_label,
+        )
 
 @router.get("/admin/card-builder")
 def admin_card_builder_page(request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db)
     if redirect:
         return redirect
-    return render_template("card_builder.html", request, page_title="Создание карточки", current_admin=current_admin, error=None, success=None, values={"generate_code": True, "status": "active", "asset_type": "image", "genre": "anime"}, result=None, action_url="/admin/card-builder", submit_label="Создать карточку", upload_chat_ready=bool(settings.resolved_media_upload_chat_id))
 
+    return render_template(
+        "card_builder.html",
+        request,
+        page_title="Создание карточки",
+        current_admin=current_admin,
+        error=None,
+        success=None,
+        values={
+            "generate_code": True,
+            "status": "active",
+            "asset_type": "image",
+            "genre": "anime",
+            "external_url": "",
+            "import_url": "",
+            "source_label": "",
+        },
+        result=None,
+        action_url="/admin/card-builder",
+        submit_label="Создать карточку",
+        upload_ready=settings.media_upload_enabled,
+        upload_help_text=settings.media_upload_help_text,
+        upload_backend_label=settings.media_storage_backend_label,
+    )
 
 @router.post("/admin/card-builder")
 async def admin_card_builder_submit(request: Request, db: Session = Depends(get_db_session)):
@@ -266,6 +340,8 @@ async def admin_card_builder_submit(request: Request, db: Session = Depends(get_
         "episode_number": _optional_int("episode_number"),
         "asset_type": _text("asset_type") or "image",
         "external_url": _text("external_url"),
+        "import_url": _text("import_url"),
+        "source_label": _text("source_label"),
         "mime_type": _text("mime_type"),
         "is_primary": form.get("is_primary") == "on",
         "generate_code": form.get("generate_code") == "on",
@@ -275,18 +351,60 @@ async def admin_card_builder_submit(request: Request, db: Session = Depends(get_
     file_name = None
     file_content_type = None
     file_bytes = None
+
     if upload and getattr(upload, "filename", ""):
         file_name = upload.filename
         file_content_type = getattr(upload, "content_type", None)
         file_bytes = await upload.read()
 
     try:
-        result = await MediaCardService(db).create_card(admin_id=current_admin.id, payload=values, upload_file_name=file_name, upload_file_content_type=file_content_type, upload_file_bytes=file_bytes)
-        return render_template("card_builder.html", request, page_title="Создание карточки", current_admin=current_admin, error=None, success="Карточка успешно создана.", values={"generate_code": True, "status": "active", "asset_type": "image", "genre": "anime"}, result=result, action_url="/admin/card-builder", submit_label="Создать карточку", upload_chat_ready=bool(settings.resolved_media_upload_chat_id))
+        result = await MediaCardService(db).create_card(
+            admin_id=current_admin.id,
+            payload=values,
+            upload_file_name=file_name,
+            upload_file_content_type=file_content_type,
+            upload_file_bytes=file_bytes,
+        )
+        return render_template(
+            "card_builder.html",
+            request,
+            page_title="Создание карточки",
+            current_admin=current_admin,
+            error=None,
+            success="Карточка успешно создана.",
+            values={
+                "generate_code": True,
+                "status": "active",
+                "asset_type": "image",
+                "genre": "anime",
+                "external_url": "",
+                "import_url": "",
+                "source_label": "",
+            },
+            result=result,
+            action_url="/admin/card-builder",
+            submit_label="Создать карточку",
+            upload_ready=settings.media_upload_enabled,
+            upload_help_text=settings.media_upload_help_text,
+            upload_backend_label=settings.media_storage_backend_label,
+        )
     except Exception as exc:
         db.rollback()
-        return render_template("card_builder.html", request, page_title="Создание карточки", current_admin=current_admin, error=str(exc), success=None, values=values, result=None, action_url="/admin/card-builder", submit_label="Создать карточку", upload_chat_ready=bool(settings.resolved_media_upload_chat_id))
-
+        return render_template(
+            "card_builder.html",
+            request,
+            page_title="Создание карточки",
+            current_admin=current_admin,
+            error=str(exc),
+            success=None,
+            values=values,
+            result=None,
+            action_url="/admin/card-builder",
+            submit_label="Создать карточку",
+            upload_ready=settings.media_upload_enabled,
+            upload_help_text=settings.media_upload_help_text,
+            upload_backend_label=settings.media_storage_backend_label,
+        )
 
 @router.get("/admin/codes")
 def admin_codes(request: Request, db: Session = Depends(get_db_session)):

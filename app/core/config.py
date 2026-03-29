@@ -27,6 +27,15 @@ class Settings(BaseSettings):
     telegram_bot_username: str = Field(default="", alias="TELEGRAM_BOT_USERNAME")
     telegram_media_upload_chat_id: str = Field(default="", alias="TELEGRAM_MEDIA_UPLOAD_CHAT_ID")
 
+    media_storage_backend_raw: str = Field(default="auto", alias="MEDIA_STORAGE_BACKEND")
+    s3_endpoint_url: str = Field(default="", alias="S3_ENDPOINT_URL")
+    s3_access_key_id: str = Field(default="", alias="S3_ACCESS_KEY_ID")
+    s3_secret_access_key: str = Field(default="", alias="S3_SECRET_ACCESS_KEY")
+    s3_bucket_name: str = Field(default="", alias="S3_BUCKET_NAME")
+    s3_region: str = Field(default="", alias="S3_REGION")
+    s3_public_base_url_raw: str = Field(default="", alias="S3_PUBLIC_BASE_URL")
+    s3_key_prefix_raw: str = Field(default="media-bridge", alias="S3_KEY_PREFIX")
+
     admin_default_username: str = Field(default="admin", alias="ADMIN_DEFAULT_USERNAME")
     admin_default_password: str = Field(default="", alias="ADMIN_DEFAULT_PASSWORD")
 
@@ -98,6 +107,27 @@ class Settings(BaseSettings):
         return value
 
     @property
+    def media_storage_backend(self) -> str:
+        value = (self.media_storage_backend_raw or "auto").strip().lower()
+        if value not in {"auto", "s3"}:
+            return "auto"
+        return value
+
+    @property
+    def s3_public_base_url(self) -> str:
+        value = self.s3_public_base_url_raw.strip()
+        return value.rstrip("/") if value else ""
+
+    @property
+    def s3_key_prefix(self) -> str:
+        value = (self.s3_key_prefix_raw or "").strip().strip("/")
+        return value
+
+    @property
+    def s3_configured(self) -> bool:
+        return bool(self.s3_bucket_name.strip() and self.s3_access_key_id.strip() and self.s3_secret_access_key.strip())
+
+    @property
     def data_dir(self) -> Path:
         return Path(self.data_dir_raw)
 
@@ -108,6 +138,27 @@ class Settings(BaseSettings):
     @property
     def avatar_upload_dir(self) -> Path:
         return self.public_upload_dir / "avatars"
+
+    @property
+    def media_upload_enabled(self) -> bool:
+        return self.s3_configured
+
+    @property
+    def media_storage_backend_label(self) -> str:
+        return "S3-compatible external storage" if self.s3_configured else "external reference only"
+
+    @property
+    def media_upload_help_text(self) -> str:
+        if self.s3_configured:
+            return (
+                "Файлы карточек загружаются сразу во внешний S3-compatible storage. "
+                "BotHost хранит только метаданные."
+            )
+        return (
+            "Upload файлов сейчас отключён: BotHost больше не используется как storage для карточек. "
+            "Чтобы загружать файлы прямо из формы, заполни S3_BUCKET_NAME, S3_ACCESS_KEY_ID и S3_SECRET_ACCESS_KEY. "
+            "Пока можно использовать public/shared URL или прямую внешнюю ссылку."
+        )
 
 
 @lru_cache(maxsize=1)

@@ -24,6 +24,7 @@ class MediaAsset(TimestampMixin, Base):
         Index("ix_media_assets_episode_id", "episode_id"),
         Index("ix_media_assets_asset_type", "asset_type"),
         Index("ix_media_assets_is_primary", "is_primary"),
+        Index("ix_media_assets_storage_provider", "storage_provider"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -37,6 +38,12 @@ class MediaAsset(TimestampMixin, Base):
     external_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     mime_type: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    storage_provider: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    storage_object_key: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    source_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    source_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    uploaded_by_system: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     title = relationship("MediaTitle", back_populates="assets")
     season = relationship("MediaSeason", back_populates="assets")

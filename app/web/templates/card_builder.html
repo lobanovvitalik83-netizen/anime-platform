@@ -2,13 +2,12 @@
 {% block content %}
 <div class="card">
   <h1>{{ page_title }}</h1>
-  <p class="muted">Одно окно: жанр, название, сезон, серия, медиа, статус и автогенерация кода.</p>
+  <p class="muted">BotHost хранит только метаданные. Фото и видео либо лежат во внешнем storage, либо используются как внешняя ссылка.</p>
 
-  {% if not upload_chat_ready %}
-    <div class="error">
-      Загрузка файлом сейчас недоступна: не настроен <span class="code">TELEGRAM_MEDIA_UPLOAD_CHAT_ID</span>.<br>
-      Пока можно использовать поле <b>внешняя ссылка</b>. После настройки ENV загрузка с компьютера заработает.
-    </div>
+  {% if not upload_ready %}
+    <div class="error">{{ upload_help_text }}</div>
+  {% else %}
+    <div class="success"><b>Текущий backend:</b> <span class="code">{{ upload_backend_label }}</span>. {{ upload_help_text }}</div>
   {% endif %}
 
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
@@ -79,8 +78,8 @@
           <input name="mime_type" value="{{ values.get('mime_type', '') }}" placeholder="Обычно можно оставить пустым">
         </div>
         <div>
-          <label>Загрузить файлом с компьютера</label>
-          <input type="file" name="media_file" accept="image/*,video/mp4" {% if not upload_chat_ready %}disabled{% endif %}>
+          <label>Название / подпись файла из внешнего сервиса</label>
+          <input name="source_label" value="{{ values.get('source_label', '') }}" placeholder="Например: poster_ep01_drive">
         </div>
         <div>
           <label style="display:flex; gap:8px; align-items:center; font-weight:600; margin-top:30px;">
@@ -89,9 +88,25 @@
           </label>
         </div>
       </div>
-      <div style="margin-top:16px;">
-        <label>Или внешняя ссылка</label>
-        <input name="external_url" value="{{ values.get('external_url', '') }}" placeholder="https://example.com/media.jpg">
+
+      <div class="grid" style="margin-top:18px; grid-template-columns:1fr; gap:16px;">
+        <div class="card">
+          <h4>1. Загрузить файл прямо в внешний storage</h4>
+          <input type="file" name="media_file" accept="image/*,video/mp4" {% if not upload_ready %}disabled{% endif %}>
+          <div class="muted" style="margin-top:8px;">Файл сразу уходит во внешний storage. В BotHost хранится только URL и metadata.</div>
+        </div>
+
+        <div class="card">
+          <h4>2. Импортировать из внешнего сервиса по public/shared URL</h4>
+          <input name="import_url" value="{{ values.get('import_url', '') }}" placeholder="Google Drive / Dropbox / CDN public link" {% if not upload_ready %}disabled{% endif %}>
+          <div class="muted" style="margin-top:8px;">Система скачает файл по ссылке и перельёт его в твой внешний storage. По одному только названию файла без API-авторизации внешнего сервиса импорт не делается.</div>
+        </div>
+
+        <div class="card">
+          <h4>3. Просто использовать внешнюю ссылку без копирования</h4>
+          <input name="external_url" value="{{ values.get('external_url', '') }}" placeholder="https://example.com/media.jpg">
+          <div class="muted" style="margin-top:8px;">В этом режиме файл не копируется в твой storage. При удалении карточки удаляется только связь, а не исходный файл.</div>
+        </div>
       </div>
     </div>
 

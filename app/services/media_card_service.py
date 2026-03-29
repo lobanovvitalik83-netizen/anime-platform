@@ -11,6 +11,7 @@ from app.repositories.media_season_repository import MediaSeasonRepository
 from app.repositories.media_title_repository import MediaTitleRepository
 from app.services.audit_service import AuditService
 from app.services.code_service import CodeService
+from app.services.external_media_storage_service import ExternalMediaStorageService
 from app.services.media_upload_service import MediaUploadService
 from app.services.media_service import MediaService
 
@@ -30,6 +31,8 @@ class MediaCardRow:
     storage_kind: str | None
     telegram_file_id: str | None
     external_url: str | None
+    storage_provider: str | None
+    source_label: str | None
     code_id: int | None
     code_value: str | None
     created_at: Any
@@ -47,13 +50,9 @@ class MediaCardService:
         self.code_repo = AccessCodeRepository(session)
         self.code_service = CodeService(session)
         self.upload_service = MediaUploadService()
+        self.external_storage = ExternalMediaStorageService()
 
-    def list_cards(
-        self,
-        q: str | None = None,
-        genre: str | None = None,
-        status: str | None = None,
-    ) -> list[MediaCardRow]:
+    def list_cards(self, q: str | None = None, genre: str | None = None, status: str | None = None) -> list[MediaCardRow]:
         rows: list[MediaCardRow] = []
         titles = self.media_service.list_titles()
 
@@ -94,6 +93,8 @@ class MediaCardService:
                     storage_kind=asset.storage_kind if asset else None,
                     telegram_file_id=asset.telegram_file_id if asset else None,
                     external_url=asset.external_url if asset else None,
+                    storage_provider=getattr(asset, "storage_provider", None) if asset else None,
+                    source_label=getattr(asset, "source_label", None) if asset else None,
                     code_id=code.id if code else None,
                     code_value=code.code if code else None,
                     created_at=title.created_at,
@@ -115,13 +116,7 @@ class MediaCardService:
         asset = self._pick_asset(assets, episode.id if episode else None, season.id if season else None)
         code = codes[0] if codes else None
 
-        return {
-            "title": title,
-            "season": season,
-            "episode": episode,
-            "asset": asset,
-            "code": code,
-        }
+        return {"title": title, "season": season, "episode": episode, "asset": asset, "code": code}
 
     async def create_card(
         self,
@@ -141,33 +136,19 @@ class MediaCardService:
 
         status = (payload.get("status") or "draft").strip()
 
-        uploaded_media = None
-        if upload_file_bytes:
-            uploaded_media = await self.upload_service.upload_uploaded_file(
-                file_bytes=upload_file_bytes,
-                file_name=upload_file_name or "upload.bin",
-                content_type=upload_file_content_type,
-                asset_type=(payload.get("asset_type") or "image").strip().lower(),
-            )
-
-        title = self.title_repo.create(
-            type=genre,
-            title=title_name,
-            original_title=None,
-            description=None,
-            year=None,
-            status=status,
+        media_payload = await self._resolve_media_payload(
+            payload=payload,
+            upload_file_name=upload_file_name,
+            upload_file_content_type=upload_file_content_type,
+            upload_file_bytes=upload_file_bytes,
         )
+
+        title = self.title_repo.create(type=genre, title=title_name, original_title=None, description=None, year=None, status=status)
         self.audit.log(admin_id, "create_media_title", "media_title", str(title.id), {"title": title.title})
 
         season = None
         if payload.get("season_number") is not None:
-            season = self.season_repo.create(
-                title_id=title.id,
-                season_number=payload["season_number"],
-                name=None,
-                description=None,
-            )
+            season = self.season_repo.create(title_id=title.id, season_number=payload["season_number"], name=None, description=None)
             self.audit.log(admin_id, "create_media_season", "media_season", str(season.id), {"title_id": title.id})
 
         episode = None
@@ -183,8 +164,7 @@ class MediaCardService:
             self.audit.log(admin_id, "create_media_episode", "media_episode", str(episode.id), {"title_id": title.id})
 
         asset = None
-        external_url = (payload.get("external_url") or "").strip()
-        if uploaded_media or external_url:
+        if media_payload:
             if payload.get("is_primary"):
                 self.asset_repo.unset_primary_for_scope(title.id, season.id if season else None, episode.id if episode else None)
 
@@ -192,14 +172,19 @@ class MediaCardService:
                 title_id=title.id,
                 season_id=season.id if season else None,
                 episode_id=episode.id if episode else None,
-                asset_type=uploaded_media["asset_type"] if uploaded_media else (payload.get("asset_type") or "image").strip().lower(),
-                storage_kind="telegram_file_id" if uploaded_media else "external_url",
-                telegram_file_id=uploaded_media["telegram_file_id"] if uploaded_media else None,
-                external_url=None if uploaded_media else external_url,
-                mime_type=uploaded_media["mime_type"] if uploaded_media else ((payload.get("mime_type") or "").strip() or None),
+                asset_type=media_payload["asset_type"],
+                storage_kind="external_url",
+                telegram_file_id=None,
+                external_url=media_payload["external_url"],
+                mime_type=media_payload.get("mime_type"),
                 is_primary=bool(payload.get("is_primary")),
+                storage_provider=media_payload.get("storage_provider"),
+                storage_object_key=media_payload.get("storage_object_key"),
+                source_url=media_payload.get("source_url"),
+                source_label=media_payload.get("source_label"),
+                uploaded_by_system=bool(media_payload.get("uploaded_by_system")),
             )
-            self.audit.log(admin_id, "create_media_asset", "media_asset", str(asset.id), {"title_id": title.id})
+            self.audit.log(admin_id, "create_media_asset", "media_asset", str(asset.id), {"title_id": title.id, "storage_provider": asset.storage_provider})
 
         code = None
         if payload.get("generate_code", True):
@@ -215,13 +200,7 @@ class MediaCardService:
             )[0]
 
         self.session.commit()
-        return {
-            "title": title,
-            "season": season,
-            "episode": episode,
-            "asset": asset,
-            "code": code,
-        }
+        return {"title": title, "season": season, "episode": episode, "asset": asset, "code": code}
 
     async def update_card(
         self,
@@ -249,24 +228,15 @@ class MediaCardService:
 
         status = (payload.get("status") or title.status or "draft").strip()
 
-        uploaded_media = None
-        if upload_file_bytes:
-            uploaded_media = await self.upload_service.upload_uploaded_file(
-                file_bytes=upload_file_bytes,
-                file_name=upload_file_name or "upload.bin",
-                content_type=upload_file_content_type,
-                asset_type=(payload.get("asset_type") or "image").strip().lower(),
-            )
-
-        title = self.title_repo.update(
-            title,
-            type=genre,
-            title=title_name,
-            status=status,
-            original_title=None,
-            description=None,
-            year=None,
+        media_payload = await self._resolve_media_payload(
+            payload=payload,
+            upload_file_name=upload_file_name,
+            upload_file_content_type=upload_file_content_type,
+            upload_file_bytes=upload_file_bytes,
         )
+        replacing_media = media_payload is not None
+
+        title = self.title_repo.update(title, type=genre, title=title_name, status=status, original_title=None, description=None, year=None)
         self.audit.log(admin_id, "update_media_title", "media_title", str(title.id), {"title": title.title, "type": genre})
 
         target_season_number = payload.get("season_number")
@@ -300,31 +270,77 @@ class MediaCardService:
                 )
             self.audit.log(admin_id, "update_media_episode", "media_episode", str(episode.id), {"episode_number": target_episode_number})
 
-        external_url = (payload.get("external_url") or "").strip()
-        if uploaded_media or external_url or asset:
-            asset_payload = {
-                "title_id": title.id,
-                "season_id": season.id if season else None,
-                "episode_id": episode.id if episode else None,
-                "asset_type": uploaded_media["asset_type"] if uploaded_media else (payload.get("asset_type") or (asset.asset_type if asset else "image")).strip().lower(),
-                "storage_kind": "telegram_file_id" if uploaded_media else ("external_url" if external_url else (asset.storage_kind if asset else None)),
-                "telegram_file_id": uploaded_media["telegram_file_id"] if uploaded_media else (asset.telegram_file_id if asset else None),
-                "external_url": None if uploaded_media else (external_url or (asset.external_url if asset else None)),
-                "mime_type": uploaded_media["mime_type"] if uploaded_media else ((payload.get("mime_type") or "").strip() or (asset.mime_type if asset else None)),
-                "is_primary": bool(payload.get("is_primary")),
-            }
+        direct_reference_url = (payload.get("external_url") or "").strip()
+        source_label = (payload.get("source_label") or "").strip() or None
 
-            if asset_payload["storage_kind"] is None:
-                raise ValidationError("Нужен файл или внешняя ссылка.")
-
+        if replacing_media or direct_reference_url or asset:
             if payload.get("is_primary"):
                 self.asset_repo.unset_primary_for_scope(title.id, season.id if season else None, episode.id if episode else None)
+
+            if replacing_media:
+                if asset and getattr(asset, "uploaded_by_system", False):
+                    self.external_storage.delete_managed_asset(asset)
+                asset_payload = {
+                    "title_id": title.id,
+                    "season_id": season.id if season else None,
+                    "episode_id": episode.id if episode else None,
+                    "asset_type": media_payload["asset_type"],
+                    "storage_kind": "external_url",
+                    "telegram_file_id": None,
+                    "external_url": media_payload["external_url"],
+                    "mime_type": media_payload.get("mime_type"),
+                    "is_primary": bool(payload.get("is_primary")),
+                    "storage_provider": media_payload.get("storage_provider"),
+                    "storage_object_key": media_payload.get("storage_object_key"),
+                    "source_url": media_payload.get("source_url"),
+                    "source_label": media_payload.get("source_label"),
+                    "uploaded_by_system": bool(media_payload.get("uploaded_by_system")),
+                }
+            elif direct_reference_url:
+                if asset and getattr(asset, "uploaded_by_system", False):
+                    self.external_storage.delete_managed_asset(asset)
+                asset_payload = {
+                    "title_id": title.id,
+                    "season_id": season.id if season else None,
+                    "episode_id": episode.id if episode else None,
+                    "asset_type": (payload.get("asset_type") or (asset.asset_type if asset else "image")).strip().lower(),
+                    "storage_kind": "external_url",
+                    "telegram_file_id": None,
+                    "external_url": direct_reference_url,
+                    "mime_type": (payload.get("mime_type") or "").strip() or (asset.mime_type if asset else None),
+                    "is_primary": bool(payload.get("is_primary")),
+                    "storage_provider": "external_reference",
+                    "storage_object_key": None,
+                    "source_url": direct_reference_url,
+                    "source_label": source_label,
+                    "uploaded_by_system": False,
+                }
+            else:
+                asset_payload = {
+                    "title_id": title.id,
+                    "season_id": season.id if season else None,
+                    "episode_id": episode.id if episode else None,
+                    "asset_type": asset.asset_type if asset else "image",
+                    "storage_kind": "external_url",
+                    "telegram_file_id": None,
+                    "external_url": asset.external_url if asset else None,
+                    "mime_type": asset.mime_type if asset else None,
+                    "is_primary": bool(payload.get("is_primary")),
+                    "storage_provider": getattr(asset, "storage_provider", None) if asset else None,
+                    "storage_object_key": getattr(asset, "storage_object_key", None) if asset else None,
+                    "source_url": getattr(asset, "source_url", None) if asset else None,
+                    "source_label": source_label if source_label is not None else (getattr(asset, "source_label", None) if asset else None),
+                    "uploaded_by_system": bool(getattr(asset, "uploaded_by_system", False)) if asset else False,
+                }
+
+            if asset_payload["external_url"] is None:
+                raise ValidationError("Нужен файл, import URL или внешняя ссылка.")
 
             if asset:
                 asset = self.asset_repo.update(asset, **asset_payload)
             else:
                 asset = self.asset_repo.create(**asset_payload)
-            self.audit.log(admin_id, "update_media_asset", "media_asset", str(asset.id), {"asset_type": asset.asset_type})
+            self.audit.log(admin_id, "update_media_asset", "media_asset", str(asset.id), {"asset_type": asset.asset_type, "storage_provider": asset.storage_provider})
 
         if code:
             self.code_service.update_code(
@@ -351,13 +367,7 @@ class MediaCardService:
             )[0]
 
         self.session.commit()
-        return {
-            "title": title,
-            "season": season,
-            "episode": episode,
-            "asset": asset,
-            "code": code,
-        }
+        return {"title": title, "season": season, "episode": episode, "asset": asset, "code": code}
 
     def delete_card(self, admin_id: int, title_id: int) -> None:
         title = self.media_service.get_title(title_id)
@@ -371,7 +381,9 @@ class MediaCardService:
             self.code_repo.delete(code)
 
         for asset in assets:
-            self.audit.log(admin_id, "delete_media_asset", "media_asset", str(asset.id), {"asset_type": asset.asset_type})
+            if getattr(asset, "uploaded_by_system", False):
+                self.external_storage.delete_managed_asset(asset)
+            self.audit.log(admin_id, "delete_media_asset", "media_asset", str(asset.id), {"asset_type": asset.asset_type, "storage_provider": getattr(asset, "storage_provider", None)})
             self.asset_repo.delete(asset)
 
         for episode in episodes:
@@ -386,6 +398,48 @@ class MediaCardService:
         self.title_repo.delete(title)
         self.session.commit()
 
+    async def _resolve_media_payload(
+        self,
+        *,
+        payload: dict,
+        upload_file_name: str | None,
+        upload_file_content_type: str | None,
+        upload_file_bytes: bytes | None,
+    ) -> dict | None:
+        source_label = (payload.get("source_label") or "").strip() or None
+        import_url = (payload.get("import_url") or "").strip()
+        direct_reference_url = (payload.get("external_url") or "").strip()
+        asset_type = (payload.get("asset_type") or "image").strip().lower()
+
+        if upload_file_bytes:
+            uploaded = await self.upload_service.upload_uploaded_file(
+                file_bytes=upload_file_bytes,
+                file_name=upload_file_name or "upload.bin",
+                content_type=upload_file_content_type,
+                asset_type=asset_type,
+            )
+            uploaded["source_label"] = source_label
+            return uploaded
+
+        if import_url:
+            imported = await self.upload_service.import_from_remote_url(source_url=import_url, asset_type=asset_type)
+            imported["source_label"] = source_label
+            return imported
+
+        if direct_reference_url:
+            return {
+                "asset_type": asset_type,
+                "storage_provider": "external_reference",
+                "storage_object_key": None,
+                "external_url": direct_reference_url,
+                "mime_type": (payload.get("mime_type") or "").strip() or None,
+                "source_url": direct_reference_url,
+                "source_label": source_label,
+                "uploaded_by_system": False,
+            }
+
+        return None
+
     def _pick_asset(self, assets: list, episode_id: int | None, season_id: int | None):
         if not assets:
             return None
@@ -397,5 +451,6 @@ class MediaCardService:
                 0 if item.is_primary else 1,
                 -item.id,
             )
+
         assets = sorted(assets, key=key)
         return assets[0]
