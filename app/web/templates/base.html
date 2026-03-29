@@ -65,5 +65,29 @@
   <div class="wrap">
     {% block content %}{% endblock %}
   </div>
+
+  <script>
+    function toggleGroup(source, groupName) {
+      document.querySelectorAll('input[name="' + groupName + '"]').forEach(function(cb) {
+        cb.checked = source.checked;
+      });
+    }
+    function getSelectedIds(groupName) {
+      return Array.from(document.querySelectorAll('input[name="' + groupName + '"]:checked')).map(function(cb) {
+        return cb.value;
+      });
+    }
+    function openSelectedEdit(basePath, groupName) {
+      const ids = getSelectedIds(groupName);
+      if (!ids.length) {
+        alert('Сначала выбери записи.');
+        return false;
+      }
+      ids.forEach(function(id) {
+        window.open(basePath + '/' + id + '/edit', '_blank');
+      });
+      return false;
+    }
+  </script>
 </body>
 </html>

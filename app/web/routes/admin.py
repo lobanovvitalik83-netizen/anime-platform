@@ -1123,6 +1123,166 @@ async def admin_import_codes_csv(request: Request, file: UploadFile = File(...),
         )
 
 
+@router.post("/admin/titles/bulk-delete")
+async def admin_titles_bulk_delete(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    selected_ids = [int(item) for item in form.getlist("selected_ids")]
+    media_service = MediaService(db)
+
+    if not selected_ids:
+        return render_template(
+            "titles_list.html",
+            request,
+            page_title="Тайтлы",
+            current_admin=current_admin,
+            titles=media_service.list_titles(),
+            error="Не выбраны тайтлы.",
+        )
+
+    try:
+        for item_id in selected_ids:
+            media_service.delete_title(current_admin.id, item_id)
+    except Exception as exc:
+        db.rollback()
+        return render_template(
+            "titles_list.html",
+            request,
+            page_title="Тайтлы",
+            current_admin=current_admin,
+            titles=media_service.list_titles(),
+            error=str(exc),
+        )
+
+    return redirect_to("/admin/titles")
+
+
+@router.post("/admin/seasons/bulk-delete")
+async def admin_seasons_bulk_delete(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    selected_ids = [int(item) for item in form.getlist("selected_ids")]
+    media_service = MediaService(db)
+
+    if not selected_ids:
+        return render_template(
+            "seasons_list.html",
+            request,
+            page_title="Сезоны",
+            current_admin=current_admin,
+            seasons=media_service.list_seasons(),
+            titles=media_service.list_titles(),
+            selected_title_id=None,
+            error="Не выбраны сезоны.",
+        )
+
+    try:
+        for item_id in selected_ids:
+            media_service.delete_season(current_admin.id, item_id)
+    except Exception as exc:
+        db.rollback()
+        return render_template(
+            "seasons_list.html",
+            request,
+            page_title="Сезоны",
+            current_admin=current_admin,
+            seasons=media_service.list_seasons(),
+            titles=media_service.list_titles(),
+            selected_title_id=None,
+            error=str(exc),
+        )
+
+    return redirect_to("/admin/seasons")
+
+
+@router.post("/admin/episodes/bulk-delete")
+async def admin_episodes_bulk_delete(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    selected_ids = [int(item) for item in form.getlist("selected_ids")]
+    media_service = MediaService(db)
+
+    if not selected_ids:
+        return render_template(
+            "episodes_list.html",
+            request,
+            page_title="Эпизоды",
+            current_admin=current_admin,
+            episodes=media_service.list_episodes(),
+            titles=media_service.list_titles(),
+            seasons=media_service.list_seasons(),
+            selected_title_id=None,
+            selected_season_id=None,
+            error="Не выбраны серии.",
+        )
+
+    try:
+        for item_id in selected_ids:
+            media_service.delete_episode(current_admin.id, item_id)
+    except Exception as exc:
+        db.rollback()
+        return render_template(
+            "episodes_list.html",
+            request,
+            page_title="Эпизоды",
+            current_admin=current_admin,
+            episodes=media_service.list_episodes(),
+            titles=media_service.list_titles(),
+            seasons=media_service.list_seasons(),
+            selected_title_id=None,
+            selected_season_id=None,
+            error=str(exc),
+        )
+
+    return redirect_to("/admin/episodes")
+
+
+@router.post("/admin/assets/bulk-delete")
+async def admin_assets_bulk_delete(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    selected_ids = [int(item) for item in form.getlist("selected_ids")]
+    asset_service = AssetService(db)
+
+    if not selected_ids:
+        return render_template(
+            "assets_list.html",
+            request,
+            page_title="Ассеты",
+            current_admin=current_admin,
+            assets=asset_service.list_assets(),
+            error="Не выбраны ассеты.",
+        )
+
+    try:
+        for item_id in selected_ids:
+            asset_service.delete_asset(current_admin.id, item_id)
+    except Exception as exc:
+        db.rollback()
+        return render_template(
+            "assets_list.html",
+            request,
+            page_title="Ассеты",
+            current_admin=current_admin,
+            assets=asset_service.list_assets(),
+            error=str(exc),
+        )
+
+    return redirect_to("/admin/assets")
+
+
 @router.get("/admin/card-builder")
 def admin_card_builder_page(request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db)
@@ -1136,7 +1296,7 @@ def admin_card_builder_page(request: Request, db: Session = Depends(get_db_sessi
         current_admin=current_admin,
         error=None,
         success=None,
-        values={"generate_code": True, "code_status": "active", "title_status": "draft", "episode_status": "draft", "asset_type": "image"},
+        values={"generate_code": True, "code_status": "active", "asset_type": "image"},
         result=None,
     )
 
@@ -1160,19 +1320,16 @@ async def admin_card_builder_submit(request: Request, db: Session = Depends(get_
         return int(raw)
 
     values = {
-        "title_type": _text("title_type"),
+        "genre": _text("genre"),
         "title": _text("title"),
         "original_title": _text("original_title"),
         "title_description": _text("title_description"),
         "year": _optional_int("year"),
-        "title_status": _text("title_status") or "draft",
         "season_number": _optional_int("season_number"),
         "season_name": _text("season_name"),
-        "season_description": _text("season_description"),
         "episode_number": _optional_int("episode_number"),
         "episode_name": _text("episode_name"),
         "episode_synopsis": _text("episode_synopsis"),
-        "episode_status": _text("episode_status") or "draft",
         "asset_type": _text("asset_type") or "image",
         "external_url": _text("external_url"),
         "mime_type": _text("mime_type"),
@@ -1198,7 +1355,6 @@ async def admin_card_builder_submit(request: Request, db: Session = Depends(get_
             upload_file_content_type=file_content_type,
             upload_file_bytes=file_bytes,
         )
-        db.commit()
         success = "Карточка успешно создана."
         return render_template(
             "card_builder.html",
@@ -1207,7 +1363,7 @@ async def admin_card_builder_submit(request: Request, db: Session = Depends(get_
             current_admin=current_admin,
             error=None,
             success=success,
-            values={"generate_code": True, "code_status": "active", "title_status": "draft", "episode_status": "draft", "asset_type": "image"},
+            values={"generate_code": True, "code_status": "active", "asset_type": "image"},
             result=result,
         )
     except Exception as exc:

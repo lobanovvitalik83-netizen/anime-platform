@@ -11,6 +11,7 @@ from app.repositories.media_title_repository import MediaTitleRepository
 from app.services.audit_service import AuditService
 from app.services.code_service import CodeService
 from app.services.media_upload_service import MediaUploadService
+from app.services.title_metadata_service import pack_title_description
 
 
 @dataclass
@@ -46,13 +47,12 @@ class CardBuilderService:
         upload_file_bytes: bytes | None = None,
     ) -> CardBuildResult:
         title_title = (payload.get("title") or "").strip()
-        title_type = (payload.get("title_type") or "").strip()
         if not title_title:
-            raise ValidationError("Название тайтла обязательно")
-        if not title_type:
-            raise ValidationError("Тип тайтла обязателен")
+            raise ValidationError("Название обязательно")
 
-        # Upload first, so DB is not polluted if Telegram upload fails
+        # Fixed default type for simplified creator
+        title_type = "anime"
+
         uploaded_media = None
         if upload_file_bytes:
             asset_type = (payload.get("asset_type") or "image").strip().lower()
@@ -67,9 +67,12 @@ class CardBuilderService:
             type=title_type,
             title=title_title,
             original_title=(payload.get("original_title") or "").strip() or None,
-            description=(payload.get("title_description") or "").strip() or None,
+            description=pack_title_description(
+                payload.get("genre"),
+                (payload.get("title_description") or "").strip() or None,
+            ),
             year=payload.get("year"),
-            status=(payload.get("title_status") or "draft").strip(),
+            status="draft",
         )
         self.audit.log(admin_id, "create_media_title", "media_title", str(title.id), {"title": title.title})
 
@@ -79,7 +82,7 @@ class CardBuilderService:
                 title_id=title.id,
                 season_number=payload["season_number"],
                 name=(payload.get("season_name") or "").strip() or None,
-                description=(payload.get("season_description") or "").strip() or None,
+                description=None,
             )
             self.audit.log(admin_id, "create_media_season", "media_season", str(season.id), {"title_id": title.id})
 
@@ -91,7 +94,7 @@ class CardBuilderService:
                 episode_number=payload["episode_number"],
                 name=(payload.get("episode_name") or "").strip() or None,
                 synopsis=(payload.get("episode_synopsis") or "").strip() or None,
-                status=(payload.get("episode_status") or "draft").strip(),
+                status="draft",
             )
             self.audit.log(admin_id, "create_media_episode", "media_episode", str(episode.id), {"title_id": title.id})
 

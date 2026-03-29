@@ -2,7 +2,7 @@
 {% block content %}
 <div class="card">
   <h1>Создание карточки</h1>
-  <p class="muted">Одна форма для создания тайтла, сезона, эпизода, медиа и автоматического кода.</p>
+  <p class="muted">Одно окно: жанр, названия, сезон, серия, фото/видео и автоматическая генерация кода.</p>
 
   {% if error %}
     <div class="error">{{ error }}</div>
@@ -13,7 +13,7 @@
 
   {% if result %}
   <div class="card" style="background:#f9fafb; margin-bottom:18px;">
-    <h3>Результат создания</h3>
+    <h3>Карточка создана</h3>
     <div class="grid cards">
       <div class="card"><b>Title ID</b><br>{{ result.title_id }}</div>
       <div class="card"><b>Season ID</b><br>{{ result.season_id or "—" }}</div>
@@ -31,11 +31,11 @@
 
   <form method="post" action="/admin/card-builder" enctype="multipart/form-data" class="grid">
     <div class="card" style="background:#f9fafb;">
-      <h3>1. База карточки</h3>
+      <h3>Основные данные карточки</h3>
       <div class="form-grid">
         <div>
-          <label>Тип тайтла</label>
-          <input name="title_type" value="{{ values.get('title_type', '') }}" placeholder="anime / movie / series" required>
+          <label>Жанр</label>
+          <input name="genre" value="{{ values.get('genre', '') }}" placeholder="романтика, драма, комедия">
         </div>
         <div>
           <label>Название</label>
@@ -50,105 +50,75 @@
           <input name="year" type="number" value="{{ values.get('year', '') }}">
         </div>
         <div>
-          <label>Статус тайтла</label>
-          <select name="title_status">
-            <option value="draft" {% if values.get('title_status') == 'draft' %}selected{% endif %}>draft</option>
-            <option value="published" {% if values.get('title_status') == 'published' %}selected{% endif %}>published</option>
-            <option value="archived" {% if values.get('title_status') == 'archived' %}selected{% endif %}>archived</option>
-          </select>
-        </div>
-      </div>
-      <div style="margin-top:16px;">
-        <label>Описание тайтла</label>
-        <textarea name="title_description">{{ values.get('title_description', '') }}</textarea>
-      </div>
-    </div>
-
-    <div class="card" style="background:#f9fafb;">
-      <h3>2. Сезон и эпизод</h3>
-      <p class="muted">Сезон и эпизод необязательны. Для фильма можно оставить пусто.</p>
-      <div class="form-grid">
-        <div>
-          <label>Номер сезона</label>
+          <label>Сезон</label>
           <input name="season_number" type="number" min="1" value="{{ values.get('season_number', '') }}">
+        </div>
+        <div>
+          <label>Серия</label>
+          <input name="episode_number" type="number" min="1" value="{{ values.get('episode_number', '') }}">
         </div>
         <div>
           <label>Название сезона</label>
           <input name="season_name" value="{{ values.get('season_name', '') }}">
         </div>
         <div>
-          <label>Номер эпизода</label>
-          <input name="episode_number" type="number" min="1" value="{{ values.get('episode_number', '') }}">
-        </div>
-        <div>
-          <label>Название эпизода</label>
+          <label>Название серии</label>
           <input name="episode_name" value="{{ values.get('episode_name', '') }}">
         </div>
-        <div>
-          <label>Статус эпизода</label>
-          <select name="episode_status">
-            <option value="draft" {% if values.get('episode_status') == 'draft' %}selected{% endif %}>draft</option>
-            <option value="published" {% if values.get('episode_status') == 'published' %}selected{% endif %}>published</option>
-            <option value="archived" {% if values.get('episode_status') == 'archived' %}selected{% endif %}>archived</option>
-          </select>
-        </div>
       </div>
+
       <div style="margin-top:16px;">
-        <label>Описание сезона</label>
-        <textarea name="season_description">{{ values.get('season_description', '') }}</textarea>
+        <label>Описание карточки</label>
+        <textarea name="title_description">{{ values.get('title_description', '') }}</textarea>
       </div>
+
       <div style="margin-top:16px;">
-        <label>Синопсис эпизода</label>
+        <label>Описание серии</label>
         <textarea name="episode_synopsis">{{ values.get('episode_synopsis', '') }}</textarea>
       </div>
     </div>
 
     <div class="card" style="background:#f9fafb;">
-      <h3>3. Медиа</h3>
-      <p class="muted">Можно загрузить файл напрямую в Telegram и сохранить telegram_file_id, либо указать external_url.</p>
+      <h3>Фото / видео</h3>
       <div class="form-grid">
         <div>
           <label>Тип медиа</label>
           <select name="asset_type">
-            <option value="image" {% if values.get('asset_type') == 'image' %}selected{% endif %}>image</option>
-            <option value="poster" {% if values.get('asset_type') == 'poster' %}selected{% endif %}>poster</option>
-            <option value="video" {% if values.get('asset_type') == 'video' %}selected{% endif %}>video</option>
+            <option value="image" {% if values.get('asset_type') == 'image' %}selected{% endif %}>Фото</option>
+            <option value="poster" {% if values.get('asset_type') == 'poster' %}selected{% endif %}>Постер</option>
+            <option value="video" {% if values.get('asset_type') == 'video' %}selected{% endif %}>Видео</option>
           </select>
         </div>
         <div>
-          <label>MIME type (для external_url, опционально)</label>
+          <label>MIME type</label>
           <input name="mime_type" value="{{ values.get('mime_type', '') }}" placeholder="image/jpeg или video/mp4">
         </div>
         <div>
-          <label>Загрузка файла</label>
+          <label>Загрузить файл</label>
           <input type="file" name="media_file" accept="image/*,video/mp4">
         </div>
         <div>
           <label style="display:flex; gap:8px; align-items:center; font-weight:600; margin-top:30px;">
             <input type="checkbox" name="is_primary" {% if values.get('is_primary') %}checked{% endif %} style="width:auto;">
-            Сделать primary asset
+            Сделать главным медиа
           </label>
         </div>
       </div>
+
       <div style="margin-top:16px;">
-        <label>Или external_url</label>
+        <label>Или внешняя ссылка на медиа</label>
         <input name="external_url" value="{{ values.get('external_url', '') }}" placeholder="https://example.com/poster.jpg">
-      </div>
-      <div class="card" style="background:#fff; margin-top:16px;">
-        <b>Важно:</b><br>
-        Если загружаешь файл, в .env должен быть настроен <span class="code">TELEGRAM_MEDIA_UPLOAD_CHAT_ID</span>.<br>
-        Если поле файла пустое, система может создать карточку через <span class="code">external_url</span>.
       </div>
     </div>
 
     <div class="card" style="background:#f9fafb;">
-      <h3>4. Код карточки</h3>
-      <p class="muted">Код вводить не нужно — он генерируется автоматически при сохранении карточки.</p>
+      <h3>Код карточки</h3>
+      <p class="muted">Код вводить не нужно. Он создаётся автоматически внутри этой карточки.</p>
       <div class="form-grid">
         <div>
           <label style="display:flex; gap:8px; align-items:center; font-weight:600; margin-top:30px;">
             <input type="checkbox" name="generate_code" {% if values.get('generate_code') %}checked{% endif %} style="width:auto;">
-            Сгенерировать код автоматически
+            Автогенерация кода
           </label>
         </div>
         <div>

@@ -1,27 +1,26 @@
-# Stage 12 - Card Builder + Media Upload
+# Stage 13 - Card Builder UX + Bulk Selection
 
 В архиве:
-- весь stage 11
-- единое окно создания карточки контента
-- автоматическая генерация кода внутри карточки
-- загрузка изображения/видео в Telegram и сохранение telegram_file_id
-- fallback на external_url
-- результат создания карточки прямо на странице
+- весь stage 12
+- убраны быстрые кнопки с dashboard
+- упрощённое единое окно карточки
+- поле "Жанр" в карточке
+- авто-генерация кода внутри карточки
+- множественный выбор для удаления
+- множественный выбор для открытия нескольких страниц редактирования
+- улучшенный вывод жанра в lookup и в боте
 
-Новые ENV:
-- TELEGRAM_MEDIA_UPLOAD_CHAT_ID
-- ALLOWED_IMAGE_MIME
-- ALLOWED_VIDEO_MIME
-- MAX_IMAGE_SIZE_BYTES
-- MAX_VIDEO_SIZE_BYTES
-
-Новая страница:
-- /admin/card-builder
+Новая логика:
+- жанр хранится без ломки текущей БД
+- жанр кодируется внутри title.description служебной меткой и потом извлекается обратно
 
 Что проверять:
+- /admin
 - /admin/card-builder
-- создание карточки без медиа
-- создание карточки с external_url
-- создание карточки с upload image
-- создание карточки с upload video
-- generated code в карточке и в боте
+- /admin/titles
+- /admin/seasons
+- /admin/episodes
+- /admin/assets
+- /admin/codes
+- /admin/lookup-test
+- Telegram bot reply

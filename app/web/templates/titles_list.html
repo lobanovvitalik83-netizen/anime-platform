@@ -3,10 +3,16 @@
 <div class="btn-row" style="margin-bottom:16px;">
   <h1 style="margin:0; flex:1;">Тайтлы</h1>
   <a class="btn" href="/admin/titles/new">Новый тайтл</a>
+  <button class="btn secondary" type="button" onclick="return openSelectedEdit('/admin/titles', 'selected_ids')">Открыть выбранные в редактировании</button>
 </div>
+
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+<form method="post" action="/admin/titles/bulk-delete" onsubmit="return confirm('Удалить выбранные тайтлы?');">
 <table>
   <thead>
     <tr>
+      <th><input type="checkbox" onclick="toggleGroup(this, 'selected_ids')"></th>
       <th>ID</th>
       <th>Тип</th>
       <th>Название</th>
@@ -20,6 +26,7 @@
   <tbody>
     {% for item in titles %}
     <tr>
+      <td><input type="checkbox" name="selected_ids" value="{{ item.id }}"></td>
       <td>{{ item.id }}</td>
       <td>{{ item.type }}</td>
       <td>{{ item.title }}</td>
@@ -39,4 +46,8 @@
     {% endfor %}
   </tbody>
 </table>
+<div class="btn-row" style="margin-top:16px;">
+  <button class="btn" style="background:#dc2626;" type="submit">Удалить выбранные</button>
+</div>
+</form>
 {% endblock %}

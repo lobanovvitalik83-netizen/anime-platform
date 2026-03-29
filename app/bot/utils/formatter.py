@@ -21,6 +21,8 @@ def build_lookup_caption(result: PublicLookupResponse) -> str:
         lines.append("\n".join(title_parts))
 
     meta_lines: list[str] = []
+    if result.genre:
+        meta_lines.append(f"Жанр: {escape(result.genre)}")
     if result.title_type:
         meta_lines.append(f"Тип: {escape(result.title_type)}")
     if result.season_number is not None:
@@ -29,7 +31,7 @@ def build_lookup_caption(result: PublicLookupResponse) -> str:
             season_text += f" — {escape(result.season_name)}"
         meta_lines.append(season_text)
     if result.episode_number is not None:
-        episode_text = f"Эпизод {result.episode_number}"
+        episode_text = f"Серия {result.episode_number}"
         if result.episode_name:
             episode_text += f" — {escape(result.episode_name)}"
         meta_lines.append(episode_text)
@@ -54,6 +56,8 @@ def build_lookup_text(result: PublicLookupResponse) -> str:
         lines.append(escape(result.original_title))
     if result.year:
         lines.append(f"Год: {result.year}")
+    if result.genre:
+        lines.append(f"Жанр: {escape(result.genre)}")
     if result.title_type:
         lines.append(f"Тип: {escape(result.title_type)}")
     if result.season_number is not None:
@@ -62,7 +66,7 @@ def build_lookup_text(result: PublicLookupResponse) -> str:
             season_line += f" — {escape(result.season_name)}"
         lines.append(season_line)
     if result.episode_number is not None:
-        episode_line = f"Эпизод: {result.episode_number}"
+        episode_line = f"Серия: {result.episode_number}"
         if result.episode_name:
             episode_line += f" — {escape(result.episode_name)}"
         lines.append(episode_line)

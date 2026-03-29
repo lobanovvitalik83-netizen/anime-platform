@@ -6,6 +6,7 @@ class PublicLookupResponse(BaseModel):
     title_id: int | None
     title: str | None
     original_title: str | None
+    genre: str | None
     title_type: str | None
     title_status: str | None
     year: int | None

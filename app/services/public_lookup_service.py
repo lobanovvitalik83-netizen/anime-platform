@@ -5,6 +5,7 @@ from app.repositories.media_asset_repository import MediaAssetRepository
 from app.schemas.public_lookup import PublicLookupResponse
 from app.services.code_service import CodeService
 from app.services.media_service import MediaService
+from app.services.title_metadata_service import unpack_title_description
 
 
 class PublicLookupService:
@@ -34,11 +35,16 @@ class PublicLookupService:
             episode_id=episode.id if episode else None,
         )
 
+        title_genre = None
+        title_description = None
+        if title:
+            title_genre, title_description = unpack_title_description(title.description)
+
         description = None
         if episode and episode.synopsis:
             description = episode.synopsis
-        elif title and title.description:
-            description = title.description
+        elif title_description:
+            description = title_description
 
         has_media = bool(
             selected_asset
@@ -53,6 +59,7 @@ class PublicLookupService:
             title_id=title.id if title else None,
             title=title.title if title else None,
             original_title=title.original_title if title else None,
+            genre=title_genre,
             title_type=title.type if title else None,
             title_status=title.status if title else None,
             year=title.year if title else None,

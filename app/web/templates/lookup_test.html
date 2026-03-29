@@ -18,10 +18,11 @@
     <div class="card" style="margin-top:16px; background:#f9fafb;">
       <h2>Результат</h2>
       <p><b>Код:</b> <span class="code">{{ result.code }}</span></p>
-      <p><b>Title:</b> {{ result.title or "" }} {% if result.original_title %}({{ result.original_title }}){% endif %}</p>
-      <p><b>Season:</b> {{ result.season_number or "" }} {{ result.season_name or "" }}</p>
-      <p><b>Episode:</b> {{ result.episode_number or "" }} {{ result.episode_name or "" }}</p>
-      <p><b>Description:</b> {{ result.description or "" }}</p>
+      <p><b>Название:</b> {{ result.title or "" }} {% if result.original_title %}({{ result.original_title }}){% endif %}</p>
+      <p><b>Жанр:</b> {{ result.genre or "" }}</p>
+      <p><b>Сезон:</b> {{ result.season_number or "" }} {{ result.season_name or "" }}</p>
+      <p><b>Серия:</b> {{ result.episode_number or "" }} {{ result.episode_name or "" }}</p>
+      <p><b>Описание:</b> {{ result.description or "" }}</p>
       <p><b>Asset type:</b> {{ result.asset_type or "" }}</p>
       <p><b>Storage:</b> {{ result.storage_kind or "" }}</p>
       <p><b>Telegram file id:</b> {{ result.telegram_file_id or "" }}</p>
