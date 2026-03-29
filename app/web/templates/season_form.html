@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>Новый сезон</h1>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="post" action="/admin/seasons/new" class="grid">
+    <div class="form-grid">
+      <div>
+        <label>Тайтл</label>
+        <select name="title_id" required>
+          <option value="">Выбери тайтл</option>
+          {% for title in titles %}
+          <option value="{{ title.id }}" {% if values.get('title_id') == title.id %}selected{% endif %}>
+            {{ title.id }} - {{ title.title }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Номер сезона</label>
+        <input name="season_number" type="number" min="1" value="{{ values.get('season_number', '') }}" required>
+      </div>
+      <div>
+        <label>Название</label>
+        <input name="name" value="{{ values.get('name', '') }}">
+      </div>
+    </div>
+    <div>
+      <label>Описание</label>
+      <textarea name="description">{{ values.get('description', '') }}</textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn" type="submit">Сохранить</button>
+      <a class="btn secondary" href="/admin/seasons">Назад</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

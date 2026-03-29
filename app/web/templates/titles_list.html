@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="btn-row" style="margin-bottom:16px;">
+  <h1 style="margin:0; flex:1;">Тайтлы</h1>
+  <a class="btn" href="/admin/titles/new">Новый тайтл</a>
+</div>
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Тип</th>
+      <th>Название</th>
+      <th>Оригинал</th>
+      <th>Год</th>
+      <th>Статус</th>
+      <th>Создан</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in titles %}
+    <tr>
+      <td>{{ item.id }}</td>
+      <td>{{ item.type }}</td>
+      <td>{{ item.title }}</td>
+      <td>{{ item.original_title or "" }}</td>
+      <td>{{ item.year or "" }}</td>
+      <td>{{ item.status }}</td>
+      <td>{{ item.created_at }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

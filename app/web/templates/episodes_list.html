@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="btn-row" style="margin-bottom:16px;">
+  <h1 style="margin:0; flex:1;">Эпизоды</h1>
+  <a class="btn" href="/admin/episodes/new">Новый эпизод</a>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <form method="get" action="/admin/episodes" class="form-grid">
+    <div>
+      <label>Тайтл</label>
+      <select name="title_id">
+        <option value="">Все</option>
+        {% for title in titles %}
+        <option value="{{ title.id }}" {% if selected_title_id == title.id %}selected{% endif %}>{{ title.id }} - {{ title.title }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Сезон</label>
+      <select name="season_id">
+        <option value="">Все</option>
+        {% for season in seasons %}
+        <option value="{{ season.id }}" {% if selected_season_id == season.id %}selected{% endif %}>{{ season.id }} - S{{ season.season_number }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="btn-row" style="align-items:end;">
+      <button class="btn" type="submit">Фильтровать</button>
+    </div>
+  </form>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Title ID</th>
+      <th>Season ID</th>
+      <th>Эпизод</th>
+      <th>Название</th>
+      <th>Статус</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in episodes %}
+    <tr>
+      <td>{{ item.id }}</td>
+      <td>{{ item.title_id }}</td>
+      <td>{{ item.season_id or "" }}</td>
+      <td>{{ item.episode_number }}</td>
+      <td>{{ item.name or "" }}</td>
+      <td>{{ item.status }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

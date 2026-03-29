@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="btn-row" style="margin-bottom:16px;">
+  <h1 style="margin:0; flex:1;">Коды</h1>
+  <a class="btn green" href="/admin/codes/generate">Сгенерировать коды</a>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Код</th>
+      <th>Title</th>
+      <th>Season</th>
+      <th>Episode</th>
+      <th>Статус</th>
+      <th>Admin</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in codes %}
+    <tr>
+      <td>{{ item.id }}</td>
+      <td><span class="code">{{ item.code }}</span></td>
+      <td>{{ item.title_id or "" }}</td>
+      <td>{{ item.season_id or "" }}</td>
+      <td>{{ item.episode_id or "" }}</td>
+      <td>{{ item.status }}</td>
+      <td>{{ item.created_by_admin_id or "" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

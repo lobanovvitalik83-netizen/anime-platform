@@ -10,9 +10,11 @@ from app.api.routes.media_episodes import router as media_episodes_router
 from app.api.routes.media_seasons import router as media_seasons_router
 from app.api.routes.media_titles import router as media_titles_router
 from app.api.routes.public_lookup import router as public_lookup_router
+from app.core.config import settings
 from app.core.database import init_database
 from app.core.logging import configure_logging, get_logger
 from app.services.bootstrap_service import ensure_default_admin_exists
+from app.web.routes.admin import router as admin_web_router
 
 configure_logging()
 logger = get_logger(__name__)
@@ -28,7 +30,11 @@ async def lifespan(_: FastAPI):
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Media Bridge", debug=False, lifespan=lifespan)
+    app = FastAPI(
+        title=settings.app_name,
+        debug=settings.is_development,
+        lifespan=lifespan,
+    )
     app.include_router(health_router)
     app.include_router(auth_router)
     app.include_router(media_titles_router)
@@ -37,4 +43,5 @@ def create_app() -> FastAPI:
     app.include_router(media_assets_router)
     app.include_router(access_codes_router)
     app.include_router(public_lookup_router)
+    app.include_router(admin_web_router)
     return app

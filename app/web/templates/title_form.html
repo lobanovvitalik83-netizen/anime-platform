@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>Новый тайтл</h1>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="post" action="/admin/titles/new" class="grid">
+    <div class="form-grid">
+      <div>
+        <label>Тип</label>
+        <input name="type" value="{{ values.get('type', '') }}" placeholder="anime / movie / series" required>
+      </div>
+      <div>
+        <label>Название</label>
+        <input name="title" value="{{ values.get('title', '') }}" required>
+      </div>
+      <div>
+        <label>Оригинальное название</label>
+        <input name="original_title" value="{{ values.get('original_title', '') }}">
+      </div>
+      <div>
+        <label>Год</label>
+        <input name="year" type="number" value="{{ values.get('year', '') }}">
+      </div>
+      <div>
+        <label>Статус</label>
+        <input name="status" value="{{ values.get('status', 'draft') }}">
+      </div>
+    </div>
+    <div>
+      <label>Описание</label>
+      <textarea name="description">{{ values.get('description', '') }}</textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn" type="submit">Сохранить</button>
+      <a class="btn secondary" href="/admin/titles">Назад</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
