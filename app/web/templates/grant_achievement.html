@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Выдать ачивку</h1>
+    <div class="page-subtitle">Сотрудник: {{ person.full_name or person.username }}. Выданная ачивка сразу появится в профиле.</div>
+  </div>
+  <div class="btn-row">
+    <a class="btn secondary" href="/admin/people/{{ person.id }}">Назад к профилю</a>
+  </div>
+</div>
+
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+{% if success %}<div class="success">{{ success }}</div>{% endif %}
+
+<div class="grid two">
+  <div class="card">
+    <div class="section-title">Новая выдача</div>
+    <form method="post" action="/admin/people/{{ person.id }}/achievements/grant" class="grid">
+      <div>
+        <label>Ачивка</label>
+        <select name="achievement_id" required>
+          <option value="">Выбери ачивку</option>
+          {% for item in achievements %}
+          <option value="{{ item.id }}">{{ item.icon or '🏆' }} {{ item.title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Комментарий</label>
+        <textarea name="note" placeholder="Например: за быструю подготовку карточек"></textarea>
+      </div>
+      <div class="btn-row">
+        <button class="btn green" type="submit">Выдать ачивку</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Уже выдано</div>
+    {% if grants %}
+    <div class="stack">
+      {% for grant in grants %}
+      <div class="soft-card">
+        <div class="btn-row" style="justify-content:space-between;">
+          <div class="badge" style="background: {{ grant.achievement.color or '#f4f7ff' }}14; border-color: {{ grant.achievement.color or '#dfe7fb' }}66; color: {{ grant.achievement.color or '#3059d8' }};">
+            <span class="badge-icon">{{ grant.achievement.icon or '🏆' }}</span>
+            <span>{{ grant.achievement.title }}</span>
+          </div>
+          <form method="post" action="/admin/people/{{ person.id }}/achievements/{{ grant.id }}/revoke" class="inline" onsubmit="return confirm('Убрать эту ачивку у пользователя?');">
+            <button class="btn red" type="submit">Убрать</button>
+          </form>
+        </div>
+        <div class="muted" style="margin-top:8px;">Выдал: {{ grant.granted_by_admin.username if grant.granted_by_admin else '—' }} · {{ grant.created_at }}</div>
+        {% if grant.note %}<div style="margin-top:8px;">{{ grant.note }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="muted">У сотрудника пока нет выданных ачивок.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

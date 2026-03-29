@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{ page_title }}</h1>
+    <div class="page-subtitle">Настрой внешний вид ачивки и включи её для выдачи сотрудникам.</div>
+  </div>
+</div>
+
+<div class="card">
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  {% if success %}<div class="success">{{ success }}</div>{% endif %}
+
+  <form method="post" action="{{ action_url }}" class="grid">
+    <div class="form-grid">
+      <div>
+        <label>Название</label>
+        <input name="title" value="{{ values.get('title','') }}" required>
+      </div>
+      <div>
+        <label>Иконка</label>
+        <input name="icon" value="{{ values.get('icon','🏆') }}" placeholder="🏆">
+      </div>
+      <div>
+        <label>Цвет</label>
+        <input name="color" value="{{ values.get('color','#4f7cff') }}" placeholder="#4f7cff">
+      </div>
+      <div>
+        <label style="display:flex;gap:8px;align-items:center;margin-top:30px;">
+          <input type="checkbox" name="is_active" style="width:auto;" {% if values.get('is_active', True) %}checked{% endif %}>
+          Активна для выдачи
+        </label>
+      </div>
+    </div>
+    <div>
+      <label>Описание</label>
+      <textarea name="description">{{ values.get('description','') }}</textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn green" type="submit">{{ submit_label }}</button>
+      <a class="btn secondary" href="/admin/achievements">Назад</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

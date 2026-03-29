@@ -1,4 +1,5 @@
-from sqlalchemy import ForeignKey, Index, Text
+
+from sqlalchemy import BigInteger, ForeignKey, Index, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -15,7 +16,7 @@ class ReportMessage(TimestampMixin, Base):
     ticket_id: Mapped[int] = mapped_column(ForeignKey("report_tickets.id", ondelete="CASCADE"), nullable=False)
     direction: Mapped[str] = mapped_column(Text, nullable=False)
     admin_id: Mapped[int | None] = mapped_column(ForeignKey("admins.id", ondelete="SET NULL"), nullable=True)
-    tg_user_id: Mapped[int | None] = mapped_column(nullable=True)
+    tg_user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     body: Mapped[str] = mapped_column(Text, nullable=False)
 
     ticket = relationship("ReportTicket", back_populates="messages")

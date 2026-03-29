@@ -1,66 +1,51 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="public-card">
-  <div class="login-layout">
-    <div class="login-visual">
+<div class="login-card">
+  <div class="login-showcase">
+    <div class="chip">Media Bridge · admin panel</div>
+    <h1 class="showcase-title">Современная рабочая панель для медиа, кодов, репортов и команды.</h1>
+    <p class="showcase-subtitle">
+      Управляй карточками, общайся с редакторами, отвечай на репорты из Telegram и контролируй проект в одном месте.
+    </p>
+    <div class="feature-grid">
+      <div class="feature-tile">
+        <div class="feature-title">VK-like интерфейс</div>
+        <div class="feature-text">Левая навигация, верхняя панель, быстрые действия, живые чаты и чистая рабочая сетка.</div>
+      </div>
+      <div class="feature-tile">
+        <div class="feature-title">Telegram-style сообщения</div>
+        <div class="feature-text">Диалоги слева, переписка справа, автообновление без перезагрузки страницы.</div>
+      </div>
+      <div class="feature-tile">
+        <div class="feature-title">Репорты пользователей</div>
+        <div class="feature-text">Тикеты падают прямо в панель, ответ уходит пользователю обратно в Telegram.</div>
+      </div>
+      <div class="feature-tile">
+        <div class="feature-title">Ачивки и профили</div>
+        <div class="feature-text">Создавай награды и выдавай их сотрудникам, чтобы они отображались в профиле.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="login-panel">
+    <div class="chip gray" style="margin-bottom:10px;">Вход в систему</div>
+    <h1 style="margin:0 0 8px;font-size:32px;letter-spacing:-.03em;">Авторизация</h1>
+    <p class="muted" style="margin-bottom:18px;">Войди логином и паролем администратора.</p>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    <form method="post" action="/admin/login" class="grid">
       <div>
-        <div class="chip" style="background:rgba(255,255,255,.10);color:#fff;border-color:rgba(255,255,255,.12);">Telegram-style admin experience</div>
-        <h1>Современная панель проекта</h1>
-        <p>
-          Новый интерфейс разделяет контент, аналитику, репорты, сообщения, пользователей и настройки по понятным зонам,
-          как в современных manager-style сервисах.
-        </p>
-
-        <div class="login-features">
-          <div class="login-feature">
-            <b>Коммуникации отдельно</b>
-            <div class="muted" style="color:rgba(255,255,255,.72);margin-top:6px;">Сообщения и репорты больше не смешиваются с контентом.</div>
-          </div>
-          <div class="login-feature">
-            <b>Контроль отдельно</b>
-            <div class="muted" style="color:rgba(255,255,255,.72);margin-top:6px;">Аналитика, уведомления и действия админов находятся в отдельных зонах.</div>
-          </div>
-          <div class="login-feature">
-            <b>Профиль и настройки</b>
-            <div class="muted" style="color:rgba(255,255,255,.72);margin-top:6px;">Оформлены ближе к современным сервисам и внутренним менеджерам.</div>
-          </div>
-        </div>
+        <label for="username">Логин</label>
+        <input id="username" name="username" required autocomplete="username">
       </div>
-      <div class="muted" style="color:rgba(255,255,255,.58);">Media Bridge · secure admin access</div>
-    </div>
-
-    <div class="login-form-wrap">
-      <div class="login-form">
-        <div>
-          <div style="font-size:28px;font-weight:800;letter-spacing:-.02em;">Вход в панель</div>
-          <div class="muted" style="margin-top:8px;">Войди под своим логином и паролем администратора.</div>
-        </div>
-
-        {% if error %}
-        <div class="error">{{ error }}</div>
-        {% endif %}
-
-        <form method="post" action="/admin/login" class="grid">
-          <div>
-            <label for="username">Логин</label>
-            <input id="username" name="username" placeholder="Введите логин" required>
-          </div>
-          <div>
-            <label for="password">Пароль</label>
-            <input id="password" name="password" type="password" placeholder="Введите пароль" required>
-          </div>
-          <button class="btn" type="submit">Войти</button>
-        </form>
-
-        <div class="auth-divider">или</div>
-
-        <div class="btn-row">
-          <a class="btn ghost" href="/admin/forgot-password">Забыл пароль</a>
-        </div>
-
-        <div class="muted">Сброс пароля пока создаёт внутренний запрос администратору. Почту подключим следующим этапом.</div>
+      <div>
+        <label for="password">Пароль</label>
+        <input id="password" name="password" type="password" required autocomplete="current-password">
       </div>
-    </div>
+      <div class="btn-row">
+        <button class="btn" type="submit">Войти</button>
+        <a class="btn secondary" href="/admin/forgot-password">Забыл пароль</a>
+      </div>
+    </form>
   </div>
 </div>
 {% endblock %}

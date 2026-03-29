@@ -3,57 +3,56 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Сотрудники</h1>
-    <div class="page-subtitle">
-      Отдельная витрина команды: профили, должности и быстрый переход к личному общению.
-    </div>
+    <div class="page-subtitle">Команда проекта: профили, должности, внутренние сообщения и рабочие достижения.</div>
+  </div>
+  <div class="btn-row">
+    <a class="btn secondary" href="/admin/chats-live">Сообщения</a>
+    {% if current_admin.role in ["admin","assistant","superadmin"] %}
+    <a class="btn" href="/admin/achievements">Ачивки</a>
+    {% endif %}
   </div>
 </div>
 
-<div class="card" style="margin-bottom:18px;">
+<div class="card" style="margin-bottom:16px;">
   <form method="get" action="/admin/people" class="form-grid">
     <div>
       <label>Поиск</label>
-      <input name="q" value="{{ q or '' }}" placeholder="Имя, логин, должность">
+      <input name="q" value="{{ q }}" placeholder="Имя, логин, должность">
     </div>
-    <div class="btn-row" style="align-items:flex-end;">
+    <div class="btn-row" style="align-items:end;">
       <button class="btn" type="submit">Найти</button>
-      <a class="btn ghost" href="/admin/people">Сбросить</a>
+      <a class="btn secondary" href="/admin/people">Сбросить</a>
     </div>
   </form>
 </div>
 
 <div class="grid cards">
-  {% for person in people %}
+  {% for item in people %}
   <div class="card">
-    <div class="btn-row" style="align-items:center;margin-bottom:14px;">
-      <div class="avatar" style="width:72px;height:72px;border-radius:18px;">
-        {% if person.avatar_url %}
-          <img src="{{ person.avatar_url }}" alt="avatar">
-        {% else %}
-          <span>{{ (person.full_name or person.username)[0:1] }}</span>
-        {% endif %}
+    <div class="btn-row" style="justify-content:space-between;align-items:flex-start;">
+      <div class="avatar">
+        {% if item.avatar_url %}<img src="{{ item.avatar_url }}" alt="avatar">{% else %}{{ (item.full_name or item.username)[0:1]|upper }}{% endif %}
       </div>
-      <div>
-        <div style="font-size:20px;font-weight:800;">{{ person.full_name or person.username }}</div>
-        <div class="muted">{{ person.position or "Без должности" }}</div>
-        <div class="inline-list" style="margin-top:8px;">
-          <span class="chip">{{ person.role }}</span>
-          {% if person.is_active %}<span class="chip green">Активен</span>{% else %}<span class="chip red">Скрыт</span>{% endif %}
-        </div>
-      </div>
+      <span class="chip">{{ item.role }}</span>
     </div>
-    <div class="muted" style="min-height:42px;">{{ person.about or "Профиль пока не заполнен." }}</div>
+    <h3 style="margin:14px 0 6px;font-size:22px;">{{ item.full_name or item.username }}</h3>
+    <div class="muted">@{{ item.username }}</div>
+    <div class="muted" style="margin-top:8px;">{{ item.position or "Без должности" }}</div>
+    {% if item.about %}<div style="margin-top:12px;">{{ item.about }}</div>{% endif %}
     <div class="btn-row" style="margin-top:14px;">
-      <a class="btn secondary" href="/admin/people/{{ person.id }}">Открыть профиль</a>
-      {% if messages_enabled and person.id != current_admin.id %}
-      <form method="post" action="/admin/people/{{ person.id }}/message" class="inline">
-        <button class="btn ghost" type="submit">Написать</button>
+      <a class="btn secondary" href="/admin/people/{{ item.id }}">Открыть профиль</a>
+      {% if messages_enabled and item.id != current_admin.id %}
+      <form method="post" action="/admin/people/{{ item.id }}/message" class="inline">
+        <button class="btn green" type="submit">Написать</button>
       </form>
+      {% endif %}
+      {% if current_admin.role in ["admin","assistant","superadmin"] and item.id != current_admin.id %}
+      <a class="btn ghost" href="/admin/people/{{ item.id }}/achievements/grant">Выдать ачивку</a>
       {% endif %}
     </div>
   </div>
   {% else %}
-  <div class="card empty-state">Сотрудники не найдены.</div>
+  <div class="card"><div class="muted">Сотрудников пока нет.</div></div>
   {% endfor %}
 </div>
 {% endblock %}

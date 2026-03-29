@@ -3,68 +3,17 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Аналитика</h1>
-    <div class="page-subtitle">
-      Объединённый аналитический обзор: lookup, репорты, сотрудники и ключевые счётчики проекта в одном месте.
-    </div>
+    <div class="page-subtitle">Сводка по lookup, кодам, репортам и активности команды.</div>
   </div>
   <div class="btn-row">
-    <a class="btn secondary" href="/admin/analytics/advanced">Расширенная</a>
-    <a class="btn ghost" href="/admin/export/analytics.csv">Экспорт CSV</a>
+    <a class="btn secondary" href="/admin/analytics/advanced">Расширенная аналитика</a>
   </div>
 </div>
 
-<div class="grid cards" style="margin-bottom:18px;">
+<div class="grid cards">
   <div class="card"><div class="stat">{{ summary.total_attempts }}</div><div class="stat-label">Всего lookup</div></div>
   <div class="card"><div class="stat">{{ summary.found_attempts }}</div><div class="stat-label">Найдено</div></div>
   <div class="card"><div class="stat">{{ summary.not_found_attempts }}</div><div class="stat-label">Не найдено</div></div>
   <div class="card"><div class="stat">{{ summary.reports_open }}</div><div class="stat-label">Открытых репортов</div></div>
-</div>
-
-<div class="grid two">
-  <div class="card">
-    <h2 class="section-title">Коды</h2>
-    <div class="section-subtitle">Последняя статистика по кодам и поиску.</div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Код</th>
-            <th>Карточка</th>
-            <th>Найдено</th>
-            <th>Не найдено</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in code_rows[:10] %}
-          <tr>
-            <td><a href="/admin/analytics/codes/{{ row.code_value }}"><span class="code">{{ row.code_value }}</span></a></td>
-            <td>{{ row.title_name or "—" }}</td>
-            <td>{{ row.found_attempts }}</td>
-            <td>{{ row.not_found_attempts }}</td>
-          </tr>
-          {% else %}
-          <tr><td colspan="4"><span class="muted">Нет данных.</span></td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2 class="section-title">Активность сотрудников</h2>
-    <div class="section-subtitle">Кто чаще всего выполняет действия в панели.</div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>ID</th><th>Логин</th><th>Роль</th><th>Действий</th></tr></thead>
-        <tbody>
-          {% for row in staff_activity[:10] %}
-          <tr><td>{{ row.admin_id }}</td><td>{{ row.username }}</td><td>{{ row.role }}</td><td>{{ row.actions_count }}</td></tr>
-          {% else %}
-          <tr><td colspan="4"><span class="muted">Нет данных.</span></td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
 </div>
 {% endblock %}

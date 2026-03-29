@@ -3,28 +3,25 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Профиль</h1>
-    <div class="page-subtitle">
-      Личное пространство пользователя: данные профиля, аватар и смена пароля в отдельном современном разделе.
-    </div>
+    <div class="page-subtitle">Персональная страница сотрудника с данными, безопасностью и выданными ачивками.</div>
   </div>
 </div>
 
-<div class="grid two">
-  <div class="card">
-    <div class="btn-row" style="align-items:center;margin-bottom:18px;">
-      <div class="avatar" style="width:74px;height:74px;border-radius:20px;">
-        {% if current_admin.avatar_url %}
-          <img src="{{ current_admin.avatar_url }}" alt="avatar">
-        {% else %}
-          <span>{{ (current_admin.full_name or current_admin.username)[0:1] }}</span>
-        {% endif %}
-      </div>
-      <div>
-        <div style="font-size:24px;font-weight:800;">{{ current_admin.full_name or current_admin.username }}</div>
-        <div class="muted">{{ current_admin.position or "Без должности" }}</div>
-        <div class="inline-list" style="margin-top:8px;">
-          <span class="chip">{{ current_admin.role }}</span>
-          <span class="chip gray">{{ current_admin.username }}</span>
+<div class="layout-vk">
+  <div class="stack">
+    <div class="profile-hero">
+      <div class="cover"></div>
+      <div class="profile-head">
+        <div class="avatar avatar-lg">
+          {% if current_admin.avatar_url %}<img src="{{ current_admin.avatar_url }}" alt="avatar">{% else %}{{ (current_admin.full_name or current_admin.username)[0:1]|upper }}{% endif %}
+        </div>
+        <div class="profile-main">
+          <h1 class="profile-name">{{ current_admin.full_name or current_admin.username }}</h1>
+          <div class="muted">@{{ current_admin.username }} · {{ current_admin.role }}</div>
+          <div class="muted" style="margin-top:8px;">{{ current_admin.position or "Добавь должность в профиле" }}</div>
+        </div>
+        <div class="profile-actions">
+          <a class="btn secondary" href="/admin/people/{{ current_admin.id }}">Открыть как страницу</a>
         </div>
       </div>
     </div>
@@ -32,70 +29,98 @@
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
     {% if success %}<div class="success">{{ success }}</div>{% endif %}
 
-    <form method="post" action="/admin/profile" enctype="multipart/form-data" class="grid">
-      <div class="form-grid">
-        <div>
-          <label>Логин</label>
-          {% if current_admin.role == "superadmin" %}
-          <input name="username" value="{{ current_admin.username }}" required>
-          {% else %}
-          <input value="{{ current_admin.username }}" readonly disabled>
-          {% endif %}
+    <div class="card">
+      <div class="section-title">Редактирование профиля</div>
+      <form method="post" action="/admin/profile" enctype="multipart/form-data" class="grid">
+        <div class="form-grid">
+          <div>
+            <label>Логин</label>
+            {% if current_admin.role == "superadmin" %}
+            <input name="username" value="{{ current_admin.username }}" required>
+            {% else %}
+            <input value="{{ current_admin.username }}" readonly disabled>
+            {% endif %}
+          </div>
+          <div>
+            <label>Роль</label>
+            <input value="{{ current_admin.role }}" readonly disabled>
+          </div>
+          <div>
+            <label>Имя</label>
+            <input name="full_name" value="{{ current_admin.full_name or '' }}">
+          </div>
+          <div>
+            <label>Должность</label>
+            <input name="position" value="{{ current_admin.position or '' }}">
+          </div>
         </div>
         <div>
-          <label>Роль</label>
-          <input value="{{ current_admin.role }}" readonly disabled>
+          <label>О себе</label>
+          <textarea name="about">{{ current_admin.about or '' }}</textarea>
         </div>
-        <div>
-          <label>Имя</label>
-          <input name="full_name" value="{{ current_admin.full_name or '' }}">
+        <div class="form-grid">
+          <div>
+            <label>Аватар по ссылке</label>
+            <input name="avatar_url" value="{{ current_admin.avatar_url or '' }}" placeholder="https://...">
+          </div>
+          <div>
+            <label>Или загрузить файл</label>
+            <input type="file" name="avatar_file" accept="image/*">
+          </div>
         </div>
-        <div>
-          <label>Должность</label>
-          <input name="position" value="{{ current_admin.position or '' }}">
+        <div class="btn-row">
+          <button class="btn green" type="submit">Сохранить профиль</button>
         </div>
-      </div>
+      </form>
+    </div>
 
-      <div>
-        <label>Описание профиля</label>
-        <textarea name="about">{{ current_admin.about or '' }}</textarea>
-      </div>
-
-      <div class="form-grid">
-        <div>
-          <label>Аватар по ссылке</label>
-          <input name="avatar_url" value="{{ current_admin.avatar_url or '' }}" placeholder="https://... или /uploads/avatars/...">
+    <div class="card">
+      <div class="section-title">Безопасность</div>
+      {% if password_error %}<div class="error">{{ password_error }}</div>{% endif %}
+      {% if password_success %}<div class="success">{{ password_success }}</div>{% endif %}
+      <form method="post" action="/admin/profile/password" class="grid">
+        <div class="form-grid">
+          <div>
+            <label>Текущий пароль</label>
+            <input type="password" name="current_password" required>
+          </div>
+          <div>
+            <label>Новый пароль</label>
+            <input type="password" name="new_password" required>
+          </div>
         </div>
-        <div>
-          <label>Или загрузить аватар</label>
-          <input type="file" name="avatar_file" accept="image/*">
+        <div class="btn-row">
+          <button class="btn" type="submit">Изменить пароль</button>
         </div>
-      </div>
-
-      <div class="btn-row">
-        <button class="btn green" type="submit">Сохранить профиль</button>
-      </div>
-    </form>
+      </form>
+    </div>
   </div>
 
-  <div class="card">
-    <h2 class="section-title">Смена пароля</h2>
-    <div class="section-subtitle">Измени пароль для своей учётной записи.</div>
-    {% if password_error %}<div class="error">{{ password_error }}</div>{% endif %}
-    {% if password_success %}<div class="success">{{ password_success }}</div>{% endif %}
-    <form method="post" action="/admin/profile/password" class="grid">
-      <div>
-        <label>Текущий пароль</label>
-        <input type="password" name="current_password" required>
+  <div class="stack">
+    <div class="card">
+      <div class="section-title">Мои ачивки</div>
+      {% if achievements %}
+      <div class="achievements">
+        {% for grant in achievements %}
+        <div class="badge" style="background: {{ grant.achievement.color or '#f4f7ff' }}14; border-color: {{ grant.achievement.color or '#dfe7fb' }}66; color: {{ grant.achievement.color or '#3059d8' }};">
+          <span class="badge-icon">{{ grant.achievement.icon or '🏆' }}</span>
+          <span>{{ grant.achievement.title }}</span>
+        </div>
+        {% endfor %}
       </div>
-      <div>
-        <label>Новый пароль</label>
-        <input type="password" name="new_password" required>
+      {% else %}
+      <div class="muted">Пока у тебя нет выданных ачивок.</div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <div class="section-title">Короткая информация</div>
+      <div class="stack" style="gap:10px;">
+        <div><b>Логин:</b> @{{ current_admin.username }}</div>
+        <div><b>Роль:</b> {{ current_admin.role }}</div>
+        <div><b>Должность:</b> {{ current_admin.position or "—" }}</div>
       </div>
-      <div class="btn-row">
-        <button class="btn green" type="submit">Изменить пароль</button>
-      </div>
-    </form>
+    </div>
   </div>
 </div>
 {% endblock %}

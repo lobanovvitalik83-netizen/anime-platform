@@ -3,46 +3,26 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Уведомления</h1>
-    <div class="page-subtitle">
-      Личный центр событий пользователя: новые репорты, ответы, сообщения и системные изменения по карточкам.
-    </div>
+    <div class="page-subtitle">Новые репорты, сообщения, ответы, изменения карточек и внутренние системные события.</div>
   </div>
   <div class="btn-row">
-    <a class="btn ghost" href="/admin/notifications">Все</a>
-    <a class="btn secondary" href="/admin/notifications?only_unread=true">Только новые</a>
+    <a class="btn secondary" href="/admin/notifications">Все</a>
+    <a class="btn ghost" href="/admin/notifications?only_unread=true">Только непрочитанные</a>
   </div>
 </div>
 
 <div class="table-wrap">
   <table>
-    <thead>
-      <tr>
-        <th>Когда</th>
-        <th>Тип</th>
-        <th>Заголовок</th>
-        <th>Описание</th>
-        <th>Статус</th>
-        <th></th>
-      </tr>
-    </thead>
+    <thead><tr><th>Когда</th><th>Тип</th><th>Заголовок</th><th>Описание</th><th>Статус</th><th></th></tr></thead>
     <tbody>
       {% for item in rows %}
       <tr>
         <td>{{ item.created_at }}</td>
         <td><span class="chip gray">{{ item.kind }}</span></td>
-        <td><b>{{ item.title }}</b></td>
+        <td>{{ item.title }}</td>
         <td>{{ item.body or "—" }}</td>
         <td>{% if item.is_read %}<span class="chip gray">Прочитано</span>{% else %}<span class="chip green">Новое</span>{% endif %}</td>
-        <td>
-          <div class="btn-row">
-            {% if item.link_url %}<a class="btn ghost" href="{{ item.link_url }}">Открыть</a>{% endif %}
-            {% if not item.is_read %}
-            <form method="post" action="/admin/notifications/{{ item.id }}/read" class="inline">
-              <button class="btn green" type="submit">Пометить как прочитанное</button>
-            </form>
-            {% endif %}
-          </div>
-        </td>
+        <td>{% if item.link_url %}<a class="btn secondary" href="{{ item.link_url }}">Открыть</a>{% endif %}</td>
       </tr>
       {% else %}
       <tr><td colspan="6"><span class="muted">Уведомлений пока нет.</span></td></tr>

@@ -1,65 +1,62 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="page-header">
-  <div>
-    <h1 class="page-title">Импорт / экспорт</h1>
-    <div class="page-subtitle">
-      Базовый раздел для загрузки CSV и выгрузки данных. Для полной выгрузки проекта используй расширенный раздел.
-    </div>
-  </div>
-  <div class="btn-row">
-    <a class="btn secondary" href="/admin/import-export/advanced">Расширенный режим</a>
-  </div>
-</div>
+<h1>Импорт / экспорт</h1>
 
-{% if error %}<div class="error">{{ error }}</div>{% endif %}
-{% if success %}<div class="success">{{ success }}</div>{% endif %}
+{% if error %}
+<div class="error">{{ error }}</div>
+{% endif %}
+{% if success %}
+<div class="success">{{ success }}</div>
+{% endif %}
 
-<div class="grid two">
+<div class="grid cards" style="margin-bottom:18px;">
   <div class="card">
-    <h2 class="section-title">Экспорт</h2>
-    <div class="section-subtitle">Скачать рабочие данные по разделам.</div>
+    <h3>Экспорт CSV</h3>
     <div class="btn-row">
-      <a class="btn ghost" href="/admin/export/titles.csv">Тайтлы</a>
-      <a class="btn ghost" href="/admin/export/seasons.csv">Сезоны</a>
-      <a class="btn ghost" href="/admin/export/episodes.csv">Эпизоды</a>
-      <a class="btn ghost" href="/admin/export/assets.csv">Медиа</a>
-      <a class="btn ghost" href="/admin/export/codes.csv">Коды</a>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2 class="section-title">Шаблоны</h2>
-    <div class="section-subtitle">Файлы для корректной массовой загрузки CSV.</div>
-    <div class="btn-row">
-      <a class="btn ghost" href="/admin/templates/titles.csv">Шаблон titles</a>
-      <a class="btn ghost" href="/admin/templates/codes.csv">Шаблон codes</a>
-      <a class="btn ghost" href="/admin/import-jobs">История импортов</a>
+      <a class="btn secondary" href="/admin/export/titles.csv">Тайтлы</a>
+      <a class="btn secondary" href="/admin/export/seasons.csv">Сезоны</a>
+      <a class="btn secondary" href="/admin/export/episodes.csv">Эпизоды</a>
+      <a class="btn secondary" href="/admin/export/assets.csv">Ассеты</a>
+      <a class="btn secondary" href="/admin/export/codes.csv">Коды</a>
     </div>
   </div>
 </div>
 
-<div class="grid two" style="margin-top:18px;">
+<div class="grid cards">
   <div class="card">
-    <h2 class="section-title">Импорт тайтлов</h2>
+    <h3>Импорт тайтлов из CSV</h3>
+    <p class="muted">Обязательные колонки: <span class="code">type,title</span></p>
+    <p class="muted">Дополнительные: <span class="code">original_title,description,year,status</span></p>
     <form method="post" action="/admin/import/titles/csv" enctype="multipart/form-data" class="grid">
       <div>
         <label>CSV файл</label>
         <input type="file" name="file" accept=".csv,text/csv" required>
       </div>
-      <button class="btn green" type="submit">Импортировать</button>
+      <button class="btn" type="submit">Импортировать titles</button>
     </form>
   </div>
 
   <div class="card">
-    <h2 class="section-title">Импорт кодов</h2>
+    <h3>Импорт кодов из CSV</h3>
+    <p class="muted">Обязательная колонка: <span class="code">code</span></p>
+    <p class="muted">Дополнительные: <span class="code">title_id,season_id,episode_id,status</span></p>
     <form method="post" action="/admin/import/codes/csv" enctype="multipart/form-data" class="grid">
       <div>
         <label>CSV файл</label>
         <input type="file" name="file" accept=".csv,text/csv" required>
       </div>
-      <button class="btn green" type="submit">Импортировать</button>
+      <button class="btn" type="submit">Импортировать codes</button>
     </form>
   </div>
+</div>
+
+<div class="card" style="margin-top:18px;">
+  <h3>Пример titles CSV</h3>
+  <pre class="code" style="display:block; white-space:pre-wrap; padding:12px;">type,title,original_title,description,year,status
+anime,Naruto,ナルト,Test description,2002,draft</pre>
+
+  <h3 style="margin-top:16px;">Пример codes CSV</h3>
+  <pre class="code" style="display:block; white-space:pre-wrap; padding:12px;">code,title_id,season_id,episode_id,status
+12345678,1,1,1,active</pre>
 </div>
 {% endblock %}

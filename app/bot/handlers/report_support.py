@@ -1,3 +1,4 @@
+
 from aiogram import F, Router
 from aiogram.types import Message
 
@@ -14,14 +15,14 @@ from app.services.report_service import ReportService
 router = Router()
 
 
-@router.message(F.text)
+@router.message(
+    F.text,
+    ~F.text.startswith("/"),
+    ~F.text.in_({MAIN_MENU_BUTTON_HELP, MAIN_MENU_BUTTON_LOOKUP, MAIN_MENU_BUTTON_REPORT}),
+)
 async def report_support_handler(message: Message) -> None:
     text = (message.text or "").strip()
-    if not text or text.startswith("/"):
-        return
-    if text in {MAIN_MENU_BUTTON_HELP, MAIN_MENU_BUTTON_LOOKUP, MAIN_MENU_BUTTON_REPORT}:
-        return
-    if text.isdigit():
+    if not text:
         return
     if get_user_mode(message.from_user.id) != USER_MODE_REPORT:
         return
@@ -38,13 +39,7 @@ async def report_support_handler(message: Message) -> None:
                 body=text,
             )
         except Exception as exc:
-            await message.answer(
-                f"Не удалось отправить обращение. Ошибка: {exc}",
-                reply_markup=build_main_menu(),
-            )
+            await message.answer(f"Не удалось отправить обращение. Ошибка: {exc}", reply_markup=build_main_menu())
             return
 
-    await message.answer(
-        f"Обращение отправлено в поддержку. Номер обращения: #{ticket.id}",
-        reply_markup=build_main_menu(),
-    )
+    await message.answer(f"Обращение отправлено в поддержку. Номер обращения: #{ticket.id}", reply_markup=build_main_menu())

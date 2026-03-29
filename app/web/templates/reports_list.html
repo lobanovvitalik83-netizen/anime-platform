@@ -3,56 +3,28 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Репорты</h1>
-    <div class="page-subtitle">Отдельный рабочий список обращений из Telegram. Здесь удобно фильтровать, открывать и обрабатывать тикеты.</div>
-  </div>
-  <div class="btn-row">
-    <a class="btn ghost" href="/admin/reports">Все</a>
-    <a class="btn secondary" href="/admin/reports?status=open">Открытые</a>
-    <a class="btn secondary" href="/admin/reports?status=in_progress">В работе</a>
-    <a class="btn secondary" href="/admin/reports?status=closed">Закрытые</a>
+    <div class="page-subtitle">Входящие обращения из Telegram-бота. Открывай тикет и отвечай прямо пользователю.</div>
   </div>
 </div>
-
 {% if error %}<div class="error">{{ error }}</div>{% endif %}
-
 <div class="table-wrap">
-  <table>
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Статус</th>
-        <th>Пользователь</th>
-        <th>Telegram</th>
-        <th>Последнее сообщение</th>
-        <th>Обновлён</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for item in tickets %}
-      <tr>
-        <td><span class="code">#{{ item.id }}</span></td>
-        <td>
-          <span class="chip {% if item.status == 'closed' %}gray{% elif item.status == 'in_progress' %}yellow{% else %}green{% endif %}">
-            {{ item.status }}
-          </span>
-        </td>
-        <td>{{ item.tg_full_name or item.tg_username or item.tg_user_id }}</td>
-        <td>
-          {% if item.tg_username %}
-            <a href="https://t.me/{{ item.tg_username }}" target="_blank">@{{ item.tg_username }}</a>
-          {% else %}
-            <a href="tg://user?id={{ item.tg_user_id }}">tg://user?id={{ item.tg_user_id }}</a>
-          {% endif %}
-        </td>
-        <td>{{ item.last_message_preview or "—" }}</td>
-        <td>{{ item.updated_at }}</td>
-        <td><a class="btn secondary" href="/admin/reports/{{ item.id }}">Открыть тикет</a></td>
-      </tr>
-      {% else %}
-      <tr><td colspan="7"><span class="muted">Репортов пока нет.</span></td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<table>
+<thead><tr><th>ID</th><th>Статус</th><th>Пользователь</th><th>Telegram</th><th>Последнее сообщение</th><th>Обновлён</th><th></th></tr></thead>
+<tbody>
+{% for item in tickets %}
+<tr>
+  <td><span class="code">#{{ item.id }}</span></td>
+  <td><span class="chip {% if item.status == 'closed' %}gray{% elif item.status == 'in_progress' %}orange{% else %}green{% endif %}">{{ item.status }}</span></td>
+  <td>{{ item.tg_full_name or item.tg_username or item.tg_user_id }}</td>
+  <td>{% if item.tg_username %}<a href="https://t.me/{{ item.tg_username }}" target="_blank">@{{ item.tg_username }}</a>{% else %}<a href="tg://user?id={{ item.tg_user_id }}">tg://user?id={{ item.tg_user_id }}</a>{% endif %}</td>
+  <td>{{ item.last_message_preview or "—" }}</td>
+  <td>{{ item.updated_at }}</td>
+  <td><a class="btn secondary" href="/admin/reports/{{ item.id }}">Открыть</a></td>
+</tr>
+{% else %}
+<tr><td colspan="7"><span class="muted">Репортов пока нет.</span></td></tr>
+{% endfor %}
+</tbody>
+</table>
 </div>
 {% endblock %}

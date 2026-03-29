@@ -1,4 +1,5 @@
 from datetime import datetime
+import csv
 import io
 import zipfile
 
@@ -261,3 +262,35 @@ async def user_permissions_submit(admin_id: int, request: Request, db: Session =
     target = admins_repo.update(target, extra_permissions=PermissionService().serialize_permissions(selected))
     db.commit()
     return render_template("permissions_form.html", request, page_title="Разрешения", current_admin=current_admin, target=target, all_permissions=ALL_PERMISSIONS, permission_labels=PERMISSION_LABELS, selected_permissions=selected, error=None, success="Разрешения обновлены.")
+
+
+@router.get("/admin/export/admin-actions.csv")
+def export_admin_actions_csv(
+    request: Request,
+    db: Session = Depends(get_db_session),
+    admin_id: int | None = None,
+    action: str = "",
+    date_from: str = "",
+    date_to: str = "",
+    sort: str = "desc",
+):
+    current_admin, redirect = require_auth(request, db, permission="admin_actions_view")
+    if redirect:
+        return redirect
+    repo = AuditLogRepository(db)
+    rows = repo.list_filtered(admin_id=admin_id, action=action, date_from=date_from, date_to=date_to, sort=sort, limit=5000)
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=["created_at", "admin_id", "admin_username", "admin_role", "action", "entity_type", "entity_id", "payload_json"])
+    writer.writeheader()
+    for item in rows:
+        writer.writerow({
+            "created_at": item.created_at.isoformat() if item.created_at else "",
+            "admin_id": item.admin_id or "",
+            "admin_username": item.admin.username if item.admin else "",
+            "admin_role": item.admin.role if item.admin else "",
+            "action": item.action,
+            "entity_type": item.entity_type,
+            "entity_id": item.entity_id,
+            "payload_json": item.payload_json or "",
+        })
+    return Response(content=buffer.getvalue(), media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=admin_actions.csv"})

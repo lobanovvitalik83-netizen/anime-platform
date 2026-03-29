@@ -2,44 +2,73 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{ person.full_name or person.username }}</h1>
-    <div class="page-subtitle">Профиль сотрудника внутри команды.</div>
+    <h1 class="page-title">Профиль сотрудника</h1>
+    <div class="page-subtitle">Публичная рабочая страница внутри системы: профиль, должность, описание и выданные ачивки.</div>
   </div>
   <div class="btn-row">
-    <a class="btn ghost" href="/admin/people">Назад к сотрудникам</a>
+    <a class="btn secondary" href="/admin/people">Назад к сотрудникам</a>
     {% if messages_enabled and person.id != current_admin.id %}
     <form method="post" action="/admin/people/{{ person.id }}/message" class="inline">
       <button class="btn green" type="submit">Написать сообщение</button>
     </form>
     {% endif %}
+    {% if current_admin.role in ["admin","assistant","superadmin"] and person.id != current_admin.id %}
+    <a class="btn" href="/admin/people/{{ person.id }}/achievements/grant">Выдать ачивку</a>
+    {% endif %}
   </div>
 </div>
 
-<div class="grid two">
-  <div class="card">
-    <div class="btn-row" style="align-items:center;margin-bottom:16px;">
-      <div class="avatar" style="width:80px;height:80px;border-radius:20px;">
-        {% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="avatar">{% else %}<span>{{ (person.full_name or person.username)[0:1] }}</span>{% endif %}
-      </div>
-      <div>
-        <div style="font-size:24px;font-weight:800;">{{ person.full_name or person.username }}</div>
-        <div class="muted">{{ person.position or "Без должности" }}</div>
-        <div class="inline-list" style="margin-top:8px;">
-          <span class="chip">{{ person.role }}</span>
-          {% if person.is_active %}<span class="chip green">Активен</span>{% else %}<span class="chip red">Скрыт</span>{% endif %}
+<div class="layout-vk">
+  <div class="stack">
+    <div class="profile-hero">
+      <div class="cover"></div>
+      <div class="profile-head">
+        <div class="avatar avatar-lg">
+          {% if person.avatar_url %}<img src="{{ person.avatar_url }}" alt="avatar">{% else %}{{ (person.full_name or person.username)[0:1]|upper }}{% endif %}
+        </div>
+        <div class="profile-main">
+          <h1 class="profile-name">{{ person.full_name or person.username }}</h1>
+          <div class="muted">@{{ person.username }} · {{ person.role }}</div>
+          <div class="muted" style="margin-top:8px;">{{ person.position or "Без должности" }}</div>
         </div>
       </div>
     </div>
-    <div class="muted">{{ person.about or "Профиль пока не заполнен." }}</div>
+
+    <div class="card">
+      <div class="section-title">О сотруднике</div>
+      {% if person.about %}
+      <div>{{ person.about }}</div>
+      {% else %}
+      <div class="muted">Пока без описания.</div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <div class="section-title">Выданные ачивки</div>
+      {% if person_achievements %}
+      <div class="achievements">
+        {% for grant in person_achievements %}
+        <div class="badge" style="background: {{ grant.achievement.color or '#f4f7ff' }}14; border-color: {{ grant.achievement.color or '#dfe7fb' }}66; color: {{ grant.achievement.color or '#3059d8' }};">
+          <span class="badge-icon">{{ grant.achievement.icon or '🏆' }}</span>
+          <span>{{ grant.achievement.title }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="muted">Пока ачивок нет.</div>
+      {% endif %}
+    </div>
   </div>
 
-  <div class="card">
-    <h2 class="section-title">Служебная информация</h2>
-    <div class="grid" style="gap:10px;">
-      <div><b>Логин:</b> {{ person.username }}</div>
-      <div><b>Роль:</b> {{ person.role }}</div>
-      <div><b>Должность:</b> {{ person.position or "—" }}</div>
-      <div><b>Создан:</b> {{ person.created_at }}</div>
+  <div class="stack">
+    <div class="card">
+      <div class="section-title">Данные</div>
+      <div class="stack" style="gap:10px;">
+        <div><b>Логин:</b> @{{ person.username }}</div>
+        <div><b>Имя:</b> {{ person.full_name or "—" }}</div>
+        <div><b>Должность:</b> {{ person.position or "—" }}</div>
+        <div><b>Роль:</b> {{ person.role }}</div>
+      </div>
     </div>
   </div>
 </div>

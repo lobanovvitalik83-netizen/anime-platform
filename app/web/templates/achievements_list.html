@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Ачивки</h1>
+    <div class="page-subtitle">Создавай достижения и вручную выдавай их сотрудникам. Выданные ачивки отображаются в профилях людей.</div>
+  </div>
+  <div class="btn-row">
+    <a class="btn green" href="/admin/achievements/new">Создать ачивку</a>
+  </div>
+</div>
+
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+<div class="grid cards">
+  {% for item in achievements %}
+  <div class="card">
+    <div class="btn-row" style="justify-content:space-between;">
+      <div class="badge" style="background: {{ item.color or '#f4f7ff' }}14; border-color: {{ item.color or '#dfe7fb' }}66; color: {{ item.color or '#3059d8' }};">
+        <span class="badge-icon">{{ item.icon or '🏆' }}</span>
+        <span>{{ item.title }}</span>
+      </div>
+      {% if item.is_active %}<span class="chip green">Активна</span>{% else %}<span class="chip red">Выключена</span>{% endif %}
+    </div>
+    <div style="margin-top:12px;">{{ item.description or "Без описания." }}</div>
+    <div class="muted" style="margin-top:12px;">Создал: {{ item.created_by_admin.username if item.created_by_admin else "—" }}</div>
+    <div class="btn-row" style="margin-top:16px;">
+      <a class="btn secondary" href="/admin/achievements/{{ item.id }}/edit">Редактировать</a>
+      <form method="post" action="/admin/achievements/{{ item.id }}/delete" class="inline" onsubmit="return confirm('Удалить ачивку?');">
+        <button class="btn red" type="submit">Удалить</button>
+      </form>
+    </div>
+  </div>
+  {% else %}
+  <div class="card"><div class="muted">Ачивок пока нет.</div></div>
+  {% endfor %}
+</div>
+{% endblock %}
