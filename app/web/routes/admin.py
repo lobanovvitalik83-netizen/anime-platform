@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, File, Request, Response, UploadFile
 from sqlalchemy.orm import Session
 from starlette.responses import RedirectResponse
 
@@ -7,6 +7,7 @@ from app.core.exceptions import AuthenticationError
 from app.services.asset_service import AssetService
 from app.services.auth_service import AuthService
 from app.services.code_service import CodeService
+from app.services.import_export_service import ImportExportService
 from app.services.media_service import MediaService
 from app.services.public_lookup_service import PublicLookupService
 from app.web.auth import clear_auth_cookie, get_current_admin_from_request, redirect_to, redirect_to_login, set_auth_cookie
@@ -889,3 +890,233 @@ def admin_lookup_test(request: Request, db: Session = Depends(get_db_session), c
         result=result,
         error=error,
     )
+
+
+@router.post("/admin/codes/{code_id}/activate")
+def admin_code_activate(code_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+    CodeService(db).activate_code(current_admin.id, code_id)
+    return redirect_to("/admin/codes")
+
+
+@router.post("/admin/codes/bulk-action")
+async def admin_codes_bulk_action(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    action = str(form.get("bulk_action", "")).strip()
+    selected_values = form.getlist("selected_ids")
+
+    if not action:
+        return render_template(
+            "codes_list.html",
+            request,
+            page_title="Коды",
+            current_admin=current_admin,
+            codes=CodeService(db).list_codes(),
+            error="Не выбрано массовое действие.",
+        )
+
+    if not selected_values:
+        return render_template(
+            "codes_list.html",
+            request,
+            page_title="Коды",
+            current_admin=current_admin,
+            codes=CodeService(db).list_codes(),
+            error="Не выбраны коды.",
+        )
+
+    code_service = CodeService(db)
+    try:
+        for raw_id in selected_values:
+            code_id = int(str(raw_id))
+            if action == "activate":
+                code_service.activate_code(current_admin.id, code_id)
+            elif action == "deactivate":
+                code_service.deactivate_code(current_admin.id, code_id)
+            elif action == "delete":
+                code_service.delete_code(current_admin.id, code_id)
+            else:
+                raise ValueError("Unknown bulk action")
+    except Exception as exc:
+        db.rollback()
+        return render_template(
+            "codes_list.html",
+            request,
+            page_title="Коды",
+            current_admin=current_admin,
+            codes=CodeService(db).list_codes(),
+            error=str(exc),
+        )
+
+    return redirect_to("/admin/codes")
+
+
+@router.get("/admin/import-export")
+def admin_import_export_page(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    return render_template(
+        "import_export.html",
+        request,
+        page_title="Импорт / экспорт",
+        current_admin=current_admin,
+        error=None,
+        success=None,
+    )
+
+
+@router.get("/admin/import-jobs")
+def admin_import_jobs_page(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    jobs = ImportExportService(db).list_jobs()
+    return render_template(
+        "import_jobs_list.html",
+        request,
+        page_title="Import jobs",
+        current_admin=current_admin,
+        jobs=jobs,
+    )
+
+
+@router.get("/admin/export/titles.csv")
+def admin_export_titles_csv(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+    content = ImportExportService(db).export_titles_csv()
+    return Response(
+        content=content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=titles.csv"},
+    )
+
+
+@router.get("/admin/export/seasons.csv")
+def admin_export_seasons_csv(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+    content = ImportExportService(db).export_seasons_csv()
+    return Response(
+        content=content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=seasons.csv"},
+    )
+
+
+@router.get("/admin/export/episodes.csv")
+def admin_export_episodes_csv(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+    content = ImportExportService(db).export_episodes_csv()
+    return Response(
+        content=content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=episodes.csv"},
+    )
+
+
+@router.get("/admin/export/assets.csv")
+def admin_export_assets_csv(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+    content = ImportExportService(db).export_assets_csv()
+    return Response(
+        content=content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=assets.csv"},
+    )
+
+
+@router.get("/admin/export/codes.csv")
+def admin_export_codes_csv(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+    content = ImportExportService(db).export_codes_csv()
+    return Response(
+        content=content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=codes.csv"},
+    )
+
+
+@router.post("/admin/import/titles/csv")
+async def admin_import_titles_csv(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    try:
+        content = await file.read()
+        job = ImportExportService(db).import_titles_csv(
+            current_admin.id,
+            file.filename or "titles.csv",
+            content,
+        )
+        success = f"Импорт titles завершён. Успешно: {job.success_rows}, ошибок: {job.failed_rows}."
+        return render_template(
+            "import_export.html",
+            request,
+            page_title="Импорт / экспорт",
+            current_admin=current_admin,
+            error=None,
+            success=success,
+        )
+    except Exception as exc:
+        db.rollback()
+        return render_template(
+            "import_export.html",
+            request,
+            page_title="Импорт / экспорт",
+            current_admin=current_admin,
+            error=str(exc),
+            success=None,
+        )
+
+
+@router.post("/admin/import/codes/csv")
+async def admin_import_codes_csv(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    try:
+        content = await file.read()
+        job = ImportExportService(db).import_codes_csv(
+            current_admin.id,
+            file.filename or "codes.csv",
+            content,
+        )
+        success = f"Импорт codes завершён. Успешно: {job.success_rows}, ошибок: {job.failed_rows}."
+        return render_template(
+            "import_export.html",
+            request,
+            page_title="Импорт / экспорт",
+            current_admin=current_admin,
+            error=None,
+            success=success,
+        )
+    except Exception as exc:
+        db.rollback()
+        return render_template(
+            "import_export.html",
+            request,
+            page_title="Импорт / экспорт",
+            current_admin=current_admin,
+            error=str(exc),
+            success=None,
+        )

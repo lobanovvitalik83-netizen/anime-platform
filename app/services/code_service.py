@@ -73,6 +73,15 @@ class CodeService:
         self.session.refresh(entity)
         return entity
 
+
+    def activate_code(self, admin_id: int, code_id: int) -> AccessCode:
+        entity = self.get_code(code_id)
+        entity = self.codes.update(entity, status="active")
+        self.audit.log(admin_id, "activate_access_code", "access_code", str(entity.id), {"code": entity.code})
+        self.session.commit()
+        self.session.refresh(entity)
+        return entity
+
     def deactivate_code(self, admin_id: int, code_id: int) -> AccessCode:
         entity = self.get_code(code_id)
         entity = self.codes.update(entity, status="inactive")

@@ -1,18 +1,21 @@
-# Stage 10 - Admin CRUD
+# Stage 11 - Import / Export / Bulk Operations
 
 В архиве:
-- весь stage 9.3
-- редактирование title / season / episode / asset / code
-- удаление title / season / episode / asset / code
-- деактивация кодов
-- кнопки действий в списках
-- web admin forms для edit
-- подтверждение удаления через браузер confirm()
+- весь stage 10
+- импорт titles из CSV
+- импорт codes из CSV
+- экспорт titles / seasons / episodes / assets / codes в CSV
+- журнал import jobs
+- массовые действия по кодам из админки
+- activate / deactivate / delete для кодов
+
+Новые страницы:
+- /admin/import-export
+- /admin/import-jobs
 
 Что проверять:
-- /admin/titles
-- /admin/seasons
-- /admin/episodes
-- /admin/assets
-- /admin/codes
-- edit / delete / deactivate actions
+- экспорт CSV
+- импорт titles CSV
+- импорт codes CSV
+- список import jobs
+- bulk action для codes
