@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="btn-row" style="margin-bottom:16px;">
+  <h1 style="margin:0; flex:1;">Медиа</h1>
+  <a class="btn green" href="/admin/card-builder">Создать карточку</a>
+  <button class="btn secondary" type="button" onclick="return openSelectedEdit('/admin/media', 'selected_ids')">Открыть выбранные в редактировании</button>
+</div>
+
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+<form method="post" action="/admin/media/bulk-delete" onsubmit="return confirm('Удалить выбранные карточки?');">
+  <div class="btn-row" style="margin-bottom:16px;">
+    <label style="display:flex; align-items:center; gap:8px; margin:0;">
+      <input type="checkbox" style="width:auto;" onclick="toggleGroup(this, 'selected_ids')">
+      Выбрать все
+    </label>
+    <button class="btn" style="background:#dc2626;" type="submit">Удалить выбранные</button>
+  </div>
+
+  <div class="media-grid">
+    {% for item in cards %}
+    <div class="media-card">
+      <div class="media-preview">
+        {% if item.external_url and item.asset_type in ['image', 'poster'] %}
+          <img src="{{ item.external_url }}" alt="{{ item.title }}">
+        {% else %}
+          <div class="empty">{% if item.asset_type == 'video' %}Видео{% elif item.telegram_file_id %}Telegram media{% else %}Без превью{% endif %}</div>
+        {% endif %}
+      </div>
+      <div class="media-body">
+        <div class="btn-row" style="justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <label style="display:flex; align-items:center; gap:8px; margin:0;">
+            <input type="checkbox" name="selected_ids" value="{{ item.title_id }}" style="width:auto;">
+            Выбрать
+          </label>
+          <span class="chip">{{ 'Аниме' if item.genre == 'anime' else 'Сериал' if item.genre == 'series' else 'Фильм' if item.genre == 'movie' else item.genre }}</span>
+        </div>
+
+        <h3 style="margin-bottom:10px;">{{ item.title }}</h3>
+
+        <div class="media-meta">
+          <div><b>Статус:</b> {{ item.status }}</div>
+          <div><b>Сезон:</b> {{ item.season_number or "—" }}</div>
+          <div><b>Серия:</b> {{ item.episode_number or "—" }}</div>
+          <div><b>Медиа:</b> {{ item.asset_type or "—" }}</div>
+          <div><b>Код:</b> {% if item.code_value %}<span class="code">{{ item.code_value }}</span>{% else %}—{% endif %}</div>
+        </div>
+
+        <div class="btn-row">
+          <a class="btn secondary" href="/admin/media/{{ item.title_id }}/edit">Редактировать</a>
+          {% if item.code_value %}
+          <a class="btn secondary" href="/admin/lookup-test?code={{ item.code_value }}">Lookup</a>
+          {% endif %}
+          <form method="post" action="/admin/media/{{ item.title_id }}/delete" class="inline" onsubmit="return confirm('Удалить карточку целиком?');">
+            <button class="btn" style="background:#dc2626;" type="submit">Удалить</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</form>
+{% endblock %}

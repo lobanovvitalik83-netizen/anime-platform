@@ -1,11 +1,17 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Админ-панель</h1>
-<div class="grid cards">
-  <div class="card"><div class="stat">{{ counts.titles }}</div><div>Тайтлов</div></div>
-  <div class="card"><div class="stat">{{ counts.seasons }}</div><div>Сезонов</div></div>
-  <div class="card"><div class="stat">{{ counts.episodes }}</div><div>Эпизодов</div></div>
-  <div class="card"><div class="stat">{{ counts.assets }}</div><div>Ассетов</div></div>
+<div class="grid cards" style="margin-bottom:20px;">
+  <div class="card"><div class="stat">{{ counts.titles }}</div><div>Карточек</div></div>
+  <div class="card"><div class="stat">{{ counts.assets }}</div><div>Медиа</div></div>
   <div class="card"><div class="stat">{{ counts.codes }}</div><div>Кодов</div></div>
+</div>
+
+<div class="card">
+  <h2>Быстрый доступ</h2>
+  <div class="btn-row">
+    <a class="btn green" href="/admin/card-builder">Создать карточку</a>
+    <a class="btn secondary" href="/admin/media">Открыть медиа</a>
+  </div>
 </div>
 {% endblock %}

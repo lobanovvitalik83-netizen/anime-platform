@@ -1,53 +1,40 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="card">
-  <h1>Создание карточки</h1>
-  <p class="muted">Одно окно: жанр, названия, сезон, серия, фото/видео и автоматическая генерация кода.</p>
+  <h1>{{ page_title }}</h1>
+  <p class="muted">Одно окно: жанр, название, сезон, серия, медиа, статус и автогенерация кода.</p>
 
-  {% if error %}
-    <div class="error">{{ error }}</div>
-  {% endif %}
-  {% if success %}
-    <div class="success">{{ success }}</div>
-  {% endif %}
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  {% if success %}<div class="success">{{ success }}</div>{% endif %}
 
   {% if result %}
   <div class="card" style="background:#f9fafb; margin-bottom:18px;">
-    <h3>Карточка создана</h3>
+    <h3>Карточка сохранена</h3>
     <div class="grid cards">
-      <div class="card"><b>Title ID</b><br>{{ result.title_id }}</div>
-      <div class="card"><b>Season ID</b><br>{{ result.season_id or "—" }}</div>
-      <div class="card"><b>Episode ID</b><br>{{ result.episode_id or "—" }}</div>
-      <div class="card"><b>Asset ID</b><br>{{ result.asset_id or "—" }}</div>
-      <div class="card"><b>Код</b><br><span class="code">{{ result.code_value or "—" }}</span></div>
+      <div class="card"><b>Title ID</b><br>{{ result.title.id if result.title else "—" }}</div>
+      <div class="card"><b>Season ID</b><br>{{ result.season.id if result.season else "—" }}</div>
+      <div class="card"><b>Episode ID</b><br>{{ result.episode.id if result.episode else "—" }}</div>
+      <div class="card"><b>Asset ID</b><br>{{ result.asset.id if result.asset else "—" }}</div>
+      <div class="card"><b>Код</b><br>{% if result.code %}<span class="code">{{ result.code.code }}</span>{% else %}—{% endif %}</div>
     </div>
-    {% if result.code_value %}
-    <div class="btn-row" style="margin-top:12px;">
-      <a class="btn secondary" href="/admin/lookup-test?code={{ result.code_value }}">Проверить lookup</a>
-    </div>
-    {% endif %}
   </div>
   {% endif %}
 
-  <form method="post" action="/admin/card-builder" enctype="multipart/form-data" class="grid">
+  <form method="post" action="{{ action_url }}" enctype="multipart/form-data" class="grid">
     <div class="card" style="background:#f9fafb;">
-      <h3>Основные данные карточки</h3>
+      <h3>Основные данные</h3>
       <div class="form-grid">
         <div>
           <label>Жанр</label>
-          <input name="genre" value="{{ values.get('genre', '') }}" placeholder="романтика, драма, комедия">
+          <select name="genre" required>
+            <option value="anime" {% if values.get('genre') == 'anime' %}selected{% endif %}>Аниме</option>
+            <option value="series" {% if values.get('genre') == 'series' %}selected{% endif %}>Сериал</option>
+            <option value="movie" {% if values.get('genre') == 'movie' %}selected{% endif %}>Фильм</option>
+          </select>
         </div>
         <div>
           <label>Название</label>
           <input name="title" value="{{ values.get('title', '') }}" required>
-        </div>
-        <div>
-          <label>Оригинальное название</label>
-          <input name="original_title" value="{{ values.get('original_title', '') }}">
-        </div>
-        <div>
-          <label>Год</label>
-          <input name="year" type="number" value="{{ values.get('year', '') }}">
         </div>
         <div>
           <label>Сезон</label>
@@ -58,28 +45,19 @@
           <input name="episode_number" type="number" min="1" value="{{ values.get('episode_number', '') }}">
         </div>
         <div>
-          <label>Название сезона</label>
-          <input name="season_name" value="{{ values.get('season_name', '') }}">
+          <label>Статус</label>
+          <select name="status">
+            <option value="draft" {% if values.get('status') == 'draft' %}selected{% endif %}>draft</option>
+            <option value="active" {% if values.get('status') == 'active' %}selected{% endif %}>active</option>
+            <option value="inactive" {% if values.get('status') == 'inactive' %}selected{% endif %}>inactive</option>
+            <option value="archived" {% if values.get('status') == 'archived' %}selected{% endif %}>archived</option>
+          </select>
         </div>
-        <div>
-          <label>Название серии</label>
-          <input name="episode_name" value="{{ values.get('episode_name', '') }}">
-        </div>
-      </div>
-
-      <div style="margin-top:16px;">
-        <label>Описание карточки</label>
-        <textarea name="title_description">{{ values.get('title_description', '') }}</textarea>
-      </div>
-
-      <div style="margin-top:16px;">
-        <label>Описание серии</label>
-        <textarea name="episode_synopsis">{{ values.get('episode_synopsis', '') }}</textarea>
       </div>
     </div>
 
     <div class="card" style="background:#f9fafb;">
-      <h3>Фото / видео</h3>
+      <h3>Медиа</h3>
       <div class="form-grid">
         <div>
           <label>Тип медиа</label>
@@ -94,7 +72,7 @@
           <input name="mime_type" value="{{ values.get('mime_type', '') }}" placeholder="image/jpeg или video/mp4">
         </div>
         <div>
-          <label>Загрузить файл</label>
+          <label>Загрузить файлом с компьютера</label>
           <input type="file" name="media_file" accept="image/*,video/mp4">
         </div>
         <div>
@@ -104,16 +82,15 @@
           </label>
         </div>
       </div>
-
       <div style="margin-top:16px;">
-        <label>Или внешняя ссылка на медиа</label>
-        <input name="external_url" value="{{ values.get('external_url', '') }}" placeholder="https://example.com/poster.jpg">
+        <label>Или внешняя ссылка</label>
+        <input name="external_url" value="{{ values.get('external_url', '') }}" placeholder="https://example.com/media.jpg">
       </div>
     </div>
 
     <div class="card" style="background:#f9fafb;">
-      <h3>Код карточки</h3>
-      <p class="muted">Код вводить не нужно. Он создаётся автоматически внутри этой карточки.</p>
+      <h3>Код</h3>
+      <p class="muted">Код вводить не нужно. Он генерируется внутри карточки.</p>
       <div class="form-grid">
         <div>
           <label style="display:flex; gap:8px; align-items:center; font-weight:600; margin-top:30px;">
@@ -121,20 +98,12 @@
             Автогенерация кода
           </label>
         </div>
-        <div>
-          <label>Статус кода</label>
-          <select name="code_status">
-            <option value="active" {% if values.get('code_status') == 'active' %}selected{% endif %}>active</option>
-            <option value="inactive" {% if values.get('code_status') == 'inactive' %}selected{% endif %}>inactive</option>
-            <option value="archived" {% if values.get('code_status') == 'archived' %}selected{% endif %}>archived</option>
-          </select>
-        </div>
       </div>
     </div>
 
     <div class="btn-row">
-      <button class="btn green" type="submit">Создать карточку</button>
-      <a class="btn secondary" href="/admin">Назад</a>
+      <button class="btn green" type="submit">{{ submit_label }}</button>
+      <a class="btn secondary" href="/admin/media">Назад</a>
     </div>
   </form>
 </div>

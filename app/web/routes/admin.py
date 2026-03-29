@@ -7,7 +7,7 @@ from app.core.exceptions import AuthenticationError
 from app.services.asset_service import AssetService
 from app.services.auth_service import AuthService
 from app.services.code_service import CodeService
-from app.services.card_builder_service import CardBuilderService
+from app.services.media_card_service import MediaCardService
 from app.services.import_export_service import ImportExportService
 from app.services.media_service import MediaService
 from app.services.public_lookup_service import PublicLookupService
@@ -1283,6 +1283,174 @@ async def admin_assets_bulk_delete(request: Request, db: Session = Depends(get_d
     return redirect_to("/admin/assets")
 
 
+def _render_media_cards(request: Request, current_admin, db: Session, error: str | None = None):
+    cards = MediaCardService(db).list_cards()
+    return render_template(
+        "media_cards_list.html",
+        request,
+        page_title="Медиа",
+        current_admin=current_admin,
+        cards=cards,
+        error=error,
+    )
+
+
+@router.get("/admin/media")
+def admin_media_cards(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+    return _render_media_cards(request, current_admin, db)
+
+
+@router.post("/admin/media/bulk-delete")
+async def admin_media_bulk_delete(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    selected_ids = [int(item) for item in form.getlist("selected_ids")]
+    service = MediaCardService(db)
+
+    if not selected_ids:
+        return _render_media_cards(request, current_admin, db, error="Не выбраны карточки.")
+
+    try:
+        for item_id in selected_ids:
+            service.delete_card(current_admin.id, item_id)
+    except Exception as exc:
+        db.rollback()
+        return _render_media_cards(request, current_admin, db, error=str(exc))
+
+    return redirect_to("/admin/media")
+
+
+@router.post("/admin/media/{title_id}/delete")
+def admin_media_delete(title_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    try:
+        MediaCardService(db).delete_card(current_admin.id, title_id)
+    except Exception as exc:
+        db.rollback()
+        return _render_media_cards(request, current_admin, db, error=str(exc))
+
+    return redirect_to("/admin/media")
+
+
+@router.get("/admin/media/{title_id}/edit")
+def admin_media_edit_page(title_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    card = MediaCardService(db).get_card(title_id)
+    values = {
+        "genre": card["title"].type,
+        "title": card["title"].title,
+        "season_number": card["season"].season_number if card["season"] else "",
+        "episode_number": card["episode"].episode_number if card["episode"] else "",
+        "asset_type": card["asset"].asset_type if card["asset"] else "image",
+        "external_url": card["asset"].external_url if card["asset"] else "",
+        "mime_type": card["asset"].mime_type if card["asset"] else "",
+        "is_primary": card["asset"].is_primary if card["asset"] else True,
+        "generate_code": True,
+        "status": card["title"].status,
+    }
+
+    return render_template(
+        "card_builder.html",
+        request,
+        page_title=f"Редактирование карточки #{title_id}",
+        current_admin=current_admin,
+        error=None,
+        success=None,
+        values=values,
+        result=None,
+        action_url=f"/admin/media/{title_id}/edit",
+        submit_label="Сохранить карточку",
+    )
+
+
+@router.post("/admin/media/{title_id}/edit")
+async def admin_media_edit_submit(title_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    upload = form.get("media_file")
+
+    def _text(name: str) -> str:
+        return str(form.get(name, "")).strip()
+
+    def _optional_int(name: str):
+        raw = _text(name)
+        if not raw:
+            return None
+        return int(raw)
+
+    values = {
+        "genre": _text("genre"),
+        "title": _text("title"),
+        "season_number": _optional_int("season_number"),
+        "episode_number": _optional_int("episode_number"),
+        "asset_type": _text("asset_type") or "image",
+        "external_url": _text("external_url"),
+        "mime_type": _text("mime_type"),
+        "is_primary": form.get("is_primary") == "on",
+        "generate_code": form.get("generate_code") == "on",
+        "status": _text("status") or "draft",
+    }
+
+    file_name = None
+    file_content_type = None
+    file_bytes = None
+    if upload and getattr(upload, "filename", ""):
+        file_name = upload.filename
+        file_content_type = getattr(upload, "content_type", None)
+        file_bytes = await upload.read()
+
+    try:
+        result = await MediaCardService(db).update_card(
+            current_admin.id,
+            title_id,
+            values,
+            upload_file_name=file_name,
+            upload_file_content_type=file_content_type,
+            upload_file_bytes=file_bytes,
+        )
+        return render_template(
+            "card_builder.html",
+            request,
+            page_title=f"Редактирование карточки #{title_id}",
+            current_admin=current_admin,
+            error=None,
+            success="Карточка обновлена.",
+            values=values,
+            result=result,
+            action_url=f"/admin/media/{title_id}/edit",
+            submit_label="Сохранить карточку",
+        )
+    except Exception as exc:
+        db.rollback()
+        return render_template(
+            "card_builder.html",
+            request,
+            page_title=f"Редактирование карточки #{title_id}",
+            current_admin=current_admin,
+            error=str(exc),
+            success=None,
+            values=values,
+            result=None,
+            action_url=f"/admin/media/{title_id}/edit",
+            submit_label="Сохранить карточку",
+        )
+
+
 @router.get("/admin/card-builder")
 def admin_card_builder_page(request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db)
@@ -1296,8 +1464,10 @@ def admin_card_builder_page(request: Request, db: Session = Depends(get_db_sessi
         current_admin=current_admin,
         error=None,
         success=None,
-        values={"generate_code": True, "code_status": "active", "asset_type": "image"},
+        values={"generate_code": True, "status": "active", "asset_type": "image", "genre": "anime"},
         result=None,
+        action_url="/admin/card-builder",
+        submit_label="Создать карточку",
     )
 
 
@@ -1322,20 +1492,14 @@ async def admin_card_builder_submit(request: Request, db: Session = Depends(get_
     values = {
         "genre": _text("genre"),
         "title": _text("title"),
-        "original_title": _text("original_title"),
-        "title_description": _text("title_description"),
-        "year": _optional_int("year"),
         "season_number": _optional_int("season_number"),
-        "season_name": _text("season_name"),
         "episode_number": _optional_int("episode_number"),
-        "episode_name": _text("episode_name"),
-        "episode_synopsis": _text("episode_synopsis"),
         "asset_type": _text("asset_type") or "image",
         "external_url": _text("external_url"),
         "mime_type": _text("mime_type"),
         "is_primary": form.get("is_primary") == "on",
         "generate_code": form.get("generate_code") == "on",
-        "code_status": _text("code_status") or "active",
+        "status": _text("status") or "active",
     }
 
     file_name = None
@@ -1348,23 +1512,24 @@ async def admin_card_builder_submit(request: Request, db: Session = Depends(get_
         file_bytes = await upload.read()
 
     try:
-        result = await CardBuilderService(db).create_card(
+        result = await MediaCardService(db).create_card(
             admin_id=current_admin.id,
             payload=values,
             upload_file_name=file_name,
             upload_file_content_type=file_content_type,
             upload_file_bytes=file_bytes,
         )
-        success = "Карточка успешно создана."
         return render_template(
             "card_builder.html",
             request,
             page_title="Создание карточки",
             current_admin=current_admin,
             error=None,
-            success=success,
-            values={"generate_code": True, "code_status": "active", "asset_type": "image"},
+            success="Карточка успешно создана.",
+            values={"generate_code": True, "status": "active", "asset_type": "image", "genre": "anime"},
             result=result,
+            action_url="/admin/card-builder",
+            submit_label="Создать карточку",
         )
     except Exception as exc:
         db.rollback()
@@ -1377,4 +1542,6 @@ async def admin_card_builder_submit(request: Request, db: Session = Depends(get_
             success=None,
             values=values,
             result=None,
+            action_url="/admin/card-builder",
+            submit_label="Создать карточку",
         )

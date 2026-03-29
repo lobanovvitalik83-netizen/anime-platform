@@ -5,7 +5,6 @@ from app.repositories.media_asset_repository import MediaAssetRepository
 from app.schemas.public_lookup import PublicLookupResponse
 from app.services.code_service import CodeService
 from app.services.media_service import MediaService
-from app.services.title_metadata_service import unpack_title_description
 
 
 class PublicLookupService:
@@ -35,42 +34,28 @@ class PublicLookupService:
             episode_id=episode.id if episode else None,
         )
 
-        title_genre = None
-        title_description = None
-        if title:
-            title_genre, title_description = unpack_title_description(title.description)
-
-        description = None
-        if episode and episode.synopsis:
-            description = episode.synopsis
-        elif title_description:
-            description = title_description
-
         has_media = bool(
             selected_asset
-            and (
-                selected_asset.telegram_file_id
-                or selected_asset.external_url
-            )
+            and (selected_asset.telegram_file_id or selected_asset.external_url)
         )
 
         return PublicLookupResponse(
             code=access_code.code,
             title_id=title.id if title else None,
             title=title.title if title else None,
-            original_title=title.original_title if title else None,
-            genre=title_genre,
+            original_title=None,
+            genre=title.type if title else None,
             title_type=title.type if title else None,
             title_status=title.status if title else None,
-            year=title.year if title else None,
+            year=None,
             season_id=season.id if season else None,
             season_number=season.season_number if season else None,
-            season_name=season.name if season else None,
+            season_name=None,
             episode_id=episode.id if episode else None,
             episode_number=episode.episode_number if episode else None,
-            episode_name=episode.name if episode else None,
+            episode_name=None,
             episode_status=episode.status if episode else None,
-            description=description,
+            description=None,
             asset_id=selected_asset.id if selected_asset else None,
             asset_type=selected_asset.asset_type if selected_asset else None,
             storage_kind=selected_asset.storage_kind if selected_asset else None,
