@@ -7,7 +7,6 @@ from fastapi.responses import JSONResponse, Response, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db_session
-from app.core.exceptions import ValidationError
 from app.repositories.admin_repository import AdminRepository
 from app.services.analytics_service import AnalyticsService
 from app.services.auth_service import AuthService
@@ -129,19 +128,7 @@ def editor_tools_page(request: Request, db: Session = Depends(get_db_session)):
     if redirect:
         return redirect
     recent_cards = MediaCardService(db).list_cards()[:10]
-    notifications = NotificationService(db).list_for_admin(current_admin, only_unread=True, limit=10)
-    personal = AnalyticsService(db).get_personal_activity(current_admin.id)
-    import_jobs = ImportExportService(db).list_jobs()[:10]
-    return render_template(
-        "editor_tools.html",
-        request,
-        page_title="Инструменты редактора",
-        current_admin=current_admin,
-        recent_cards=recent_cards,
-        unread_notifications=notifications,
-        personal_activity=personal,
-        import_jobs=import_jobs,
-    )
+    return render_template("editor_tools.html", request, page_title="Инструменты редактора", current_admin=current_admin, recent_cards=recent_cards)
 
 @router.get("/admin/settings/advanced")
 def settings_advanced(request: Request, db: Session = Depends(get_db_session)):
@@ -274,39 +261,3 @@ async def user_permissions_submit(admin_id: int, request: Request, db: Session =
     target = admins_repo.update(target, extra_permissions=PermissionService().serialize_permissions(selected))
     db.commit()
     return render_template("permissions_form.html", request, page_title="Разрешения", current_admin=current_admin, target=target, all_permissions=ALL_PERMISSIONS, permission_labels=PERMISSION_LABELS, selected_permissions=selected, error=None, success="Разрешения обновлены.")
-
-
-@router.get("/admin/export/admin-actions.csv")
-def export_admin_actions_csv(
-    request: Request,
-    db: Session = Depends(get_db_session),
-    admin_id: int | None = None,
-    action: str = "",
-    date_from: str = "",
-    date_to: str = "",
-    sort: str = "desc",
-):
-    current_admin, redirect = require_auth(request, db, permission="admin_actions_view")
-    if redirect:
-        return redirect
-    content = ImportExportService(db).export_admin_actions_csv(admin_id=admin_id, action=action, date_from=date_from, date_to=date_to, sort=sort)
-    return Response(content=content, media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=admin_actions.csv"})
-
-
-@router.post("/admin/import-preview/titles/csv")
-async def preview_titles_csv(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db_session)):
-    current_admin, redirect = require_auth(request, db, permission="import_export")
-    if redirect:
-        return redirect
-    content = await file.read()
-    preview = ImportExportService(db).preview_csv(content, expected_columns={"type", "title"})
-    return render_template("import_preview.html", request, page_title="Предпросмотр импорта titles", current_admin=current_admin, import_kind="titles", file_name=file.filename or "titles.csv", preview=preview)
-
-@router.post("/admin/import-preview/codes/csv")
-async def preview_codes_csv(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db_session)):
-    current_admin, redirect = require_auth(request, db, permission="import_export")
-    if redirect:
-        return redirect
-    content = await file.read()
-    preview = ImportExportService(db).preview_csv(content, expected_columns={"code"})
-    return render_template("import_preview.html", request, page_title="Предпросмотр импорта codes", current_admin=current_admin, import_kind="codes", file_name=file.filename or "codes.csv", preview=preview)

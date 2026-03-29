@@ -9,21 +9,17 @@ from app.bot.keyboards.main_menu import (
 )
 from app.bot.state.session_state import USER_MODE_REPORT, get_user_mode
 from app.core.database import SessionLocal
-from app.core.logging import get_logger
 from app.services.report_service import ReportService
 
 router = Router()
-logger = get_logger(__name__)
 
 
-@router.message(
-    F.text,
-    ~F.text.startswith("/"),
-    ~F.text.in_({MAIN_MENU_BUTTON_HELP, MAIN_MENU_BUTTON_LOOKUP, MAIN_MENU_BUTTON_REPORT}),
-)
+@router.message(F.text)
 async def report_support_handler(message: Message) -> None:
     text = (message.text or "").strip()
-    if not text:
+    if not text or text.startswith("/"):
+        return
+    if text in {MAIN_MENU_BUTTON_HELP, MAIN_MENU_BUTTON_LOOKUP, MAIN_MENU_BUTTON_REPORT}:
         return
     if text.isdigit():
         return
@@ -42,7 +38,6 @@ async def report_support_handler(message: Message) -> None:
                 body=text,
             )
         except Exception as exc:
-            logger.exception("Failed to create Telegram report")
             await message.answer(
                 f"Не удалось отправить обращение. Ошибка: {exc}",
                 reply_markup=build_main_menu(),

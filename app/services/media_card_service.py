@@ -15,7 +15,6 @@ from app.services.code_service import CodeService
 from app.services.external_media_storage_service import ExternalMediaStorageService
 from app.services.media_upload_service import MediaUploadService
 from app.services.media_service import MediaService
-from app.services.notification_service import NotificationService
 from app.services.yandex_disk_storage_service import YandexDiskStorageService
 
 
@@ -54,77 +53,58 @@ class MediaCardService:
         self.code_service = CodeService(session)
         self.upload_service = MediaUploadService()
         self.external_storage = ExternalMediaStorageService()
-        self.notifications = NotificationService(session)
 
+    def list_cards(self, q: str | None = None, genre: str | None = None, status: str | None = None) -> list[MediaCardRow]:
+        rows: list[MediaCardRow] = []
+        titles = self.media_service.list_titles()
 
-def list_cards(
-    self,
-    q: str | None = None,
-    genre: str | None = None,
-    status: str | None = None,
-    storage_provider: str | None = None,
-    code_state: str | None = None,
-) -> list[MediaCardRow]:
-    rows: list[MediaCardRow] = []
-    titles = self.media_service.list_titles()
+        search = (q or "").strip().lower()
+        selected_genre = (genre or "").strip().lower()
+        selected_status = (status or "").strip().lower()
 
-    search = (q or "").strip().lower()
-    selected_genre = (genre or "").strip().lower()
-    selected_status = (status or "").strip().lower()
-    selected_storage = (storage_provider or "").strip().lower()
-    selected_code_state = (code_state or "").strip().lower()
-    all_codes = self.code_service.list_codes()
+        for title in titles:
+            if search and search not in (title.title or "").lower():
+                continue
+            if selected_genre and title.type != selected_genre:
+                continue
+            if selected_status and title.status != selected_status:
+                continue
 
-    for title in titles:
-        if search and search not in (title.title or "").lower():
-            continue
-        if selected_genre and title.type != selected_genre:
-            continue
-        if selected_status and title.status != selected_status:
-            continue
+            seasons = self.media_service.list_seasons(title_id=title.id)
+            episodes = self.media_service.list_episodes(title_id=title.id)
+            assets = self.asset_repo.list_all(title_id=title.id)
+            codes = [item for item in self.code_service.list_codes() if item.title_id == title.id]
 
-        seasons = self.media_service.list_seasons(title_id=title.id)
-        episodes = self.media_service.list_episodes(title_id=title.id)
-        assets = self.asset_repo.list_all(title_id=title.id)
-        codes = [item for item in all_codes if item.title_id == title.id]
+            season = seasons[0] if seasons else None
+            episode = episodes[0] if episodes else None
+            asset = self._pick_asset(assets, episode.id if episode else None, season.id if season else None)
+            code = codes[0] if codes else None
 
-        season = seasons[0] if seasons else None
-        episode = episodes[0] if episodes else None
-        asset = self._pick_asset(assets, episode.id if episode else None, season.id if season else None)
-        code = codes[0] if codes else None
-
-        if selected_storage and (getattr(asset, "storage_provider", "") or "").lower() != selected_storage:
-            continue
-        if selected_code_state == "with_code" and not code:
-            continue
-        if selected_code_state == "without_code" and code:
-            continue
-
-        rows.append(
-            MediaCardRow(
-                title_id=title.id,
-                genre=title.type,
-                title=title.title,
-                status=title.status,
-                season_id=season.id if season else None,
-                season_number=season.season_number if season else None,
-                episode_id=episode.id if episode else None,
-                episode_number=episode.episode_number if episode else None,
-                asset_id=asset.id if asset else None,
-                asset_type=asset.asset_type if asset else None,
-                storage_kind=asset.storage_kind if asset else None,
-                telegram_file_id=asset.telegram_file_id if asset else None,
-                external_url=asset.external_url if asset else None,
-                storage_provider=getattr(asset, "storage_provider", None) if asset else None,
-                source_label=getattr(asset, "source_label", None) if asset else None,
-                code_id=code.id if code else None,
-                code_value=code.code if code else None,
-                created_at=title.created_at,
+            rows.append(
+                MediaCardRow(
+                    title_id=title.id,
+                    genre=title.type,
+                    title=title.title,
+                    status=title.status,
+                    season_id=season.id if season else None,
+                    season_number=season.season_number if season else None,
+                    episode_id=episode.id if episode else None,
+                    episode_number=episode.episode_number if episode else None,
+                    asset_id=asset.id if asset else None,
+                    asset_type=asset.asset_type if asset else None,
+                    storage_kind=asset.storage_kind if asset else None,
+                    telegram_file_id=asset.telegram_file_id if asset else None,
+                    external_url=asset.external_url if asset else None,
+                    storage_provider=getattr(asset, "storage_provider", None) if asset else None,
+                    source_label=getattr(asset, "source_label", None) if asset else None,
+                    code_id=code.id if code else None,
+                    code_value=code.code if code else None,
+                    created_at=title.created_at,
+                )
             )
-        )
 
-    rows.sort(key=lambda item: item.created_at, reverse=True)
-    return rows
+        rows.sort(key=lambda item: item.created_at, reverse=True)
+        return rows
 
     def get_card(self, title_id: int) -> dict:
         title = self.media_service.get_title(title_id)
@@ -228,8 +208,6 @@ def list_cards(
                 },
             )[0]
 
-        self.notifications.notify_by_permission("media_manage", kind="media", title=f"Создана карточка: {title.title}", body=f"ID {title.id}, статус {title.status}", link_url=f"/admin/media/{title.id}/edit", exclude_admin_ids={admin_id})
-        self.notifications.notify_by_permission("media_manage", kind="media", title=f"Обновлена карточка: {title.title}", body=f"ID {title.id}, статус {title.status}", link_url=f"/admin/media/{title.id}/edit", exclude_admin_ids={admin_id})
         self.session.commit()
         return {"title": title, "season": season, "episode": episode, "asset": asset, "code": code}
 
@@ -431,9 +409,7 @@ def list_cards(
             self.season_repo.delete(season)
 
         self.audit.log(admin_id, "delete_media_title", "media_title", str(title.id), {"title": title.title})
-        deleted_title_name = title.title
         self.title_repo.delete(title)
-        self.notifications.notify_by_permission("media_manage", kind="media", title=f"Удалена карточка: {deleted_title_name}", body=f"ID {title_id}", link_url="/admin/media", exclude_admin_ids={admin_id})
         self.session.commit()
 
     async def _resolve_media_payload(

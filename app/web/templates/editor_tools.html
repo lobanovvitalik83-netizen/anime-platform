@@ -1,53 +1,59 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Инструменты редактора</h1>
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Инструменты редактора</h1>
+    <div class="page-subtitle">
+      Рабочая точка редактора: быстрые переходы, последние карточки, lookup и коммуникация с командой.
+    </div>
+  </div>
+</div>
+
 <div class="grid cards">
-  <div class="card"><h3>Быстрое создание карточки</h3><div class="btn-row"><a class="btn green" href="/admin/card-builder">Открыть</a></div></div>
-  <div class="card"><h3>Lookup test</h3><div class="btn-row"><a class="btn secondary" href="/admin/lookup-test">Открыть</a></div></div>
-  <div class="card"><h3>Live сообщения</h3><div class="btn-row"><a class="btn secondary" href="/admin/chats-live">Открыть</a></div></div>
-  <div class="card"><h3>Репорты из Telegram</h3><div class="btn-row"><a class="btn secondary" href="/admin/reports">Открыть</a></div></div>
-  <div class="card"><h3>Медиа</h3><div class="btn-row"><a class="btn secondary" href="/admin/media">Открыть</a></div></div>
-  <div class="card"><h3>Коды</h3><div class="btn-row"><a class="btn secondary" href="/admin/codes">Открыть</a></div></div>
-</div>
-
-<div class="grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr); margin-top:18px;">
-  <div class="card">
-    <h3>Моя активность</h3>
-    <div class="stat">{{ personal_activity.actions_count }}</div>
-    <div class="muted">действий за последние записи аудита</div>
+  <div class="card list-card">
+    <h3 class="section-title">Быстрое создание карточки</h3>
+    <div class="muted">Переход прямо в мастер создания новой карточки.</div>
+    <div class="btn-row"><a class="btn green" href="/admin/card-builder">Открыть</a></div>
   </div>
-  <div class="card">
-    <h3>Непрочитанные уведомления</h3>
-    <div class="stat">{{ unread_notifications|length }}</div>
-    <div class="btn-row" style="margin-top:12px;"><a class="btn secondary" href="/admin/notifications?only_unread=true">Открыть</a></div>
+
+  <div class="card list-card">
+    <h3 class="section-title">Lookup test</h3>
+    <div class="muted">Быстрая проверка кода и переход к аналитике результата.</div>
+    <div class="btn-row"><a class="btn secondary" href="/admin/lookup-test">Открыть</a></div>
+  </div>
+
+  <div class="card list-card">
+    <h3 class="section-title">Live сообщения</h3>
+    <div class="muted">Живой чат с коллегами без перезагрузки страницы.</div>
+    <div class="btn-row"><a class="btn secondary" href="/admin/chats-live">Открыть</a></div>
+  </div>
+
+  <div class="card list-card">
+    <h3 class="section-title">Репорты из Telegram</h3>
+    <div class="muted">Просмотр обращений пользователей и ответы прямо в Telegram.</div>
+    <div class="btn-row"><a class="btn secondary" href="/admin/reports">Открыть</a></div>
   </div>
 </div>
 
 <div class="card" style="margin-top:18px;">
-  <h3>Последние карточки</h3>
-  <table>
-    <thead><tr><th>ID</th><th>Название</th><th>Жанр</th><th>Статус</th><th>Код</th></tr></thead>
-    <tbody>
-      {% for row in recent_cards %}
-      <tr><td>{{ row.title_id }}</td><td>{{ row.title }}</td><td>{{ row.genre }}</td><td>{{ row.status }}</td><td>{{ row.code_value or "—" }}</td></tr>
-      {% else %}
-      <tr><td colspan="5"><span class="muted">Нет карточек.</span></td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-
-<div class="card" style="margin-top:18px;">
-  <h3>Последние import jobs</h3>
-  <table>
-    <thead><tr><th>Когда</th><th>Тип</th><th>Файл</th><th>Статус</th><th>OK</th><th>Ошибки</th></tr></thead>
-    <tbody>
-      {% for row in import_jobs %}
-      <tr><td>{{ row.created_at }}</td><td>{{ row.job_type }}</td><td>{{ row.file_name }}</td><td>{{ row.status }}</td><td>{{ row.success_rows }}</td><td>{{ row.failed_rows }}</td></tr>
-      {% else %}
-      <tr><td colspan="6"><span class="muted">Нет импортов.</span></td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <h3 class="section-title">Последние карточки</h3>
+  <div class="section-subtitle">Быстрый обзор последних элементов, с которыми можно продолжить работу.</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>Название</th><th>Жанр</th><th>Статус</th></tr></thead>
+      <tbody>
+        {% for row in recent_cards %}
+        <tr>
+          <td>{{ row.title_id }}</td>
+          <td>{{ row.title }}</td>
+          <td>{{ row.genre }}</td>
+          <td>{{ row.status }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4"><span class="muted">Нет карточек.</span></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 {% endblock %}

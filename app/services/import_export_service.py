@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import ValidationError
 from app.repositories.admin_repository import AdminRepository
-from app.repositories.audit_log_repository import AuditLogRepository
 from app.repositories.import_job_repository import ImportJobRepository
 from app.repositories.report_repository import ReportRepository
 from app.services.analytics_service import AnalyticsService
@@ -24,7 +23,6 @@ class ImportExportService:
         self.assets = AssetService(session)
         self.codes = CodeService(session)
         self.admins = AdminRepository(session)
-        self.audit_logs = AuditLogRepository(session)
         self.reports = ReportRepository(session)
         self.analytics = AnalyticsService(session)
 
@@ -79,52 +77,17 @@ class ImportExportService:
     def export_users_csv(self) -> str:
         rows = []
         for item in self.admins.list_all():
-            rows.append({
-                "id": item.id,
-                "username": item.username,
-                "role": item.role,
-                "is_active": item.is_active,
-                "full_name": item.full_name or "",
-                "position": item.position or "",
-                "extra_permissions": item.extra_permissions or "",
-                "created_at": item.created_at.isoformat() if item.created_at else "",
-            })
+            rows.append({"id": item.id, "username": item.username, "role": item.role, "is_active": item.is_active, "full_name": item.full_name or "", "position": item.position or "", "extra_permissions": item.extra_permissions or "", "created_at": item.created_at.isoformat() if item.created_at else ""})
         return self._render_csv(rows)
 
     def export_reports_csv(self) -> str:
         rows = []
         for item in self.reports.list_tickets():
-            rows.append({
-                "id": item.id,
-                "status": item.status,
-                "tg_user_id": item.tg_user_id,
-                "tg_chat_id": item.tg_chat_id,
-                "tg_username": item.tg_username or "",
-                "tg_full_name": item.tg_full_name or "",
-                "assigned_admin_id": item.assigned_admin_id or "",
-                "last_message_preview": item.last_message_preview or "",
-                "created_at": item.created_at.isoformat() if item.created_at else "",
-                "updated_at": item.updated_at.isoformat() if item.updated_at else "",
-            })
+            rows.append({"id": item.id, "status": item.status, "tg_user_id": item.tg_user_id, "tg_username": item.tg_username or "", "tg_full_name": item.tg_full_name or "", "assigned_admin_id": item.assigned_admin_id or "", "last_message_preview": item.last_message_preview or "", "created_at": item.created_at.isoformat() if item.created_at else "", "updated_at": item.updated_at.isoformat() if item.updated_at else ""})
         return self._render_csv(rows)
 
     def export_analytics_csv(self) -> str:
         return self._render_csv(self.analytics.export_summary_rows())
-
-    def export_admin_actions_csv(self, *, admin_id: int | None = None, action: str = "", date_from: str = "", date_to: str = "", sort: str = "desc") -> str:
-        rows = []
-        for item in self.audit_logs.list_filtered(admin_id=admin_id, action=action, date_from=date_from, date_to=date_to, sort=sort):
-            rows.append({
-                "created_at": item.created_at.isoformat() if item.created_at else "",
-                "admin_id": item.admin_id or "",
-                "admin_username": item.admin.username if item.admin else "",
-                "admin_role": item.admin.role if item.admin else "",
-                "action": item.action,
-                "entity_type": item.entity_type,
-                "entity_id": item.entity_id,
-                "payload_json": item.payload_json or "",
-            })
-        return self._render_csv(rows)
 
     def export_everything_zip(self) -> bytes:
         buffer = io.BytesIO()
@@ -138,7 +101,6 @@ class ImportExportService:
                 "users.csv": self.export_users_csv(),
                 "reports.csv": self.export_reports_csv(),
                 "analytics.csv": self.export_analytics_csv(),
-                "admin_actions.csv": self.export_admin_actions_csv(),
             }
             for name, content in files.items():
                 zf.writestr(name, content)
@@ -149,18 +111,6 @@ class ImportExportService:
 
     def template_codes_csv(self) -> str:
         return "code,title_id,season_id,episode_id,status\n12345678,1,1,1,active\n"
-
-    def preview_csv(self, content: bytes, *, expected_columns: set[str]) -> dict:
-        decoded = self._decode(content)
-        reader = csv.DictReader(io.StringIO(decoded))
-        fieldnames = reader.fieldnames or []
-        missing = sorted(expected_columns - set(fieldnames))
-        rows = []
-        for index, row in enumerate(reader, start=2):
-            rows.append({"row_number": index, **row})
-            if len(rows) >= 20:
-                break
-        return {"columns": fieldnames, "missing_columns": missing, "preview_rows": rows}
 
     def import_titles_csv(self, admin_id: int, filename: str, content: bytes):
         decoded = self._decode(content)
@@ -174,14 +124,7 @@ class ImportExportService:
         errors: list[dict] = []
         for index, row in enumerate(reader, start=2):
             try:
-                self.media.create_title(admin_id, {
-                    "type": (row.get("type") or "").strip(),
-                    "title": (row.get("title") or "").strip(),
-                    "original_title": None,
-                    "description": None,
-                    "year": None,
-                    "status": (row.get("status") or "draft").strip(),
-                })
+                self.media.create_title({"type": (row.get("type") or "").strip(), "title": (row.get("title") or "").strip(), "original_title": None, "description": None, "year": None, "status": (row.get("status") or "draft").strip()})
                 success_rows += 1
             except Exception as exc:
                 failed_rows += 1
@@ -202,13 +145,7 @@ class ImportExportService:
         errors: list[dict] = []
         for index, row in enumerate(reader, start=2):
             try:
-                self.codes.create_code(admin_id, {
-                    "code": (row.get("code") or "").strip(),
-                    "title_id": int(row["title_id"]) if (row.get("title_id") or "").strip() else None,
-                    "season_id": int(row["season_id"]) if (row.get("season_id") or "").strip() else None,
-                    "episode_id": int(row["episode_id"]) if (row.get("episode_id") or "").strip() else None,
-                    "status": (row.get("status") or "active").strip(),
-                })
+                self.codes.create_code(admin_id, {"code": (row.get("code") or "").strip(), "title_id": int(row["title_id"]) if (row.get("title_id") or "").strip() else None, "season_id": int(row["season_id"]) if (row.get("season_id") or "").strip() else None, "episode_id": int(row["episode_id"]) if (row.get("episode_id") or "").strip() else None, "status": (row.get("status") or "active").strip()})
                 success_rows += 1
             except Exception as exc:
                 failed_rows += 1

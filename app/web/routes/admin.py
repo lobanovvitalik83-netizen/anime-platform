@@ -48,31 +48,15 @@ def get_admin_or_redirect(request: Request, db: Session, min_role: str = "editor
     return admin, None
 
 
-def _render_media_cards(
-    request: Request,
-    current_admin,
-    db: Session,
-    q: str = "",
-    genre: str = "",
-    status: str = "",
-    storage_provider: str = "",
-    code_state: str = "",
-    error: str | None = None,
-):
-    cards = MediaCardService(db).list_cards(
-        q=q,
-        genre=genre,
-        status=status,
-        storage_provider=storage_provider,
-        code_state=code_state,
-    )
+def _render_media_cards(request: Request, current_admin, db: Session, q: str = "", genre: str = "", status: str = "", error: str | None = None):
+    cards = MediaCardService(db).list_cards(q=q, genre=genre, status=status)
     return render_template(
         "media_cards_list.html",
         request,
         page_title="Медиа",
         current_admin=current_admin,
         cards=cards,
-        filters={"q": q, "genre": genre, "status": status, "storage_provider": storage_provider, "code_state": code_state},
+        filters={"q": q, "genre": genre, "status": status},
         error=error,
     )
 
@@ -145,11 +129,11 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db_session)):
 
 
 @router.get("/admin/media")
-def admin_media_cards(request: Request, db: Session = Depends(get_db_session), q: str = "", genre: str = "", status: str = "", storage_provider: str = "", code_state: str = ""):
+def admin_media_cards(request: Request, db: Session = Depends(get_db_session), q: str = "", genre: str = "", status: str = ""):
     current_admin, redirect = get_admin_or_redirect(request, db)
     if redirect:
         return redirect
-    return _render_media_cards(request, current_admin, db, q=q, genre=genre, status=status, storage_provider=storage_provider, code_state=code_state)
+    return _render_media_cards(request, current_admin, db, q=q, genre=genre, status=status)
 
 
 @router.post("/admin/media/bulk-delete")
@@ -170,39 +154,6 @@ async def admin_media_bulk_delete(request: Request, db: Session = Depends(get_db
         return _render_media_cards(request, current_admin, db, error=str(exc))
     return redirect_to("/admin/media")
 
-
-
-
-@router.post("/admin/media/bulk-action")
-async def admin_media_bulk_action(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-    form = await request.form()
-    action = str(form.get("bulk_action", "")).strip()
-    selected_ids = [int(item) for item in form.getlist("selected_ids")]
-    if not action:
-        return _render_media_cards(request, current_admin, db, error="Не выбрано массовое действие.")
-    if not selected_ids:
-        return _render_media_cards(request, current_admin, db, error="Не выбраны карточки.")
-    media_service = MediaService(db)
-    try:
-        for item_id in selected_ids:
-            title = media_service.get_title(item_id)
-            if action == "activate":
-                media_service.update_title(current_admin.id, title.id, {"status": "active"})
-            elif action == "deactivate":
-                media_service.update_title(current_admin.id, title.id, {"status": "inactive"})
-            elif action == "archive":
-                media_service.update_title(current_admin.id, title.id, {"status": "archived"})
-            elif action == "delete":
-                MediaCardService(db).delete_card(current_admin.id, title.id)
-            else:
-                raise ValueError("Unknown bulk media action")
-    except Exception as exc:
-        db.rollback()
-        return _render_media_cards(request, current_admin, db, error=str(exc))
-    return redirect_to("/admin/media")
 
 @router.post("/admin/media/{title_id}/delete")
 def admin_media_delete(title_id: int, request: Request, db: Session = Depends(get_db_session)):
@@ -458,41 +409,22 @@ async def admin_card_builder_submit(request: Request, db: Session = Depends(get_
         )
 
 @router.get("/admin/codes")
-def admin_codes(
-    request: Request,
-    db: Session = Depends(get_db_session),
-    q: str = "",
-    status: str = "",
-    outcome: str = "",
-):
+def admin_codes(request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
     analytics = AnalyticsService(db)
-    code_rows = {row.code_value: row for row in analytics.list_code_rows(q=q, outcome=outcome)}
-    codes = CodeService(db).list_codes()
-    if q:
-        ql = q.strip().lower()
-        codes = [item for item in codes if ql in item.code.lower() or (item.title.title.lower() if item.title else False)]
-    if status:
-        codes = [item for item in codes if item.status == status]
-    if outcome == "found":
-        codes = [item for item in codes if item.code in code_rows and code_rows[item.code].found_attempts > 0]
-    elif outcome == "not_found":
-        codes = [item for item in codes if item.code in code_rows and code_rows[item.code].not_found_attempts > 0]
     return render_template(
         "codes_list.html",
         request,
         page_title="Коды доступа",
         current_admin=current_admin,
-        codes=codes,
+        codes=CodeService(db).list_codes(),
         top_found=analytics.get_top_codes(kind="found", limit=8),
         top_not_found=analytics.get_top_codes(kind="not_found", limit=8),
-        status_summary=analytics.get_code_status_summary(),
-        code_rows=code_rows,
-        filters={"q": q, "status": status, "outcome": outcome},
         error=None,
     )
+
 
 
 @router.get("/admin/codes/generate")
@@ -593,11 +525,9 @@ async def admin_codes_bulk_action(request: Request, db: Session = Depends(get_db
     action = str(form.get("bulk_action", "")).strip()
     selected_values = form.getlist("selected_ids")
     if not action:
-        analytics = AnalyticsService(db)
-        return render_template("codes_list.html", request, page_title="Коды", current_admin=current_admin, codes=CodeService(db).list_codes(), top_found=analytics.get_top_codes(kind="found", limit=8), top_not_found=analytics.get_top_codes(kind="not_found", limit=8), status_summary=analytics.get_code_status_summary(), code_rows={row.code_value: row for row in analytics.list_code_rows()}, filters={"q": "", "status": "", "outcome": ""}, error="Не выбрано массовое действие.")
+        return render_template("codes_list.html", request, page_title="Коды", current_admin=current_admin, codes=CodeService(db).list_codes(), error="Не выбрано массовое действие.")
     if not selected_values:
-        analytics = AnalyticsService(db)
-        return render_template("codes_list.html", request, page_title="Коды", current_admin=current_admin, codes=CodeService(db).list_codes(), top_found=analytics.get_top_codes(kind="found", limit=8), top_not_found=analytics.get_top_codes(kind="not_found", limit=8), status_summary=analytics.get_code_status_summary(), code_rows={row.code_value: row for row in analytics.list_code_rows()}, filters={"q": "", "status": "", "outcome": ""}, error="Не выбраны коды.")
+        return render_template("codes_list.html", request, page_title="Коды", current_admin=current_admin, codes=CodeService(db).list_codes(), error="Не выбраны коды.")
 
     code_service = CodeService(db)
     try:
@@ -613,8 +543,7 @@ async def admin_codes_bulk_action(request: Request, db: Session = Depends(get_db
                 raise ValueError("Unknown bulk action")
     except Exception as exc:
         db.rollback()
-        analytics = AnalyticsService(db)
-        return render_template("codes_list.html", request, page_title="Коды", current_admin=current_admin, codes=CodeService(db).list_codes(), top_found=analytics.get_top_codes(kind="found", limit=8), top_not_found=analytics.get_top_codes(kind="not_found", limit=8), status_summary=analytics.get_code_status_summary(), code_rows={row.code_value: row for row in analytics.list_code_rows()}, filters={"q": "", "status": "", "outcome": ""}, error=str(exc))
+        return render_template("codes_list.html", request, page_title="Коды", current_admin=current_admin, codes=CodeService(db).list_codes(), error=str(exc))
     return redirect_to("/admin/codes")
 
 
