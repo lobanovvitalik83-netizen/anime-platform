@@ -1,33 +1,31 @@
 {% extends "base.html" %}
 {% block content %}
+<div class="page-header">
+  <div><h1 class="page-title">Сообщения</h1><div class="page-subtitle">Рабочие диалоги команды в живом режиме, без перезагрузки страницы.</div></div>
+  <div class="btn-row">{% if messages_enabled %}<a class="btn green" href="/admin/chats/new">Новый чат</a>{% endif %}</div>
+</div>
+
 {% if error %}<div class="error">{{ error }}</div>{% endif %}
 <div class="tg-shell">
   <div class="tg-list">
     <div class="tg-list-head">
-      <div class="btn-row" style="justify-content:space-between; align-items:center;">
-        <b>Диалоги</b>
-        {% if messages_enabled %}<a class="btn green" href="/admin/chats/new">Новый</a>{% endif %}
-      </div>
-      <form method="get" action="/admin/chats-live" style="margin-top:10px;">
-        <input name="q" value="{{ q or '' }}" placeholder="Поиск по диалогам">
-      </form>
+      <div style="font-weight:900; margin-bottom:10px;">Диалоги</div>
+      <form method="get" action="/admin/chats-live"><input name="q" value="{{ q or '' }}" placeholder="Поиск по диалогам"></form>
     </div>
     <div class="tg-list-body">
       {% for item in chats %}
       <a class="tg-chat-item {% if selected_chat and item.id == selected_chat.id %}active{% endif %}" href="/admin/chats-live/{{ item.id }}">
-        <div class="avatar">
-          <span>{{ item.title[0:1] }}</span>
-        </div>
+        <div class="avatar small">{{ item.title[0:1] }}</div>
         <div class="tg-chat-main">
           <div class="tg-chat-title">
             <b>{{ item.title }}</b>
-            <span class="muted">{% if item.messages %}{{ item.messages[-1].created_at }}{% endif %}</span>
+            <span class="muted" style="font-size:12px;">{% if item.messages %}{{ item.messages[-1].created_at }}{% endif %}</span>
           </div>
-          <span class="tg-preview muted">{% if item.messages %}{{ item.messages[-1].content }}{% else %}Нет сообщений{% endif %}</span>
+          <div class="tg-preview muted">{% if item.messages %}{{ item.messages[-1].content }}{% else %}Нет сообщений{% endif %}</div>
         </div>
       </a>
       {% else %}
-      <div class="card" style="margin:16px;"><div class="muted">Чатов пока нет.</div></div>
+      <div class="card slim" style="margin:12px;"><div class="muted">Пока нет чатов.</div></div>
       {% endfor %}
     </div>
   </div>
@@ -35,27 +33,22 @@
   <div class="tg-panel">
     {% if selected_chat %}
     <div class="tg-panel-head">
-      <div>
-        <div><b>{{ selected_chat.title }}</b></div>
-        <div class="muted">
-          {% for p in selected_chat.participants if p.admin and p.admin.is_active %}
-          {{ p.admin.full_name or p.admin.username }}{% if not loop.last %}, {% endif %}
-          {% endfor %}
-        </div>
+      <div style="font-weight:900;">{{ selected_chat.title }}</div>
+      <div class="muted" style="margin-top:6px;">
+        {% for p in selected_chat.participants if p.admin and p.admin.is_active %}
+        {{ p.admin.full_name or p.admin.username }}{% if not loop.last %}, {% endif %}
+        {% endfor %}
       </div>
-      {% if not messages_enabled %}<span class="pill">Сообщения отключены</span>{% endif %}
     </div>
     <div class="tg-messages" id="tgMessages"></div>
     <div class="tg-compose">
       <form id="chatSendForm">
         <textarea id="chatBody" name="content" placeholder="Сообщение" {% if not messages_enabled %}disabled{% endif %}></textarea>
-        <div class="btn-row" style="margin-top:10px;">
-          <button class="btn green" type="submit" {% if not messages_enabled %}disabled{% endif %}>Отправить</button>
-        </div>
+        <div class="btn-row" style="margin-top:10px;"><button class="btn green" type="submit" {% if not messages_enabled %}disabled{% endif %}>Отправить</button></div>
       </form>
     </div>
     {% else %}
-    <div class="card" style="margin:16px;"><div class="muted">Выбери чат слева.</div></div>
+    <div class="card slim" style="margin:18px;"><div class="muted">Выбери чат слева.</div></div>
     {% endif %}
   </div>
 </div>
@@ -76,25 +69,20 @@
     const res = await fetch(`/admin/chats-live/${chatId}/messages.json?after_id=${initial ? 0 : lastMessageId}`);
     const data = await res.json();
     const box = document.getElementById('tgMessages');
-    if (initial) { box.innerHTML = ''; }
-    (data.items || []).forEach(item => {
-      box.appendChild(renderMessage(item));
-      lastMessageId = Math.max(lastMessageId, item.id);
-    });
-    if ((data.items || []).length || initial) box.scrollTop = box.scrollHeight;
+    if (initial) box.innerHTML = '';
+    (data.items || []).forEach(item => { box.appendChild(renderMessage(item)); lastMessageId = Math.max(lastMessageId, item.id); });
+    box.scrollTop = box.scrollHeight;
   }
   document.getElementById('chatSendForm').addEventListener('submit', async function(e) {
     e.preventDefault();
     const textarea = document.getElementById('chatBody');
     const value = textarea.value.trim();
     if (!value) return;
-    await fetch(`/admin/chats-live/${chatId}/send.json`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({content:value})});
+    await fetch(`/admin/chats-live/${chatId}/send.json`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:value})});
     textarea.value = '';
     await loadMessages(false);
   });
-  document.getElementById('chatBody').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.getElementById('chatSendForm').requestSubmit(); }
-  });
+  document.getElementById('chatBody').addEventListener('keydown', function(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); document.getElementById('chatSendForm').requestSubmit(); }});
   loadMessages(true);
   setInterval(() => loadMessages(false), 2500);
 </script>

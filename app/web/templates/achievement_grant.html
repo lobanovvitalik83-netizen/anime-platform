@@ -1,27 +1,44 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card">
-  <h2 class="section-title">Выдать ачивку</h2>
-  <div class="section-subtitle">Сотрудник: {{ person.full_name or person.username }}</div>
-  {% if error %}<div class="error">{{ error }}</div>{% endif %}
-  <form method="post" action="/admin/people/{{ person.id }}/achievements/grant" class="grid">
-    <div>
-      <label>Ачивка</label>
-      <select name="achievement_id" required>
-        <option value="">Выбери ачивку</option>
-        {% for item in rows %}
-        <option value="{{ item.id }}">{{ item.icon or '🏆' }} {{ item.name }}</option>
-        {% endfor %}
-      </select>
+<div class="page-header">
+  <div><h1 class="page-title">Выдать ачивку</h1><div class="page-subtitle">Сотрудник: {{ person.full_name or person.username }}</div></div>
+</div>
+
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+<div class="grid two">
+  <div class="card">
+    <h2 style="margin-top:0;">Доступные ачивки</h2>
+    <form method="post" action="/admin/people/{{ person.id }}/achievements/grant" class="grid">
+      <div><label>Ачивка</label>
+        <select name="achievement_id" required>
+          {% for item in rows %}
+          {% if item.id not in granted_ids %}
+          <option value="{{ item.id }}">{{ item.icon_emoji or '🏆' }} {{ item.title }}</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+      <div><label>Заметка к выдаче</label><textarea name="note" placeholder="Например: за помощь с релизом"></textarea></div>
+      <div class="btn-row"><button class="btn green" type="submit">Выдать</button><a class="btn ghost" href="/admin/people/{{ person.id }}">Назад</a></div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;">Уже выдано</h2>
+    <div class="grid" style="gap:12px;">
+      {% for grant in current %}
+      <div class="achievement-card">
+        <div class="achievement-icon" style="background: {{ grant.achievement.color or '#4f7cff' }};">{{ grant.achievement.icon_emoji or '🏆' }}</div>
+        <div style="font-weight:800;margin-top:10px;">{{ grant.achievement.title }}</div>
+        <div class="muted">{{ grant.achievement.description or "Без описания" }}</div>
+        {% if grant.note %}<div style="margin-top:8px;">{{ grant.note }}</div>{% endif %}
+        <form method="post" action="/admin/people/{{ person.id }}/achievements/{{ grant.id }}/revoke" class="inline" style="margin-top:12px;"><button class="btn red" type="submit">Отозвать</button></form>
+      </div>
+      {% else %}
+      <div class="muted">Пока ничего не выдано.</div>
+      {% endfor %}
     </div>
-    <div>
-      <label>Примечание</label>
-      <textarea name="note" placeholder="За что выдана ачивка"></textarea>
-    </div>
-    <div class="btn-row">
-      <button class="btn green" type="submit">Выдать</button>
-      <a class="btn ghost" href="/admin/people/{{ person.id }}">Назад в профиль</a>
-    </div>
-  </form>
+  </div>
 </div>
 {% endblock %}

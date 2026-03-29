@@ -35,7 +35,6 @@ async def start_bot_polling() -> None:
     if _polling_task and not _polling_task.done():
         logger.info("Telegram bot polling already running")
         return
-
     _dispatcher = build_dispatcher()
     _bot = Bot(token=settings.telegram_bot_token, default=DefaultBotProperties(parse_mode="HTML"))
     _polling_task = asyncio.create_task(_dispatcher.start_polling(_bot, handle_signals=False))

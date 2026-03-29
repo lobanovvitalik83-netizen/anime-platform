@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, ForeignKey, Index, String, Text
+from sqlalchemy import ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -13,8 +13,8 @@ class ReportTicket(TimestampMixin, Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tg_user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    tg_chat_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    tg_user_id: Mapped[int] = mapped_column(nullable=False)
+    tg_chat_id: Mapped[int] = mapped_column(nullable=False)
     tg_username: Mapped[str | None] = mapped_column(String(255), nullable=True)
     tg_full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="open", nullable=False)
