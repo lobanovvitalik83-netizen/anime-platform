@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import json
 import secrets
+import string
 import time
 from typing import Any
 
@@ -45,6 +46,14 @@ def verify_password(plain_password: str, password_hash: str) -> bool:
         return hmac.compare_digest(actual_hash, expected_hash)
     except Exception:
         return False
+
+
+def generate_password(length: int = 12) -> str:
+    alphabet = string.ascii_letters + string.digits
+    while True:
+        value = "".join(secrets.choice(alphabet) for _ in range(length))
+        if any(ch.islower() for ch in value) and any(ch.isupper() for ch in value) and any(ch.isdigit() for ch in value):
+            return value
 
 
 def _urlsafe_b64decode(value: str) -> bytes:

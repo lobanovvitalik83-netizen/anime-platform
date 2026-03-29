@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="btn-row" style="margin-bottom:16px;">
-  <h1 style="margin:0; flex:1;">Команда</h1>
-  <a class="btn green" href="/admin/team/new">Новый пользователь</a>
+  <h1 style="margin:0; flex:1;">Пользователи</h1>
+  <a class="btn green" href="/admin/team/new">Создать пользователя</a>
 </div>
 
 {% if error %}<div class="error">{{ error }}</div>{% endif %}
@@ -11,10 +11,12 @@
   <thead>
     <tr>
       <th>ID</th>
-      <th>Username</th>
-      <th>Role</th>
-      <th>Active</th>
-      <th>Created</th>
+      <th>Логин</th>
+      <th>Имя</th>
+      <th>Должность</th>
+      <th>Роль</th>
+      <th>Активен</th>
+      <th>Создан</th>
       <th>Действия</th>
     </tr>
   </thead>
@@ -23,20 +25,29 @@
     <tr>
       <td>{{ item.id }}</td>
       <td>{{ item.username }}</td>
+      <td>{{ item.full_name or "" }}</td>
+      <td>{{ item.position or "" }}</td>
       <td>{{ item.role }}</td>
       <td>{{ "yes" if item.is_active else "no" }}</td>
       <td>{{ item.created_at }}</td>
       <td>
         <div class="btn-row">
+          {% if item.id in manageable_ids %}
           <a class="btn secondary" href="/admin/team/{{ item.id }}/edit">Редактировать</a>
+          <form method="post" action="/admin/team/{{ item.id }}/reset-password" class="inline">
+            <button class="btn secondary" type="submit">Сбросить пароль</button>
+          </form>
           {% if item.is_active %}
-          <form method="post" action="/admin/team/{{ item.id }}/deactivate" class="inline" onsubmit="return confirm('Отключить пользователя?');">
-            <button class="btn" style="background:#d97706;" type="submit">Отключить</button>
+          <form method="post" action="/admin/team/{{ item.id }}/deactivate" class="inline">
+            <button class="btn" style="background:#d97706;" type="submit">Блокировать</button>
           </form>
           {% else %}
-          <form method="post" action="/admin/team/{{ item.id }}/activate" class="inline" onsubmit="return confirm('Включить пользователя?');">
-            <button class="btn green" type="submit">Включить</button>
+          <form method="post" action="/admin/team/{{ item.id }}/activate" class="inline">
+            <button class="btn green" type="submit">Разблокировать</button>
           </form>
+          {% endif %}
+          {% else %}
+          <span class="muted">Недоступно</span>
           {% endif %}
         </div>
       </td>

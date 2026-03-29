@@ -1578,44 +1578,176 @@ async def admin_card_builder_submit(request: Request, db: Session = Depends(get_
         )
 
 
-@router.get("/admin/team")
-def admin_team_page(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="superadmin")
+
+
+@router.get("/admin/profile")
+def admin_profile_page(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
     if redirect:
         return redirect
-    admins = AuthService(db).list_admins()
+    return render_template(
+        "profile.html",
+        request,
+        page_title="Мой профиль",
+        current_admin=current_admin,
+        error=None,
+        success=None,
+        password_error=None,
+        password_success=None,
+    )
+
+
+@router.post("/admin/profile")
+async def admin_profile_submit(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    avatar_file = form.get("avatar_file")
+    service = AuthService(db)
+
+    try:
+        service.update_profile(
+            current_admin.id,
+            full_name=str(form.get("full_name", "")).strip() or None,
+            position=str(form.get("position", "")).strip() or None,
+            about=str(form.get("about", "")).strip() or None,
+            avatar_url=str(form.get("avatar_url", "")).strip() or None,
+        )
+
+        if avatar_file and getattr(avatar_file, "filename", ""):
+            content = await avatar_file.read()
+            service.upload_profile_avatar(
+                current_admin.id,
+                file_bytes=content,
+                file_name=avatar_file.filename,
+                content_type=getattr(avatar_file, "content_type", None),
+            )
+
+        refreshed = AuthService(db).get_admin(current_admin.id)
+        return render_template(
+            "profile.html",
+            request,
+            page_title="Мой профиль",
+            current_admin=refreshed,
+            error=None,
+            success="Профиль обновлён.",
+            password_error=None,
+            password_success=None,
+        )
+    except Exception as exc:
+        db.rollback()
+        refreshed = AuthService(db).get_admin(current_admin.id)
+        return render_template(
+            "profile.html",
+            request,
+            page_title="Мой профиль",
+            current_admin=refreshed,
+            error=str(exc),
+            success=None,
+            password_error=None,
+            password_success=None,
+        )
+
+
+@router.post("/admin/profile/password")
+async def admin_profile_password_submit(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    current_password = str(form.get("current_password", "")).strip()
+    new_password = str(form.get("new_password", "")).strip()
+
+    try:
+        AuthService(db).change_own_password(current_admin.id, current_password, new_password)
+        refreshed = AuthService(db).get_admin(current_admin.id)
+        return render_template(
+            "profile.html",
+            request,
+            page_title="Мой профиль",
+            current_admin=refreshed,
+            error=None,
+            success=None,
+            password_error=None,
+            password_success="Пароль изменён.",
+        )
+    except Exception as exc:
+        db.rollback()
+        refreshed = AuthService(db).get_admin(current_admin.id)
+        return render_template(
+            "profile.html",
+            request,
+            page_title="Мой профиль",
+            current_admin=refreshed,
+            error=None,
+            success=None,
+            password_error=str(exc),
+            password_success=None,
+        )
+
+
+def _manageable_ids_for_actor(current_admin, admins):
+    service = AuthService(db=None)  # placeholder, not used
+    managed_roles = {
+        "superadmin": {"admin", "editor"},
+        "admin": {"editor"},
+    }.get(current_admin.role, set())
+    return {item.id for item in admins if item.id != current_admin.id and item.role in managed_roles}
+
+
+@router.get("/admin/team")
+def admin_team_page(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+
+    service = AuthService(db)
+    admins = service.list_admins_for_actor(current_admin)
+    manageable_ids = {item.id for item in admins if item.id != current_admin.id and item.role in {"editor", "admin"}}
+    if current_admin.role == "admin":
+        manageable_ids = {item.id for item in admins if item.role == "editor"}
+
     return render_template(
         "team_list.html",
         request,
-        page_title="Команда",
+        page_title="Пользователи",
         current_admin=current_admin,
         admins=admins,
+        manageable_ids=manageable_ids,
         error=None,
     )
 
 
 @router.get("/admin/team/new")
 def admin_team_new_page(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="superadmin")
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
+
+    allowed_roles = AuthService(db).allowed_create_roles(current_admin)
     return render_template(
         "team_form.html",
         request,
-        page_title="Новый пользователь",
+        page_title="Создать пользователя",
         current_admin=current_admin,
         error=None,
         success=None,
-        values={"role": "editor", "is_active": True},
+        credentials=None,
+        values={"role": allowed_roles[0] if allowed_roles else "editor", "is_active": True, "generate_password": True},
+        allowed_roles=allowed_roles,
         action_url="/admin/team/new",
         submit_label="Создать пользователя",
         is_edit=False,
+        reset_password_url=None,
     )
 
 
 @router.post("/admin/team/new")
 async def admin_team_new_submit(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="superadmin")
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
 
@@ -1624,48 +1756,66 @@ async def admin_team_new_submit(request: Request, db: Session = Depends(get_db_s
         "username": str(form.get("username", "")).strip(),
         "role": str(form.get("role", "editor")).strip(),
         "is_active": form.get("is_active") == "on",
+        "generate_password": form.get("generate_password") == "on",
+        "password": str(form.get("password", "")).strip(),
     }
-    password = str(form.get("password", "")).strip()
+
+    service = AuthService(db)
+    allowed_roles = service.allowed_create_roles(current_admin)
 
     try:
-        created = AuthService(db).create_admin(current_admin.id, values["username"], password, values["role"])
-        if not values["is_active"]:
-            AuthService(db).set_admin_active(current_admin.id, created.id, False)
+        created, plain_password = service.create_admin(
+            current_admin,
+            username=values["username"],
+            role=values["role"],
+            password=values["password"],
+            generate_password_flag=values["generate_password"],
+            is_active=values["is_active"],
+        )
         return render_template(
             "team_form.html",
             request,
-            page_title="Новый пользователь",
+            page_title="Создать пользователя",
             current_admin=current_admin,
             error=None,
             success="Пользователь создан.",
-            values={"role": "editor", "is_active": True},
+            credentials={"username": created.username, "password": plain_password},
+            values={"role": allowed_roles[0] if allowed_roles else "editor", "is_active": True, "generate_password": True},
+            allowed_roles=allowed_roles,
             action_url="/admin/team/new",
             submit_label="Создать пользователя",
             is_edit=False,
+            reset_password_url=None,
         )
     except Exception as exc:
         db.rollback()
         return render_template(
             "team_form.html",
             request,
-            page_title="Новый пользователь",
+            page_title="Создать пользователя",
             current_admin=current_admin,
             error=str(exc),
             success=None,
+            credentials=None,
             values=values,
+            allowed_roles=allowed_roles,
             action_url="/admin/team/new",
             submit_label="Создать пользователя",
             is_edit=False,
+            reset_password_url=None,
         )
 
 
 @router.get("/admin/team/{admin_id}/edit")
 def admin_team_edit_page(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="superadmin")
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
 
-    item = AuthService(db).get_admin(admin_id)
+    service = AuthService(db)
+    item = service.get_manageable_admin(current_admin, admin_id)
+    allowed_roles = service.allowed_create_roles(current_admin)
+
     return render_template(
         "team_form.html",
         request,
@@ -1673,35 +1823,37 @@ def admin_team_edit_page(admin_id: int, request: Request, db: Session = Depends(
         current_admin=current_admin,
         error=None,
         success=None,
+        credentials=None,
         values={"username": item.username, "role": item.role, "is_active": item.is_active},
+        allowed_roles=allowed_roles,
         action_url=f"/admin/team/{admin_id}/edit",
         submit_label="Сохранить пользователя",
         is_edit=True,
+        reset_password_url=f"/admin/team/{admin_id}/reset-password",
     )
 
 
 @router.post("/admin/team/{admin_id}/edit")
 async def admin_team_edit_submit(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="superadmin")
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
 
+    service = AuthService(db)
+    allowed_roles = service.allowed_create_roles(current_admin)
+
     form = await request.form()
     values = {
-        "username": str(form.get("username", "")).strip(),
         "role": str(form.get("role", "editor")).strip(),
         "is_active": form.get("is_active") == "on",
     }
-    password = str(form.get("password", "")).strip()
 
     try:
-        AuthService(db).update_admin(
-            current_admin.id,
+        managed = service.update_managed_admin(
+            current_admin,
             admin_id,
-            username=values["username"],
             role=values["role"],
             is_active=values["is_active"],
-            new_password=password or None,
         )
         return render_template(
             "team_form.html",
@@ -1710,13 +1862,17 @@ async def admin_team_edit_submit(admin_id: int, request: Request, db: Session = 
             current_admin=current_admin,
             error=None,
             success="Пользователь обновлён.",
-            values=values,
+            credentials=None,
+            values={"username": managed.username, "role": managed.role, "is_active": managed.is_active},
+            allowed_roles=allowed_roles,
             action_url=f"/admin/team/{admin_id}/edit",
             submit_label="Сохранить пользователя",
             is_edit=True,
+            reset_password_url=f"/admin/team/{admin_id}/reset-password",
         )
     except Exception as exc:
         db.rollback()
+        target = service.get_admin(admin_id)
         return render_template(
             "team_form.html",
             request,
@@ -1724,50 +1880,111 @@ async def admin_team_edit_submit(admin_id: int, request: Request, db: Session = 
             current_admin=current_admin,
             error=str(exc),
             success=None,
-            values=values,
+            credentials=None,
+            values={"username": target.username, "role": values["role"], "is_active": values["is_active"]},
+            allowed_roles=allowed_roles,
             action_url=f"/admin/team/{admin_id}/edit",
             submit_label="Сохранить пользователя",
             is_edit=True,
+            reset_password_url=f"/admin/team/{admin_id}/reset-password",
+        )
+
+
+@router.post("/admin/team/{admin_id}/reset-password")
+def admin_team_reset_password(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+
+    service = AuthService(db)
+    allowed_roles = service.allowed_create_roles(current_admin)
+
+    try:
+        target, plain_password = service.reset_managed_admin_password(current_admin, admin_id)
+        return render_template(
+            "team_form.html",
+            request,
+            page_title=f"Редактировать пользователя #{admin_id}",
+            current_admin=current_admin,
+            error=None,
+            success="Пароль сброшен.",
+            credentials={"username": target.username, "password": plain_password},
+            values={"username": target.username, "role": target.role, "is_active": target.is_active},
+            allowed_roles=allowed_roles,
+            action_url=f"/admin/team/{admin_id}/edit",
+            submit_label="Сохранить пользователя",
+            is_edit=True,
+            reset_password_url=f"/admin/team/{admin_id}/reset-password",
+        )
+    except Exception as exc:
+        db.rollback()
+        target = service.get_admin(admin_id)
+        return render_template(
+            "team_form.html",
+            request,
+            page_title=f"Редактировать пользователя #{admin_id}",
+            current_admin=current_admin,
+            error=str(exc),
+            success=None,
+            credentials=None,
+            values={"username": target.username, "role": target.role, "is_active": target.is_active},
+            allowed_roles=allowed_roles,
+            action_url=f"/admin/team/{admin_id}/edit",
+            submit_label="Сохранить пользователя",
+            is_edit=True,
+            reset_password_url=f"/admin/team/{admin_id}/reset-password",
         )
 
 
 @router.post("/admin/team/{admin_id}/deactivate")
 def admin_team_deactivate(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="superadmin")
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
+
+    service = AuthService(db)
     try:
-        AuthService(db).set_admin_active(current_admin.id, admin_id, False)
+        service.set_managed_admin_active(current_admin, admin_id, False)
+        return redirect_to("/admin/team")
     except Exception as exc:
         db.rollback()
-        admins = AuthService(db).list_admins()
+        admins = service.list_admins_for_actor(current_admin)
+        manageable_ids = {item.id for item in admins if item.id != current_admin.id and item.role in {"editor", "admin"}}
+        if current_admin.role == "admin":
+            manageable_ids = {item.id for item in admins if item.role == "editor"}
         return render_template(
             "team_list.html",
             request,
-            page_title="Команда",
+            page_title="Пользователи",
             current_admin=current_admin,
             admins=admins,
+            manageable_ids=manageable_ids,
             error=str(exc),
         )
-    return redirect_to("/admin/team")
 
 
 @router.post("/admin/team/{admin_id}/activate")
 def admin_team_activate(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="superadmin")
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
+
+    service = AuthService(db)
     try:
-        AuthService(db).set_admin_active(current_admin.id, admin_id, True)
+        service.set_managed_admin_active(current_admin, admin_id, True)
+        return redirect_to("/admin/team")
     except Exception as exc:
         db.rollback()
-        admins = AuthService(db).list_admins()
+        admins = service.list_admins_for_actor(current_admin)
+        manageable_ids = {item.id for item in admins if item.id != current_admin.id and item.role in {"editor", "admin"}}
+        if current_admin.role == "admin":
+            manageable_ids = {item.id for item in admins if item.role == "editor"}
         return render_template(
             "team_list.html",
             request,
-            page_title="Команда",
+            page_title="Пользователи",
             current_admin=current_admin,
             admins=admins,
+            manageable_ids=manageable_ids,
             error=str(exc),
         )
-    return redirect_to("/admin/team")

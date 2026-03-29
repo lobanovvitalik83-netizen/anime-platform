@@ -5,24 +5,51 @@
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
   {% if success %}<div class="success">{{ success }}</div>{% endif %}
 
+  {% if credentials %}
+  <div class="success">
+    <b>Показывается только сейчас.</b><br>
+    Логин: <span class="code">{{ credentials.username }}</span><br>
+    Пароль: <span class="code">{{ credentials.password }}</span>
+  </div>
+  {% endif %}
+
   <form method="post" action="{{ action_url }}" class="grid">
     <div class="form-grid">
       <div>
-        <label>Username</label>
-        <input name="username" value="{{ values.get('username', '') }}" required>
+        <label>Логин</label>
+        {% if is_edit %}
+          <input value="{{ values.get('username', '') }}" readonly disabled>
+        {% else %}
+          <input name="username" value="{{ values.get('username', '') }}" required>
+        {% endif %}
       </div>
       <div>
-        <label>Role</label>
+        <label>Роль</label>
         <select name="role" required>
-          <option value="editor" {% if values.get('role') == 'editor' %}selected{% endif %}>editor</option>
-          <option value="admin" {% if values.get('role') == 'admin' %}selected{% endif %}>admin</option>
-          <option value="superadmin" {% if values.get('role') == 'superadmin' %}selected{% endif %}>superadmin</option>
+          {% for role in allowed_roles %}
+          <option value="{{ role }}" {% if values.get('role') == role %}selected{% endif %}>{{ role }}</option>
+          {% endfor %}
         </select>
       </div>
+
+      {% if not is_edit %}
       <div>
-        <label>Password{% if is_edit %} (если не менять — оставь пусто){% endif %}</label>
-        <input type="password" name="password" value="">
+        <label>Пароль</label>
+        <input type="text" name="password" value="{{ values.get('password', '') }}" placeholder="Оставь пусто для автогенерации">
       </div>
+      <div>
+        <label style="display:flex; gap:8px; align-items:center; font-weight:600; margin-top:30px;">
+          <input type="checkbox" name="generate_password" {% if values.get('generate_password', True) %}checked{% endif %} style="width:auto;">
+          Сгенерировать пароль
+        </label>
+      </div>
+      {% else %}
+      <div>
+        <label>Сброс пароля</label>
+        <div class="muted">При сбросе будет создан новый случайный пароль, который покажется один раз.</div>
+      </div>
+      {% endif %}
+
       <div>
         <label style="display:flex; gap:8px; align-items:center; font-weight:600; margin-top:30px;">
           <input type="checkbox" name="is_active" {% if values.get('is_active', True) %}checked{% endif %} style="width:auto;">
@@ -30,8 +57,12 @@
         </label>
       </div>
     </div>
+
     <div class="btn-row">
       <button class="btn green" type="submit">{{ submit_label }}</button>
+      {% if is_edit %}
+      <button class="btn secondary" type="submit" formaction="{{ reset_password_url }}" formmethod="post">Сбросить пароль</button>
+      {% endif %}
       <a class="btn secondary" href="/admin/team">Назад</a>
     </div>
   </form>

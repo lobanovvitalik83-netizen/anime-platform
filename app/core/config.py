@@ -1,5 +1,6 @@
 import re
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -40,6 +41,9 @@ class Settings(BaseSettings):
     allowed_video_mime_raw: str = Field(default="video/mp4", alias="ALLOWED_VIDEO_MIME")
     max_image_size_bytes: int = Field(default=5_242_880, alias="MAX_IMAGE_SIZE_BYTES")
     max_video_size_bytes: int = Field(default=52_428_800, alias="MAX_VIDEO_SIZE_BYTES")
+
+    data_dir_raw: str = Field(default="/app/data", alias="DATA_DIR")
+    max_avatar_size_bytes: int = Field(default=2_097_152, alias="MAX_AVATAR_SIZE_BYTES")
 
     @field_validator("app_env")
     @classmethod
@@ -92,6 +96,18 @@ class Settings(BaseSettings):
         if re.fullmatch(r"-?\d+", value):
             return int(value)
         return value
+
+    @property
+    def data_dir(self) -> Path:
+        return Path(self.data_dir_raw)
+
+    @property
+    def public_upload_dir(self) -> Path:
+        return self.data_dir / "uploads"
+
+    @property
+    def avatar_upload_dir(self) -> Path:
+        return self.public_upload_dir / "avatars"
 
 
 @lru_cache(maxsize=1)

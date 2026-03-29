@@ -6,3 +6,7 @@ class AdminRead(TimestampReadMixin):
     username: str
     role: str
     is_active: bool
+    full_name: str | None = None
+    position: str | None = None
+    about: str | None = None
+    avatar_url: str | None = None

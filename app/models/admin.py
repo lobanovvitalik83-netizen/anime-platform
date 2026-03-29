@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Index, String
+from sqlalchemy import Boolean, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -17,6 +17,11 @@ class Admin(TimestampMixin, Base):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(String(50), default="admin", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    full_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    position: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    about: Mapped[str | None] = mapped_column(Text, nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     access_codes = relationship("AccessCode", back_populates="created_by_admin")
     audit_logs = relationship("AuditLog", back_populates="admin")

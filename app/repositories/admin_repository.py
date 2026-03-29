@@ -12,6 +12,10 @@ class AdminRepository:
         statement = select(Admin).order_by(Admin.id.asc())
         return list(self.session.scalars(statement))
 
+    def list_by_roles(self, roles: list[str]) -> list[Admin]:
+        statement = select(Admin).where(Admin.role.in_(roles)).order_by(Admin.id.asc())
+        return list(self.session.scalars(statement))
+
     def get_by_id(self, admin_id: int) -> Admin | None:
         return self.session.get(Admin, admin_id)
 
@@ -19,8 +23,8 @@ class AdminRepository:
         statement = select(Admin).where(Admin.username == username)
         return self.session.scalar(statement)
 
-    def create(self, username: str, password_hash: str, role: str = "admin") -> Admin:
-        entity = Admin(username=username, password_hash=password_hash, role=role, is_active=True)
+    def create(self, **kwargs) -> Admin:
+        entity = Admin(**kwargs)
         self.session.add(entity)
         self.session.flush()
         return entity

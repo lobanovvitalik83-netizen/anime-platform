@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.api.routes.access_codes import router as access_codes_router
 from app.api.routes.auth import router as auth_router
@@ -38,6 +39,9 @@ def create_app() -> FastAPI:
         debug=settings.is_development,
         lifespan=lifespan,
     )
+    settings.public_upload_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=str(settings.public_upload_dir)), name="uploads")
+
     app.include_router(health_router)
     app.include_router(auth_router)
     app.include_router(media_titles_router)

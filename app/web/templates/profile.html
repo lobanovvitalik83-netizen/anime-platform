@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="grid" style="grid-template-columns: minmax(320px, 1fr) minmax(360px, 480px); align-items:start;">
+  <div class="card">
+    <h1>Мой профиль</h1>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    {% if success %}<div class="success">{{ success }}</div>{% endif %}
+
+    <div class="btn-row" style="align-items:center; margin-bottom:18px;">
+      <div class="avatar">
+        {% if current_admin.avatar_url %}
+          <img src="{{ current_admin.avatar_url }}" alt="avatar">
+        {% else %}
+          <span class="muted">avatar</span>
+        {% endif %}
+      </div>
+      <div>
+        <div><b>{{ current_admin.username }}</b></div>
+        <div class="muted">{{ current_admin.role }}</div>
+      </div>
+    </div>
+
+    <form method="post" action="/admin/profile" enctype="multipart/form-data" class="grid">
+      <div class="form-grid">
+        <div>
+          <label>Логин</label>
+          <input value="{{ current_admin.username }}" readonly disabled>
+        </div>
+        <div>
+          <label>Роль</label>
+          <input value="{{ current_admin.role }}" readonly disabled>
+        </div>
+        <div>
+          <label>Имя</label>
+          <input name="full_name" value="{{ current_admin.full_name or '' }}">
+        </div>
+        <div>
+          <label>Должность</label>
+          <input name="position" value="{{ current_admin.position or '' }}">
+        </div>
+      </div>
+
+      <div>
+        <label>About</label>
+        <textarea name="about">{{ current_admin.about or '' }}</textarea>
+      </div>
+
+      <div class="form-grid">
+        <div>
+          <label>Аватар по ссылке</label>
+          <input name="avatar_url" value="{{ current_admin.avatar_url or '' }}" placeholder="https://... или /uploads/avatars/...">
+        </div>
+        <div>
+          <label>Или загрузить аватар</label>
+          <input type="file" name="avatar_file" accept="image/*">
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn green" type="submit">Сохранить профиль</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Смена пароля</h2>
+    {% if password_error %}<div class="error">{{ password_error }}</div>{% endif %}
+    {% if password_success %}<div class="success">{{ password_success }}</div>{% endif %}
+
+    <form method="post" action="/admin/profile/password" class="grid">
+      <div>
+        <label>Текущий пароль</label>
+        <input type="password" name="current_password" required>
+      </div>
+      <div>
+        <label>Новый пароль</label>
+        <input type="password" name="new_password" required>
+      </div>
+      <div class="btn-row">
+        <button class="btn green" type="submit">Изменить пароль</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
