@@ -10,6 +10,7 @@ from app.api.routes.media_assets import router as media_assets_router
 from app.api.routes.media_episodes import router as media_episodes_router
 from app.api.routes.media_seasons import router as media_seasons_router
 from app.api.routes.media_titles import router as media_titles_router
+from app.api.routes.media_proxy import router as media_proxy_router
 from app.api.routes.public_lookup import router as public_lookup_router
 from app.bot.dispatcher import start_bot_polling, stop_bot_polling
 from app.core.config import settings
@@ -41,6 +42,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(auth_router)
     app.include_router(media_titles_router)
+    app.include_router(media_proxy_router)
     app.include_router(media_seasons_router)
     app.include_router(media_episodes_router)
     app.include_router(media_assets_router)

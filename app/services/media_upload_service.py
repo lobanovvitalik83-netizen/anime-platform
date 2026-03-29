@@ -4,6 +4,7 @@ from app.core.config import settings
 from app.core.exceptions import ValidationError
 from app.services.external_media_storage_service import ExternalMediaStorageService
 from app.services.remote_media_import_service import RemoteMediaImportService
+from app.services.yandex_disk_storage_service import YandexDiskStorageService
 
 
 class MediaUploadService:
@@ -28,17 +29,24 @@ class MediaUploadService:
             asset_type=asset_type,
         )
 
-        if not settings.s3_configured:
-            raise ValidationError(
-                "Upload файлов отключён: BotHost не хранит медиа, а внешний S3-compatible storage не настроен."
+        backend = settings.media_storage_backend
+        if backend == "yandex_disk" or (backend == "auto" and settings.yandex_disk_configured):
+            return YandexDiskStorageService().upload_bytes(
+                file_bytes=file_bytes,
+                file_name=file_name,
+                content_type=detected_mime,
+                asset_type=normalized_result_type,
             )
 
-        return self.external_storage.upload_s3(
-            file_bytes=file_bytes,
-            file_name=file_name,
-            content_type=detected_mime,
-            asset_type=normalized_result_type,
-        )
+        if backend == "s3" or (backend == "auto" and settings.s3_configured):
+            return self.external_storage.upload_s3(
+                file_bytes=file_bytes,
+                file_name=file_name,
+                content_type=detected_mime,
+                asset_type=normalized_result_type,
+            )
+
+        raise ValidationError("Upload файлов отключён: не настроен внешний storage backend.")
 
     async def import_from_remote_url(
         self,
@@ -46,11 +54,6 @@ class MediaUploadService:
         source_url: str,
         asset_type: str,
     ) -> dict:
-        if not settings.s3_configured:
-            raise ValidationError(
-                "Импорт по ссылке с копированием в storage отключён: внешний S3-compatible storage не настроен."
-            )
-
         tentative_asset_type = asset_type.strip().lower()
         max_size = settings.max_video_size_bytes if tentative_asset_type == "video" else settings.max_image_size_bytes
         file_bytes, file_name, content_type = self.remote_import.fetch(source_url, max_size_bytes=max_size)
@@ -60,14 +63,29 @@ class MediaUploadService:
             detected_mime=detected_mime,
             asset_type=asset_type,
         )
-        payload = self.external_storage.upload_s3(
-            file_bytes=file_bytes,
-            file_name=file_name,
-            content_type=detected_mime,
-            asset_type=normalized_result_type,
-        )
-        payload["source_url"] = self.remote_import.normalize_url(source_url)
-        return payload
+
+        backend = settings.media_storage_backend
+        if backend == "yandex_disk" or (backend == "auto" and settings.yandex_disk_configured):
+            payload = YandexDiskStorageService().upload_bytes(
+                file_bytes=file_bytes,
+                file_name=file_name,
+                content_type=detected_mime,
+                asset_type=normalized_result_type,
+            )
+            payload["source_url"] = self.remote_import.normalize_url(source_url)
+            return payload
+
+        if backend == "s3" or (backend == "auto" and settings.s3_configured):
+            payload = self.external_storage.upload_s3(
+                file_bytes=file_bytes,
+                file_name=file_name,
+                content_type=detected_mime,
+                asset_type=normalized_result_type,
+            )
+            payload["source_url"] = self.remote_import.normalize_url(source_url)
+            return payload
+
+        raise ValidationError("Импорт с копированием отключён: не настроен внешний storage backend.")
 
     def _validate_payload(self, *, file_bytes: bytes, detected_mime: str, asset_type: str) -> str:
         normalized_asset_type = asset_type.strip().lower()

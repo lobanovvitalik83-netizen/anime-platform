@@ -1,36 +1,28 @@
-# Stage 22 - External Only Media Storage + Remote Import
+# Stage 23 - Yandex Disk media backend
 
 В архиве:
-- весь stage 21
-- BotHost больше не используется как storage для фото/видео карточек
-- файлы карточек хранятся только во внешнем storage
-- upload файла из формы идёт сразу во внешний storage
-- импорт по public/shared URL:
-  - Google Drive public link
-  - Dropbox shared link
-  - обычный CDN / прямой URL
-- можно хранить просто внешнюю ссылку без копирования в storage
-- если файл был загружен или импортирован системой, при удалении карточки файл удаляется из внешнего storage
-- если карточка просто ссылалась на внешний URL без копирования, удаляется только связь в БД
+- весь stage 22
+- backend `yandex_disk`
+- upload файла из карточки сразу на Яндекс Диск
+- import по прямому URL с копированием на Яндекс Диск
+- хранение только metadata в BotHost
+- удаление файла с Яндекс Диска при удалении карточки, если файл был загружен системой
+- публичный proxy/redirect route для показа картинки/видео из Яндекс Диска
+- авто-создание рабочих папок приложения на Диске
 
-Важно:
-- этот этап делает импорт по public/shared URL
-- поиск файла по одному только названию внутри Google Drive/Dropbox API без отдельной авторизации сервиса здесь не реализован
-- для production рекомендуется S3-compatible storage
+ENV:
+- MEDIA_STORAGE_BACKEND=yandex_disk
+- PUBLIC_BASE_URL=https://твой-домен
+- YANDEX_DISK_OAUTH_TOKEN=...
+- YANDEX_DISK_BASE_PATH=app:/media-bridge
 
-Новые поля asset metadata:
-- storage_provider
-- storage_object_key
-- source_url
-- source_label
-- uploaded_by_system
+Что создаётся автоматически:
+- `app:/media-bridge`
+- `app:/media-bridge/image`
+- `app:/media-bridge/video`
 
-Новые ENV:
-- MEDIA_STORAGE_BACKEND=auto|s3
-- S3_ENDPOINT_URL
-- S3_ACCESS_KEY_ID
-- S3_SECRET_ACCESS_KEY
-- S3_BUCKET_NAME
-- S3_REGION
-- S3_PUBLIC_BASE_URL
-- S3_KEY_PREFIX
+Как это работает:
+- файл грузится на Яндекс Диск
+- в БД хранится только путь файла на Диске + metadata
+- для просмотра система отдаёт ссылку на свой публичный route
+- этот route на лету получает download href из Yandex Disk API и делает redirect к файлу

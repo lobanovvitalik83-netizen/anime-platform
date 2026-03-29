@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     telegram_media_upload_chat_id: str = Field(default="", alias="TELEGRAM_MEDIA_UPLOAD_CHAT_ID")
 
     media_storage_backend_raw: str = Field(default="auto", alias="MEDIA_STORAGE_BACKEND")
+    public_base_url_raw: str = Field(default="", alias="PUBLIC_BASE_URL")
+
     s3_endpoint_url: str = Field(default="", alias="S3_ENDPOINT_URL")
     s3_access_key_id: str = Field(default="", alias="S3_ACCESS_KEY_ID")
     s3_secret_access_key: str = Field(default="", alias="S3_SECRET_ACCESS_KEY")
@@ -35,6 +37,9 @@ class Settings(BaseSettings):
     s3_region: str = Field(default="", alias="S3_REGION")
     s3_public_base_url_raw: str = Field(default="", alias="S3_PUBLIC_BASE_URL")
     s3_key_prefix_raw: str = Field(default="media-bridge", alias="S3_KEY_PREFIX")
+
+    yandex_disk_oauth_token: str = Field(default="", alias="YANDEX_DISK_OAUTH_TOKEN")
+    yandex_disk_base_path_raw: str = Field(default="app:/media-bridge", alias="YANDEX_DISK_BASE_PATH")
 
     admin_default_username: str = Field(default="admin", alias="ADMIN_DEFAULT_USERNAME")
     admin_default_password: str = Field(default="", alias="ADMIN_DEFAULT_PASSWORD")
@@ -109,9 +114,14 @@ class Settings(BaseSettings):
     @property
     def media_storage_backend(self) -> str:
         value = (self.media_storage_backend_raw or "auto").strip().lower()
-        if value not in {"auto", "s3"}:
+        if value not in {"auto", "s3", "yandex_disk"}:
             return "auto"
         return value
+
+    @property
+    def public_base_url(self) -> str:
+        value = self.public_base_url_raw.strip()
+        return value.rstrip("/") if value else ""
 
     @property
     def s3_public_base_url(self) -> str:
@@ -128,6 +138,18 @@ class Settings(BaseSettings):
         return bool(self.s3_bucket_name.strip() and self.s3_access_key_id.strip() and self.s3_secret_access_key.strip())
 
     @property
+    def yandex_disk_configured(self) -> bool:
+        return bool(self.yandex_disk_oauth_token.strip())
+
+    @property
+    def yandex_disk_base_path(self) -> str:
+        value = (self.yandex_disk_base_path_raw or "app:/media-bridge").strip()
+        if value.startswith("app:/") or value.startswith("disk:/"):
+            return value.rstrip("/")
+        value = value.strip("/")
+        return f"app:/{value}" if value else "app:/media-bridge"
+
+    @property
     def data_dir(self) -> Path:
         return Path(self.data_dir_raw)
 
@@ -141,29 +163,45 @@ class Settings(BaseSettings):
 
     @property
     def media_upload_enabled(self) -> bool:
-        return self.s3_configured
+        backend = self.media_storage_backend
+        if backend == "yandex_disk":
+            return self.yandex_disk_configured
+        if backend == "s3":
+            return self.s3_configured
+        return self.yandex_disk_configured or self.s3_configured
 
     @property
     def media_storage_backend_label(self) -> str:
-        return "S3-compatible external storage" if self.s3_configured else "external reference only"
+        backend = self.media_storage_backend
+        if backend == "yandex_disk":
+            return "Yandex Disk"
+        if backend == "s3":
+            return "S3-compatible external storage"
+        if self.yandex_disk_configured:
+            return "Yandex Disk"
+        if self.s3_configured:
+            return "S3-compatible external storage"
+        return "external storage is not configured"
 
     @property
     def media_upload_help_text(self) -> str:
+        backend = self.media_storage_backend
+        if backend == "yandex_disk":
+            if self.yandex_disk_configured:
+                return "Файлы карточек загружаются сразу на Яндекс Диск. BotHost хранит только metadata."
+            return "Для режима yandex_disk нужно заполнить YANDEX_DISK_OAUTH_TOKEN."
+        if backend == "s3":
+            if self.s3_configured:
+                return "Файлы карточек загружаются сразу во внешний S3-compatible storage."
+            return "Для режима s3 нужно заполнить S3_* переменные."
+        if self.yandex_disk_configured:
+            return "Auto mode выбрал Yandex Disk. Файлы карточек грузятся в папку приложения на Диске."
         if self.s3_configured:
-            return (
-                "Файлы карточек загружаются сразу во внешний S3-compatible storage. "
-                "BotHost хранит только метаданные."
-            )
-        return (
-            "Upload файлов сейчас отключён: BotHost больше не используется как storage для карточек. "
-            "Чтобы загружать файлы прямо из формы, заполни S3_BUCKET_NAME, S3_ACCESS_KEY_ID и S3_SECRET_ACCESS_KEY. "
-            "Пока можно использовать public/shared URL или прямую внешнюю ссылку."
-        )
-
+            return "Auto mode выбрал S3-compatible storage."
+        return "Внешний storage не настроен. Сохранять можно только прямые внешние ссылки."
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings()
-
 
 settings = get_settings()

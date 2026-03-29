@@ -3,6 +3,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.exceptions import ValidationError
 from app.repositories.access_code_repository import AccessCodeRepository
 from app.repositories.media_asset_repository import MediaAssetRepository
@@ -14,6 +15,7 @@ from app.services.code_service import CodeService
 from app.services.external_media_storage_service import ExternalMediaStorageService
 from app.services.media_upload_service import MediaUploadService
 from app.services.media_service import MediaService
+from app.services.yandex_disk_storage_service import YandexDiskStorageService
 
 
 @dataclass
@@ -168,6 +170,8 @@ class MediaCardService:
             if payload.get("is_primary"):
                 self.asset_repo.unset_primary_for_scope(title.id, season.id if season else None, episode.id if episode else None)
 
+            initial_external_url = media_payload.get("external_url") or "__pending__"
+
             asset = self.asset_repo.create(
                 title_id=title.id,
                 season_id=season.id if season else None,
@@ -175,7 +179,7 @@ class MediaCardService:
                 asset_type=media_payload["asset_type"],
                 storage_kind="external_url",
                 telegram_file_id=None,
-                external_url=media_payload["external_url"],
+                external_url=initial_external_url,
                 mime_type=media_payload.get("mime_type"),
                 is_primary=bool(payload.get("is_primary")),
                 storage_provider=media_payload.get("storage_provider"),
@@ -184,6 +188,11 @@ class MediaCardService:
                 source_label=media_payload.get("source_label"),
                 uploaded_by_system=bool(media_payload.get("uploaded_by_system")),
             )
+
+            final_external_url = self._finalize_asset_external_url(asset, initial_external_url)
+            if final_external_url != asset.external_url:
+                asset = self.asset_repo.update(asset, external_url=final_external_url)
+
             self.audit.log(admin_id, "create_media_asset", "media_asset", str(asset.id), {"title_id": title.id, "storage_provider": asset.storage_provider})
 
         code = None
@@ -279,7 +288,7 @@ class MediaCardService:
 
             if replacing_media:
                 if asset and getattr(asset, "uploaded_by_system", False):
-                    self.external_storage.delete_managed_asset(asset)
+                    self._delete_managed_asset(asset)
                 asset_payload = {
                     "title_id": title.id,
                     "season_id": season.id if season else None,
@@ -287,7 +296,7 @@ class MediaCardService:
                     "asset_type": media_payload["asset_type"],
                     "storage_kind": "external_url",
                     "telegram_file_id": None,
-                    "external_url": media_payload["external_url"],
+                    "external_url": media_payload.get("external_url") or "__pending__",
                     "mime_type": media_payload.get("mime_type"),
                     "is_primary": bool(payload.get("is_primary")),
                     "storage_provider": media_payload.get("storage_provider"),
@@ -298,7 +307,7 @@ class MediaCardService:
                 }
             elif direct_reference_url:
                 if asset and getattr(asset, "uploaded_by_system", False):
-                    self.external_storage.delete_managed_asset(asset)
+                    self._delete_managed_asset(asset)
                 asset_payload = {
                     "title_id": title.id,
                     "season_id": season.id if season else None,
@@ -340,6 +349,11 @@ class MediaCardService:
                 asset = self.asset_repo.update(asset, **asset_payload)
             else:
                 asset = self.asset_repo.create(**asset_payload)
+
+            final_external_url = self._finalize_asset_external_url(asset, asset.external_url)
+            if final_external_url != asset.external_url:
+                asset = self.asset_repo.update(asset, external_url=final_external_url)
+
             self.audit.log(admin_id, "update_media_asset", "media_asset", str(asset.id), {"asset_type": asset.asset_type, "storage_provider": asset.storage_provider})
 
         if code:
@@ -382,7 +396,7 @@ class MediaCardService:
 
         for asset in assets:
             if getattr(asset, "uploaded_by_system", False):
-                self.external_storage.delete_managed_asset(asset)
+                self._delete_managed_asset(asset)
             self.audit.log(admin_id, "delete_media_asset", "media_asset", str(asset.id), {"asset_type": asset.asset_type, "storage_provider": getattr(asset, "storage_provider", None)})
             self.asset_repo.delete(asset)
 
@@ -454,3 +468,15 @@ class MediaCardService:
 
         assets = sorted(assets, key=key)
         return assets[0]
+
+    def _delete_managed_asset(self, asset) -> None:
+        if getattr(asset, "storage_provider", None) == "yandex_disk":
+            YandexDiskStorageService().delete_managed_asset(asset)
+            return
+        self.external_storage.delete_managed_asset(asset)
+
+    def _finalize_asset_external_url(self, asset, current_value: str | None) -> str | None:
+        if getattr(asset, "storage_provider", None) != "yandex_disk":
+            return current_value
+        relative = f"/media/yandex-disk/{asset.id}"
+        return f"{settings.public_base_url}{relative}" if settings.public_base_url else relative
