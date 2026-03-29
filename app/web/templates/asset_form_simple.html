@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>Новый ассет</h1>
+  <p class="muted">Эта версия формы специально упрощена для стабильного теста через браузер.</p>
+  <p class="muted">Укажи хотя бы один owner: title_id, season_id или episode_id.</p>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+  <form method="post" action="/admin/assets/new" class="grid">
+    <div class="form-grid">
+      <div>
+        <label>Title ID</label>
+        <input name="title_id" type="number" min="1" value="{{ values.get('title_id', '') }}">
+      </div>
+      <div>
+        <label>Season ID</label>
+        <input name="season_id" type="number" min="1" value="{{ values.get('season_id', '') }}">
+      </div>
+      <div>
+        <label>Episode ID</label>
+        <input name="episode_id" type="number" min="1" value="{{ values.get('episode_id', '') }}">
+      </div>
+      <div>
+        <label>Тип ассета</label>
+        <input name="asset_type" value="{{ values.get('asset_type', 'image') }}" placeholder="image / poster / video" required>
+      </div>
+      <div>
+        <label>Storage kind</label>
+        <input name="storage_kind" value="{{ values.get('storage_kind', 'external_url') }}" placeholder="external_url / telegram_file_id" required>
+      </div>
+      <div>
+        <label>MIME type</label>
+        <input name="mime_type" value="{{ values.get('mime_type', 'image/jpeg') }}" placeholder="image/jpeg">
+      </div>
+      <div style="grid-column: 1 / -1;">
+        <label>External URL</label>
+        <input name="external_url" value="{{ values.get('external_url', '') }}" placeholder="https://example.com/poster.jpg">
+      </div>
+      <div style="grid-column: 1 / -1;">
+        <label>Telegram file ID</label>
+        <input name="telegram_file_id" value="{{ values.get('telegram_file_id', '') }}">
+      </div>
+      <div>
+        <label style="display:flex; gap:8px; align-items:center; font-weight:600;">
+          <input type="checkbox" name="is_primary" {% if values.get('is_primary') %}checked{% endif %} style="width:auto;">
+          Сделать primary
+        </label>
+      </div>
+    </div>
+
+    <div class="card" style="background:#f9fafb;">
+      <h3>Пример для картинки эпизода</h3>
+      <pre class="code" style="display:block; white-space:pre-wrap; padding:12px;">episode_id = 1
+asset_type = image
+storage_kind = external_url
+external_url = https://example.com/poster.jpg
+mime_type = image/jpeg
+is_primary = true</pre>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn" type="submit">Сохранить</button>
+      <a class="btn secondary" href="/admin/assets">Назад</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

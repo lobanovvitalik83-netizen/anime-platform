@@ -1,23 +1,21 @@
-# Stage 5 - Web Admin Interface
+# Stage 6 - Web Admin Fix
 
 Готово:
-- весь stage 4 API
-- серверная веб-админка на Jinja2
-- login/logout через cookie session
-- dashboard
-- списки и формы для titles, seasons, episodes, assets
-- генерация кодов через веб-интерфейс
-- страница теста public lookup
-- корень сайта перенаправляет на /admin
+- весь stage 5
+- исправленный web flow для assets
+- упрощённая форма ассета через прямые ID поля
+- более надёжный admin UI для тестирования
+- asset create через web без dropdown-зависимости
+- lookup test остаётся в панели
 
-Проверка:
-- GET /
-- GET /admin/login
-- POST /admin/login
-- GET /admin
-- GET /admin/titles
-- GET /admin/seasons
-- GET /admin/episodes
-- GET /admin/assets
-- GET /admin/codes
-- GET /admin/lookup-test
+Основные страницы:
+- /admin/login
+- /admin
+- /admin/titles
+- /admin/seasons
+- /admin/episodes
+- /admin/assets
+- /admin/assets/new
+- /admin/codes
+- /admin/codes/generate
+- /admin/lookup-test

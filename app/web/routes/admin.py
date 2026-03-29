@@ -4,7 +4,6 @@ from starlette.responses import RedirectResponse
 
 from app.core.database import get_db_session
 from app.core.exceptions import AuthenticationError
-from app.schemas.auth import LoginRequest
 from app.services.asset_service import AssetService
 from app.services.auth_service import AuthService
 from app.services.code_service import CodeService
@@ -79,23 +78,17 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db_session)):
     asset_service = AssetService(db)
     code_service = CodeService(db)
 
-    titles = media_service.list_titles()
-    seasons = media_service.list_seasons()
-    episodes = media_service.list_episodes()
-    assets = asset_service.list_assets()
-    codes = code_service.list_codes()
-
     return render_template(
         "dashboard.html",
         request,
         page_title="Панель",
         current_admin=current_admin,
         counts={
-            "titles": len(titles),
-            "seasons": len(seasons),
-            "episodes": len(episodes),
-            "assets": len(assets),
-            "codes": len(codes),
+            "titles": len(media_service.list_titles()),
+            "seasons": len(media_service.list_seasons()),
+            "episodes": len(media_service.list_episodes()),
+            "assets": len(asset_service.list_assets()),
+            "codes": len(code_service.list_codes()),
         },
     )
 
@@ -106,13 +99,12 @@ def admin_titles(request: Request, db: Session = Depends(get_db_session)):
     if redirect:
         return redirect
 
-    titles = MediaService(db).list_titles()
     return render_template(
         "titles_list.html",
         request,
         page_title="Тайтлы",
         current_admin=current_admin,
-        titles=titles,
+        titles=MediaService(db).list_titles(),
     )
 
 
@@ -170,16 +162,13 @@ def admin_seasons(request: Request, db: Session = Depends(get_db_session), title
         return redirect
 
     media_service = MediaService(db)
-    seasons = media_service.list_seasons(title_id=title_id)
-    titles = media_service.list_titles()
-
     return render_template(
         "seasons_list.html",
         request,
         page_title="Сезоны",
         current_admin=current_admin,
-        seasons=seasons,
-        titles=titles,
+        seasons=media_service.list_seasons(title_id=title_id),
+        titles=media_service.list_titles(),
         selected_title_id=title_id,
     )
 
@@ -190,13 +179,12 @@ def admin_season_new_page(request: Request, db: Session = Depends(get_db_session
     if redirect:
         return redirect
 
-    titles = MediaService(db).list_titles()
     return render_template(
         "season_form.html",
         request,
         page_title="Новый сезон",
         current_admin=current_admin,
-        titles=titles,
+        titles=MediaService(db).list_titles(),
         error=None,
         values={},
     )
@@ -245,18 +233,14 @@ def admin_episodes(
         return redirect
 
     media_service = MediaService(db)
-    episodes = media_service.list_episodes(title_id=title_id, season_id=season_id)
-    titles = media_service.list_titles()
-    seasons = media_service.list_seasons(title_id=title_id)
-
     return render_template(
         "episodes_list.html",
         request,
         page_title="Эпизоды",
         current_admin=current_admin,
-        episodes=episodes,
-        titles=titles,
-        seasons=seasons,
+        episodes=media_service.list_episodes(title_id=title_id, season_id=season_id),
+        titles=media_service.list_titles(),
+        seasons=media_service.list_seasons(title_id=title_id),
         selected_title_id=title_id,
         selected_season_id=season_id,
     )
@@ -269,15 +253,13 @@ def admin_episode_new_page(request: Request, db: Session = Depends(get_db_sessio
         return redirect
 
     media_service = MediaService(db)
-    titles = media_service.list_titles()
-    seasons = media_service.list_seasons()
     return render_template(
         "episode_form.html",
         request,
         page_title="Новый эпизод",
         current_admin=current_admin,
-        titles=titles,
-        seasons=seasons,
+        titles=media_service.list_titles(),
+        seasons=media_service.list_seasons(),
         error=None,
         values={},
     )
@@ -332,22 +314,13 @@ def admin_assets(
     if redirect:
         return redirect
 
-    media_service = MediaService(db)
     asset_service = AssetService(db)
-    assets = asset_service.list_assets(title_id=title_id, season_id=season_id, episode_id=episode_id)
-    titles = media_service.list_titles()
-    seasons = media_service.list_seasons()
-    episodes = media_service.list_episodes()
-
     return render_template(
         "assets_list.html",
         request,
         page_title="Ассеты",
         current_admin=current_admin,
-        assets=assets,
-        titles=titles,
-        seasons=seasons,
-        episodes=episodes,
+        assets=asset_service.list_assets(title_id=title_id, season_id=season_id, episode_id=episode_id),
     )
 
 
@@ -357,15 +330,11 @@ def admin_asset_new_page(request: Request, db: Session = Depends(get_db_session)
     if redirect:
         return redirect
 
-    media_service = MediaService(db)
     return render_template(
-        "asset_form.html",
+        "asset_form_simple.html",
         request,
         page_title="Новый ассет",
         current_admin=current_admin,
-        titles=media_service.list_titles(),
-        seasons=media_service.list_seasons(),
-        episodes=media_service.list_episodes(),
         error=None,
         values={},
     )
@@ -376,11 +345,6 @@ async def admin_asset_new_submit(request: Request, db: Session = Depends(get_db_
     current_admin, redirect = get_admin_or_redirect(request, db)
     if redirect:
         return redirect
-
-    media_service = MediaService(db)
-    titles = media_service.list_titles()
-    seasons = media_service.list_seasons()
-    episodes = media_service.list_episodes()
 
     form = await request.form()
     payload = {
@@ -399,13 +363,10 @@ async def admin_asset_new_submit(request: Request, db: Session = Depends(get_db_
         AssetService(db).create_asset(current_admin.id, payload)
     except Exception as exc:
         return render_template(
-            "asset_form.html",
+            "asset_form_simple.html",
             request,
             page_title="Новый ассет",
             current_admin=current_admin,
-            titles=titles,
-            seasons=seasons,
-            episodes=episodes,
             error=str(exc),
             values=payload,
         )
@@ -419,13 +380,12 @@ def admin_codes(request: Request, db: Session = Depends(get_db_session)):
     if redirect:
         return redirect
 
-    codes = CodeService(db).list_codes()
     return render_template(
         "codes_list.html",
         request,
         page_title="Коды",
         current_admin=current_admin,
-        codes=codes,
+        codes=CodeService(db).list_codes(),
     )
 
 
