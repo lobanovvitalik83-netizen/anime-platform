@@ -10,6 +10,7 @@ from app.api.routes.media_episodes import router as media_episodes_router
 from app.api.routes.media_seasons import router as media_seasons_router
 from app.api.routes.media_titles import router as media_titles_router
 from app.api.routes.public_lookup import router as public_lookup_router
+from app.bot.dispatcher import start_bot_polling, stop_bot_polling
 from app.core.config import settings
 from app.core.database import init_database
 from app.core.logging import configure_logging, get_logger
@@ -24,8 +25,10 @@ logger = get_logger(__name__)
 async def lifespan(_: FastAPI):
     init_database()
     ensure_default_admin_exists()
+    await start_bot_polling()
     logger.info("Application startup completed")
     yield
+    await stop_bot_polling()
     logger.info("Application shutdown completed")
 
 

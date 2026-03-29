@@ -143,6 +143,7 @@ async def admin_title_new_submit(request: Request, db: Session = Depends(get_db_
     try:
         MediaService(db).create_title(current_admin.id, payload)
     except Exception as exc:
+        db.rollback()
         return render_template(
             "title_form.html",
             request,
@@ -208,6 +209,7 @@ async def admin_season_new_submit(request: Request, db: Session = Depends(get_db
     try:
         MediaService(db).create_season(current_admin.id, payload)
     except Exception as exc:
+        db.rollback()
         return render_template(
             "season_form.html",
             request,
@@ -288,6 +290,7 @@ async def admin_episode_new_submit(request: Request, db: Session = Depends(get_d
     try:
         MediaService(db).create_episode(current_admin.id, payload)
     except Exception as exc:
+        db.rollback()
         return render_template(
             "episode_form.html",
             request,
@@ -362,6 +365,7 @@ async def admin_asset_new_submit(request: Request, db: Session = Depends(get_db_
     try:
         AssetService(db).create_asset(current_admin.id, payload)
     except Exception as exc:
+        db.rollback()
         return render_template(
             "asset_form_simple.html",
             request,
@@ -433,6 +437,7 @@ async def admin_codes_generate_submit(request: Request, db: Session = Depends(ge
     try:
         generated_codes = CodeService(db).generate_codes(current_admin.id, payload)
     except Exception as exc:
+        db.rollback()
         return render_template(
             "code_generate.html",
             request,
@@ -472,6 +477,7 @@ def admin_lookup_test(request: Request, db: Session = Depends(get_db_session), c
         try:
             result = PublicLookupService(db).lookup(code)
         except Exception as exc:
+            db.rollback()
             error = str(exc)
 
     return render_template(
