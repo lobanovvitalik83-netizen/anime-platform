@@ -11,23 +11,34 @@
     <div><label>Поиск по названию</label><input name="q" value="{{ filters.q }}" placeholder="Например: Наруто"></div>
     <div><label>Жанр</label><select name="genre"><option value="">Все</option><option value="anime" {% if filters.genre == 'anime' %}selected{% endif %}>Аниме</option><option value="series" {% if filters.genre == 'series' %}selected{% endif %}>Сериал</option><option value="movie" {% if filters.genre == 'movie' %}selected{% endif %}>Фильм</option></select></div>
     <div><label>Статус</label><select name="status"><option value="">Все</option><option value="draft" {% if filters.status == 'draft' %}selected{% endif %}>Черновик</option><option value="active" {% if filters.status == 'active' %}selected{% endif %}>Активно</option><option value="inactive" {% if filters.status == 'inactive' %}selected{% endif %}>Неактивно</option><option value="archived" {% if filters.status == 'archived' %}selected{% endif %}>Архив</option></select></div>
+    <div><label>Storage</label><select name="storage_provider"><option value="">Любой</option><option value="yandex_disk" {% if filters.storage_provider == 'yandex_disk' %}selected{% endif %}>Yandex Disk</option><option value="external_reference" {% if filters.storage_provider == 'external_reference' %}selected{% endif %}>Внешняя ссылка</option><option value="s3" {% if filters.storage_provider == 's3' %}selected{% endif %}>S3</option></select></div>
+    <div><label>Код</label><select name="code_state"><option value="">Любой</option><option value="with_code" {% if filters.code_state == 'with_code' %}selected{% endif %}>Только с кодом</option><option value="without_code" {% if filters.code_state == 'without_code' %}selected{% endif %}>Только без кода</option></select></div>
     <div class="btn-row" style="align-items:end;"><button class="btn" type="submit">Применить</button><a class="btn secondary" href="/admin/media">Сбросить</a></div>
   </form>
 </div>
 
 <div class="grid cards" style="margin-bottom:16px;">
-  <div class="card"><div class="stat">{{ cards|length }}</div><div>Карточек по фильтру</div></div>
+  <div class="card"><div class="stat">{{ cards|length }}</div><div>Карточек в выдаче</div></div>
   <div class="card"><div class="stat">{{ cards|selectattr("status", "equalto", "active")|list|length }}</div><div>Активных</div></div>
-  <div class="card"><div class="stat">{{ cards|selectattr("asset_type", "equalto", "video")|list|length }}</div><div>С видео</div></div>
+  <div class="card"><div class="stat">{{ cards|selectattr("storage_provider", "equalto", "yandex_disk")|list|length }}</div><div>На Yandex Disk</div></div>
   <div class="card"><div class="stat">{{ cards|selectattr("code_value")|list|length }}</div><div>С кодом доступа</div></div>
 </div>
 
 {% if error %}<div class="error">{{ error }}</div>{% endif %}
 
-<form method="post" action="/admin/media/bulk-delete" onsubmit="return confirm('Удалить выбранные карточки?');">
-  <div class="btn-row" style="margin-bottom:16px;">
-    <label style="display:flex; align-items:center; gap:8px; margin:0;"><input type="checkbox" style="width:auto;" onclick="toggleGroup(this, 'selected_ids')">Выбрать все</label>
-    <button class="btn red" type="submit">Удалить выбранные</button>
+<form method="post" action="/admin/media/bulk-action" onsubmit="return confirm('Применить массовое действие к выбранным карточкам?');">
+  <div class="card" style="margin-bottom:16px;">
+    <div class="btn-row">
+      <label style="display:flex; align-items:center; gap:8px; margin:0;"><input type="checkbox" style="width:auto;" onclick="toggleGroup(this, 'selected_ids')">Выбрать все</label>
+      <select name="bulk_action" style="max-width:260px;">
+        <option value="">Массовое действие</option>
+        <option value="activate">Активировать</option>
+        <option value="deactivate">Деактивировать</option>
+        <option value="archive">Архивировать</option>
+        <option value="delete">Удалить карточки</option>
+      </select>
+      <button class="btn red" type="submit">Применить</button>
+    </div>
   </div>
 
   <div class="grid cards">
@@ -35,33 +46,37 @@
     <div class="card">
       <div class="btn-row" style="justify-content:space-between; align-items:center; margin-bottom:12px;">
         <label style="display:flex; align-items:center; gap:8px; margin:0;"><input type="checkbox" name="selected_ids" value="{{ item.title_id }}" style="width:auto;">Выбрать</label>
-        <span class="pill">{{ 'Аниме' if item.genre == 'anime' else 'Сериал' if item.genre == 'series' else 'Фильм' if item.genre == 'movie' else item.genre }}</span>
+        <span class="chip">{{ item.status }}</span>
       </div>
 
-      {% if item.external_url and item.asset_type in ['image','poster'] %}
+      {% if item.asset_type in ["image", "poster"] and item.external_url %}
       <div style="margin-bottom:12px;">
-        <img src="{{ item.external_url }}" alt="preview" style="width:100%; max-height:220px; object-fit:cover; border-radius:12px; background:#f3f4f6;">
+        <img src="{{ item.external_url }}" alt="preview" style="width:100%; max-height:220px; object-fit:cover; border-radius:12px; background:#eef2f7;">
       </div>
       {% endif %}
 
-      <h3 style="margin-bottom:10px;">{{ item.title }}</h3>
-      <div class="grid" style="gap:6px;">
-        <div><b>Статус карточки:</b> {{ item.status }}</div>
-        <div><b>Сезон:</b> {{ item.season_number or "—" }}</div>
-        <div><b>Серия:</b> {{ item.episode_number or "—" }}</div>
-        <div><b>Тип медиа:</b> {{ item.asset_type or "—" }}</div>
-        <div><b>Внешнее хранилище:</b> {{ item.storage_provider or item.storage_kind or "—" }}</div>
-        <div><b>Код доступа:</b> {% if item.code_value %}<span class="code">{{ item.code_value }}</span>{% else %}—{% endif %}</div>
+      <h3 style="margin:0 0 8px;">{{ item.title }}</h3>
+      <div class="muted" style="margin-bottom:12px;">
+        {{ item.genre }} · сезон {{ item.season_number or "—" }} · серия {{ item.episode_number or "—" }}
       </div>
-      <div class="btn-row" style="margin-top:12px;">
+
+      <div class="grid" style="gap:8px; margin-bottom:12px;">
+        <div><b>Медиа:</b> {{ item.asset_type or "—" }}</div>
+        <div><b>Storage:</b> {{ item.storage_provider or "—" }}</div>
+        <div><b>Источник:</b> {{ item.source_label or "—" }}</div>
+        <div><b>Код:</b> {% if item.code_value %}<span class="code">{{ item.code_value }}</span>{% else %}—{% endif %}</div>
+      </div>
+
+      <div class="btn-row">
         <a class="btn secondary" href="/admin/media/{{ item.title_id }}/edit">Редактировать</a>
-        {% if item.code_value %}<a class="btn secondary" href="/admin/lookup-test?code={{ item.code_value }}">Проверить код</a>{% endif %}
         {% if item.external_url %}<a class="btn secondary" href="{{ item.external_url }}" target="_blank">Открыть медиа</a>{% endif %}
-        <form method="post" action="/admin/media/{{ item.title_id }}/delete" class="inline" onsubmit="return confirm('Удалить карточку целиком?');"><button class="btn red" type="submit">Удалить</button></form>
+        <form method="post" action="/admin/media/{{ item.title_id }}/delete" class="inline" onsubmit="return confirm('Удалить карточку?');">
+          <button class="btn red" type="submit">Удалить</button>
+        </form>
       </div>
     </div>
     {% else %}
-    <div class="card"><span class="muted">Нет карточек.</span></div>
+    <div class="card"><span class="muted">Карточек пока нет.</span></div>
     {% endfor %}
   </div>
 </form>

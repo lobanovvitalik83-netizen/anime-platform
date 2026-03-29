@@ -10,7 +10,6 @@ class ReportTicket(TimestampMixin, Base):
     __table_args__ = (
         Index("ix_report_tickets_status", "status"),
         Index("ix_report_tickets_tg_user_id", "tg_user_id"),
-        Index("ix_report_tickets_assigned_admin_id", "assigned_admin_id"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

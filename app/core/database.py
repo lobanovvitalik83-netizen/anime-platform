@@ -30,14 +30,6 @@ SessionLocal = sessionmaker(
 )
 
 
-def _exec_statements(statements: list[str]) -> None:
-    if not statements:
-        return
-    with engine.begin() as connection:
-        for statement in statements:
-            connection.execute(text(statement))
-
-
 def _ensure_runtime_schema() -> None:
     inspector = inspect(engine)
 
@@ -54,7 +46,10 @@ def _ensure_runtime_schema() -> None:
             statements.append("ALTER TABLE admins ADD COLUMN avatar_url VARCHAR(500)")
         if "extra_permissions" not in existing_columns:
             statements.append("ALTER TABLE admins ADD COLUMN extra_permissions TEXT")
-        _exec_statements(statements)
+        if statements:
+            with engine.begin() as connection:
+                for statement in statements:
+                    connection.execute(text(statement))
 
     if "media_assets" in inspector.get_table_names():
         existing_columns = {column["name"] for column in inspector.get_columns("media_assets")}
@@ -69,24 +64,23 @@ def _ensure_runtime_schema() -> None:
             statements.append("ALTER TABLE media_assets ADD COLUMN source_label VARCHAR(255)")
         if "uploaded_by_system" not in existing_columns:
             statements.append("ALTER TABLE media_assets ADD COLUMN uploaded_by_system BOOLEAN NOT NULL DEFAULT FALSE")
-        _exec_statements(statements)
+        if statements:
+            with engine.begin() as connection:
+                for statement in statements:
+                    connection.execute(text(statement))
 
-    # Telegram IDs can exceed INT32, so harden existing runtime schema.
-    if "report_tickets" in inspector.get_table_names():
-        cols = {c['name']: c for c in inspector.get_columns('report_tickets')}
-        statements = []
-        if cols.get('tg_user_id', {}).get('type').python_type is int:
-            statements.append('ALTER TABLE report_tickets ALTER COLUMN tg_user_id TYPE BIGINT')
-            statements.append('ALTER TABLE report_tickets ALTER COLUMN tg_chat_id TYPE BIGINT')
-        _exec_statements(statements)
 
-    if "report_messages" in inspector.get_table_names():
-        cols = {c['name']: c for c in inspector.get_columns('report_messages')}
-        statements = []
-        if 'tg_user_id' in cols:
-            statements.append('ALTER TABLE report_messages ALTER COLUMN tg_user_id TYPE BIGINT')
-        _exec_statements(statements)
 
+if "report_tickets" in inspector.get_table_names():
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE report_tickets ALTER COLUMN tg_user_id TYPE BIGINT"))
+        connection.execute(text("ALTER TABLE report_tickets ALTER COLUMN tg_chat_id TYPE BIGINT"))
+
+if "report_messages" in inspector.get_table_names():
+    existing_columns = {column["name"] for column in inspector.get_columns("report_messages")}
+    if "tg_user_id" in existing_columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE report_messages ALTER COLUMN tg_user_id TYPE BIGINT"))
 
 def init_database() -> None:
     from app import models  # noqa: F401

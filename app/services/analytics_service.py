@@ -165,6 +165,23 @@ class AnalyticsService:
             rows.append({"metric": f"top_not_found_{row.code_value}", "value": row.not_found_attempts})
         return rows
 
+
+def get_code_status_summary(self) -> dict:
+    codes = self.access_codes.list_all()
+    return {
+        "total_codes": len(codes),
+        "active_codes": sum(1 for item in codes if item.status == "active"),
+        "inactive_codes": sum(1 for item in codes if item.status == "inactive"),
+        "archived_codes": sum(1 for item in codes if item.status == "archived"),
+    }
+
+def get_personal_activity(self, admin_id: int) -> dict:
+    rows = self.audit_logs.list_filtered(admin_id=admin_id, limit=1000)
+    return {
+        "actions_count": len(rows),
+        "recent_actions": rows[:15],
+    }
+
     def _resolve_card(self, access_code: AccessCode | None) -> dict | None:
         if not access_code:
             return None

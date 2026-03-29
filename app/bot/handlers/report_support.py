@@ -9,9 +9,11 @@ from app.bot.keyboards.main_menu import (
 )
 from app.bot.state.session_state import USER_MODE_REPORT, get_user_mode
 from app.core.database import SessionLocal
+from app.core.logging import get_logger
 from app.services.report_service import ReportService
 
 router = Router()
+logger = get_logger(__name__)
 
 
 @router.message(
@@ -21,7 +23,11 @@ router = Router()
 )
 async def report_support_handler(message: Message) -> None:
     text = (message.text or "").strip()
-    if not text or get_user_mode(message.from_user.id) != USER_MODE_REPORT:
+    if not text:
+        return
+    if text.isdigit():
+        return
+    if get_user_mode(message.from_user.id) != USER_MODE_REPORT:
         return
 
     full_name = " ".join([part for part in [message.from_user.first_name, message.from_user.last_name] if part]).strip() or None
@@ -36,7 +42,14 @@ async def report_support_handler(message: Message) -> None:
                 body=text,
             )
         except Exception as exc:
-            await message.answer(f"Не удалось отправить обращение. Ошибка: {exc}", reply_markup=build_main_menu())
+            logger.exception("Failed to create Telegram report")
+            await message.answer(
+                f"Не удалось отправить обращение. Ошибка: {exc}",
+                reply_markup=build_main_menu(),
+            )
             return
 
-    await message.answer(f"Обращение отправлено в поддержку. Номер обращения: #{ticket.id}", reply_markup=build_main_menu())
+    await message.answer(
+        f"Обращение отправлено в поддержку. Номер обращения: #{ticket.id}",
+        reply_markup=build_main_menu(),
+    )

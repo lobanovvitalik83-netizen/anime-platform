@@ -6,6 +6,13 @@
   <a class="btn secondary" href="/admin/notifications?only_unread=true">Только непрочитанные</a>
 </div>
 
+<div class="grid cards" style="margin-bottom:18px;">
+  <div class="card"><div class="stat">{{ rows|length }}</div><div>Уведомлений в текущей выдаче</div></div>
+  <div class="card"><div class="stat">{{ rows|selectattr("is_read", "equalto", False)|list|length }}</div><div>Новых</div></div>
+  <div class="card"><div class="stat">{{ rows|selectattr("kind", "equalto", "report")|list|length }}</div><div>По репортам</div></div>
+  <div class="card"><div class="stat">{{ rows|selectattr("kind", "equalto", "chat")|list|length }}</div><div>По чатам</div></div>
+</div>
+
 <table>
   <thead>
     <tr>
@@ -23,7 +30,7 @@
       <td>{{ item.created_at }}</td>
       <td>{{ item.kind }}</td>
       <td>{{ item.title }}</td>
-      <td>{{ item.body or "—" }}</td>
+      <td style="max-width:420px; word-break:break-word;">{{ item.body or "—" }}</td>
       <td>{{ "Прочитано" if item.is_read else "Новое" }}</td>
       <td>
         <div class="btn-row">

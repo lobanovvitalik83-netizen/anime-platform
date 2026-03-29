@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Импорт / экспорт+</h1>
+
 <div class="grid cards" style="margin-bottom:18px;">
   <div class="card">
     <h3>Полная выгрузка</h3>
@@ -27,18 +28,21 @@
     </div>
   </div>
 </div>
+
 <div class="grid cards">
   <div class="card">
-    <h3>Preview titles CSV</h3>
+    <h3>Предпросмотр импорта titles</h3>
+    <p class="muted">Сначала покажет колонки и первые строки, потом загрузи файл уже в обычный импорт.</p>
     <form method="post" action="/admin/import-preview/titles/csv" enctype="multipart/form-data" class="grid">
-      <input type="file" name="file" accept=".csv,text/csv" required>
+      <div><label>CSV файл</label><input type="file" name="file" accept=".csv,text/csv" required></div>
       <button class="btn" type="submit">Показать preview</button>
     </form>
   </div>
   <div class="card">
-    <h3>Preview codes CSV</h3>
+    <h3>Предпросмотр импорта codes</h3>
+    <p class="muted">Покажет колонки и первые строки файла кодов.</p>
     <form method="post" action="/admin/import-preview/codes/csv" enctype="multipart/form-data" class="grid">
-      <input type="file" name="file" accept=".csv,text/csv" required>
+      <div><label>CSV файл</label><input type="file" name="file" accept=".csv,text/csv" required></div>
       <button class="btn" type="submit">Показать preview</button>
     </form>
   </div>
