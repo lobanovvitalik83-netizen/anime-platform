@@ -1,84 +1,60 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="hero-card" style="margin-bottom:18px;">
-  <div class="page-header" style="margin-bottom:0;">
+<div class="card hero">
+  <div class="page-head" style="margin:0;">
     <div>
-      <h1 class="page-title">Дашборд</h1>
-      <div class="page-subtitle">Рабочий обзор проекта: контент, репорты, уведомления, активность и личный прогресс.</div>
+      <h1>Добро пожаловать, {{ current_admin.full_name or current_admin.username }}</h1>
+      <div class="page-sub">Панель собрана для ежедневной работы: карточки, коды, репорты, сообщения, журнал действий и уведомления.</div>
     </div>
     <div class="btn-row">
-      {% if can_access(current_admin, 'media_manage') or can_access(current_admin, 'editor_tools') %}
-      <a class="btn green" href="/admin/card-builder">Создать карточку</a>
-      {% endif %}
-      {% if can_access(current_admin, 'messages_manage') %}
-      <a class="btn secondary" href="/admin/chats-live">Сообщения</a>
-      {% endif %}
+      {% if current_admin.role == 'superadmin' or 'media_manage' in current_permissions %}<a class="btn green" href="/admin/card-builder">Создать карточку</a>{% endif %}
+      {% if current_admin.role == 'superadmin' or 'achievement_manage' in current_permissions %}<a class="btn secondary" href="/admin/achievements">Ачивки</a>{% endif %}
     </div>
   </div>
 </div>
 
-<div class="grid cards" style="margin-bottom:18px;">
-  <div class="card"><div class="stat">{{ counts.titles }}</div><div class="stat-label">Карточек</div></div>
-  <div class="card"><div class="stat">{{ counts.assets }}</div><div class="stat-label">Медиа</div></div>
-  <div class="card"><div class="stat">{{ counts.codes }}</div><div class="stat-label">Кодов</div></div>
-  <div class="card"><div class="stat">{{ counts.reports }}</div><div class="stat-label">Репортов</div></div>
-  <div class="card"><div class="stat">{{ counts.unread_notifications }}</div><div class="stat-label">Новых уведомлений</div></div>
-  <div class="card"><div class="stat">{{ counts.my_achievements }}</div><div class="stat-label">Моих ачивок</div></div>
+<div class="grid cards" style="margin:18px 0;">
+  <div class="card"><div class="stat">{{ counts.titles }}</div><div class="muted">Карточек</div></div>
+  <div class="card"><div class="stat">{{ counts.assets }}</div><div class="muted">Медиа</div></div>
+  <div class="card"><div class="stat">{{ counts.codes }}</div><div class="muted">Кодов</div></div>
+  <div class="card"><div class="stat">{{ counts.reports or 0 }}</div><div class="muted">Репортов</div></div>
 </div>
 
 <div class="grid two">
-  <div class="grid">
-    <div class="card">
-      <h2 style="margin-top:0;">Сводка по проекту</h2>
-      <div class="table-wrap">
-        <table class="compact-table">
-          <tbody>
-            <tr><th>Всего lookup</th><td>{{ summary.total_attempts }}</td></tr>
-            <tr><th>Найдено</th><td>{{ summary.found_attempts }}</td></tr>
-            <tr><th>Не найдено</th><td>{{ summary.not_found_attempts }}</td></tr>
-            <tr><th>Открытых репортов</th><td>{{ summary.reports_open }}</td></tr>
-            <tr><th>Чатов</th><td>{{ summary.chats_total }}</td></tr>
-            <tr><th>Сотрудников</th><td>{{ summary.admins_total }}</td></tr>
-          </tbody>
-        </table>
-      </div>
+  <div class="card">
+    <h2 style="margin-top:0;">Быстрые разделы</h2>
+    <div class="btn-row">
+      {% if current_admin.role == 'superadmin' or 'messages_manage' in current_permissions %}<a class="btn secondary" href="/admin/chats-live">Сообщения</a>{% endif %}
+      {% if current_admin.role == 'superadmin' or 'reports_view' in current_permissions %}<a class="btn secondary" href="/admin/reports">Репорты</a>{% endif %}
+      {% if current_admin.role == 'superadmin' or 'analytics_view' in current_permissions %}<a class="btn secondary" href="/admin/analytics/advanced">Аналитика</a>{% endif %}
+      <a class="btn secondary" href="/admin/profile">Профиль</a>
+      <a class="btn secondary" href="/admin/notifications">Уведомления</a>
     </div>
-
-    <div class="card">
-      <h2 style="margin-top:0;">Активность сотрудников</h2>
-      <div class="table-wrap">
-        <table class="compact-table">
-          <thead><tr><th>Сотрудник</th><th>Роль</th><th>Действий</th></tr></thead>
-          <tbody>
-            {% for row in staff_activity %}
-            <tr><td>{{ row.username }}</td><td>{{ row.role }}</td><td>{{ row.actions_count }}</td></tr>
-            {% else %}
-            <tr><td colspan="3" class="muted">Нет данных.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <div class="grid">
-    <div class="card">
-      <h2 style="margin-top:0;">Последние уведомления</h2>
-      <div class="grid" style="gap:10px;">
-        {% for item in recent_notifications %}
-        <div class="card slim">
-          <div class="btn-row" style="justify-content:space-between;">
-            <span class="chip gray">{{ item.kind }}</span>
-            {% if not item.is_read %}<span class="chip green">Новое</span>{% endif %}
-          </div>
-          <div style="font-weight:800;margin:8px 0 4px;">{{ item.title }}</div>
-          <div class="muted">{{ item.body or 'Без описания' }}</div>
-          {% if item.link_url %}<div style="margin-top:10px;"><a class="btn ghost" href="{{ item.link_url }}">Открыть</a></div>{% endif %}
+    {% if my_achievements %}
+    <div style="margin-top:18px;">
+      <h3 style="margin:0 0 10px 0;">Мои ачивки</h3>
+      <div class="achievement-badges">
+        {% for grant in my_achievements %}
+        <div class="achievement-badge" title="{{ grant.achievement.title }}{% if grant.achievement.description %} — {{ grant.achievement.description }}{% endif %}{% if grant.note %} | За что: {{ grant.note }}{% endif %}{% if grant.awarded_by_name %} | Выдал: {{ grant.awarded_by_name }}{% endif %} | {{ grant.created_at }}">
+          {% if grant.achievement.image_url %}<img src="{{ grant.achievement.image_url }}" alt="{{ grant.achievement.title }}">{% else %}<span>{{ grant.achievement.title[:2] }}</span>{% endif %}
         </div>
-        {% else %}
-        <div class="muted">Уведомлений пока нет.</div>
         {% endfor %}
       </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h2 style="margin-top:0;">Последние события</h2>
+    <div class="dashboard-feed">
+      {% for item in recent_notifications %}
+      <div class="feed-item">
+        <div style="font-weight:700;">{{ item.title }}</div>
+        <div class="muted">{{ item.body or "—" }}</div>
+      </div>
+      {% else %}
+      <div class="muted">Пока нет уведомлений.</div>
+      {% endfor %}
     </div>
   </div>
 </div>

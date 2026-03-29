@@ -30,11 +30,6 @@ SessionLocal = sessionmaker(
 )
 
 
-def _safe_execute(statement: str) -> None:
-    with engine.begin() as connection:
-        connection.execute(text(statement))
-
-
 def _ensure_runtime_schema() -> None:
     inspector = inspect(engine)
 
@@ -51,8 +46,10 @@ def _ensure_runtime_schema() -> None:
             statements.append("ALTER TABLE admins ADD COLUMN avatar_url VARCHAR(500)")
         if "extra_permissions" not in existing_columns:
             statements.append("ALTER TABLE admins ADD COLUMN extra_permissions TEXT")
-        for statement in statements:
-            _safe_execute(statement)
+        if statements:
+            with engine.begin() as connection:
+                for statement in statements:
+                    connection.execute(text(statement))
 
     if "media_assets" in inspector.get_table_names():
         existing_columns = {column["name"] for column in inspector.get_columns("media_assets")}
@@ -67,23 +64,28 @@ def _ensure_runtime_schema() -> None:
             statements.append("ALTER TABLE media_assets ADD COLUMN source_label VARCHAR(255)")
         if "uploaded_by_system" not in existing_columns:
             statements.append("ALTER TABLE media_assets ADD COLUMN uploaded_by_system BOOLEAN NOT NULL DEFAULT FALSE")
-        for statement in statements:
-            _safe_execute(statement)
+        if statements:
+            with engine.begin() as connection:
+                for statement in statements:
+                    connection.execute(text(statement))
 
+
+def _ensure_runtime_schema() -> None:
+    inspector = inspect(engine)
     if "report_tickets" in inspector.get_table_names():
-        _safe_execute("ALTER TABLE report_tickets ALTER COLUMN tg_user_id TYPE BIGINT")
-        _safe_execute("ALTER TABLE report_tickets ALTER COLUMN tg_chat_id TYPE BIGINT")
-
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE report_tickets ALTER COLUMN tg_user_id TYPE BIGINT"))
+            connection.execute(text("ALTER TABLE report_tickets ALTER COLUMN tg_chat_id TYPE BIGINT"))
     if "report_messages" in inspector.get_table_names():
         existing_columns = {column["name"] for column in inspector.get_columns("report_messages")}
         if "tg_user_id" in existing_columns:
-            _safe_execute("ALTER TABLE report_messages ALTER COLUMN tg_user_id TYPE BIGINT")
-
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE report_messages ALTER COLUMN tg_user_id TYPE BIGINT"))
 
 def init_database() -> None:
     from app import models  # noqa: F401
-
     Base.metadata.create_all(bind=engine)
+    _ensure_runtime_schema()
     settings.public_upload_dir.mkdir(parents=True, exist_ok=True)
     settings.avatar_upload_dir.mkdir(parents=True, exist_ok=True)
     _ensure_runtime_schema()

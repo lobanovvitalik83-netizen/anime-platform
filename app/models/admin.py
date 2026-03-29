@@ -27,3 +27,4 @@ class Admin(TimestampMixin, Base):
     access_codes = relationship("AccessCode", back_populates="created_by_admin")
     audit_logs = relationship("AuditLog", back_populates="admin")
     import_jobs = relationship("ImportJob", back_populates="admin")
+    achievement_grants = relationship("AdminAchievement", foreign_keys="AdminAchievement.admin_id", cascade="all, delete-orphan")

@@ -24,6 +24,9 @@ from app.web.templates import templates
 router = APIRouter(include_in_schema=False)
 
 def render_template(name: str, request: Request, **context):
+    current_admin = context.get("current_admin")
+    if current_admin:
+        context.setdefault("current_permissions", sorted(PermissionService().get_permissions(current_admin)))
     return templates.TemplateResponse(name, {"request": request, **context})
 
 def require_auth(request: Request, db: Session, permission: str | None = None):
@@ -187,20 +190,6 @@ def admin_actions_page(
         action_options=repo.list_actions(),
         filters={"admin_id": admin_id, "action": action, "date_from": date_from, "date_to": date_to, "sort": sort},
     )
-
-@router.get("/admin/export/admin-actions.csv")
-def export_admin_actions_csv(request: Request, db: Session = Depends(get_db_session), admin_id: int | None = None, action: str = "", date_from: str = "", date_to: str = "", sort: str = "desc"):
-    current_admin, redirect = require_auth(request, db, permission="admin_actions_view")
-    if redirect:
-        return redirect
-    repo = AuditLogRepository(db)
-    rows = repo.list_filtered(admin_id=admin_id, action=action, date_from=date_from, date_to=date_to, sort=sort)
-    output = io.StringIO()
-    output.write("created_at,admin_id,action,entity_type,entity_id,payload\n")
-    for item in rows:
-        payload = (item.payload_json or "").replace('"', '""')
-        output.write(f'{item.created_at},{item.admin_id or ""},{item.action},{item.entity_type},{item.entity_id},"{payload}"\n')
-    return Response(content=output.getvalue(), media_type="text/csv; charset=utf-8", headers={"Content-Disposition":"attachment; filename=admin_actions.csv"})
 
 @router.get("/admin/import-export/advanced")
 def import_export_advanced(request: Request, db: Session = Depends(get_db_session)):

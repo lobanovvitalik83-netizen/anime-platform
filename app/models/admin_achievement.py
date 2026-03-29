@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, Index, Text
+from sqlalchemy import ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -16,8 +16,8 @@ class AdminAchievement(TimestampMixin, Base):
     admin_id: Mapped[int] = mapped_column(ForeignKey("admins.id", ondelete="CASCADE"), nullable=False)
     achievement_id: Mapped[int] = mapped_column(ForeignKey("achievements.id", ondelete="CASCADE"), nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
-    issued_by_admin_id: Mapped[int | None] = mapped_column(ForeignKey("admins.id", ondelete="SET NULL"), nullable=True)
+    awarded_by_admin_id: Mapped[int | None] = mapped_column(ForeignKey("admins.id", ondelete="SET NULL"), nullable=True)
+    awarded_by_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
 
     admin = relationship("Admin", foreign_keys=[admin_id])
     achievement = relationship("Achievement", back_populates="grants")
-    issued_by_admin = relationship("Admin", foreign_keys=[issued_by_admin_id])

@@ -1,19 +1,37 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="page-header">
-  <div><h1 class="page-title">{{ page_title }}</h1><div class="page-subtitle">Заполни карточку достижения, чтобы потом выдавать её сотрудникам.</div></div>
+<div class="page-head">
+  <div>
+    <h1>{{ page_title }}</h1>
+    <div class="page-sub">Загрузи картинку или укажи ссылку. Она будет показываться маленьким бейджем в профилях и списках.</div>
+  </div>
 </div>
 <div class="card">
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
-  <form method="post" action="{{ action_url }}" class="grid">
+  {% if success %}<div class="success">{{ success }}</div>{% endif %}
+  <form method="post" action="{{ action_url }}" enctype="multipart/form-data" class="grid">
     <div class="form-grid">
-      <div><label>Название</label><input name="title" value="{{ values.title or '' }}" required></div>
-      <div><label>Иконка/эмодзи</label><input name="icon_emoji" value="{{ values.icon_emoji or '🏆' }}"></div>
-      <div><label>Цвет</label><input name="color" value="{{ values.color or '#4f7cff' }}"></div>
-      <div><label style="display:flex;gap:8px;align-items:center;margin-top:30px;"><input type="checkbox" name="is_active" style="width:auto;" {% if values.is_active %}checked{% endif %}>Активна</label></div>
+      <div>
+        <label>Название ачивки</label>
+        <input name="title" value="{{ values.get('title','') }}" required>
+      </div>
+      <div>
+        <label>Ссылка на картинку</label>
+        <input name="image_url" value="{{ values.get('image_url','') }}" placeholder="https://... или /uploads/achievements/...">
+      </div>
+      <div>
+        <label>Или загрузить картинку</label>
+        <input type="file" name="image_file" accept="image/*">
+      </div>
     </div>
-    <div><label>Описание</label><textarea name="description">{{ values.description or '' }}</textarea></div>
-    <div class="btn-row"><button class="btn green" type="submit">{{ submit_label }}</button><a class="btn ghost" href="/admin/achievements">Назад</a></div>
+    <div>
+      <label>Описание</label>
+      <textarea name="description">{{ values.get('description','') }}</textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn green" type="submit">{{ submit_label }}</button>
+      <a class="btn ghost" href="/admin/achievements">Назад</a>
+    </div>
   </form>
 </div>
 {% endblock %}

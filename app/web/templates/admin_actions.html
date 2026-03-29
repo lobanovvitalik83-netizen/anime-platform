@@ -1,57 +1,38 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="page-header">
-  <div><h1 class="page-title">Действия админов</h1><div class="page-subtitle">Компактный журнал изменений по персоналу, контенту и системным действиям.</div></div>
+<div class="page-head">
+  <div>
+    <h1>Действия админов</h1>
+    <div class="page-sub">Компактный журнал изменений: кто, когда и что сделал. Фильтры по человеку, действию и диапазону времени.</div>
+  </div>
   <div class="btn-row">
-    <a class="btn secondary" href="/admin/export/admin-actions.csv?admin_id={{ filters.admin_id or '' }}&action={{ filters.action or '' }}&date_from={{ filters.date_from or '' }}&date_to={{ filters.date_to or '' }}&sort={{ filters.sort or 'desc' }}">Экспорт CSV</a>
+    <a class="btn secondary" href="/admin/export/analytics.csv">Экспорт аналитики</a>
   </div>
 </div>
 
 <div class="card" style="margin-bottom:18px;">
   <form method="get" action="/admin/admin-actions" class="form-grid">
-    <div>
-      <label>Сотрудник</label>
-      <select name="admin_id">
-        <option value="">Все</option>
-        {% for admin in admins %}
-        <option value="{{ admin.id }}" {% if filters.admin_id == admin.id %}selected{% endif %}>{{ admin.username }} ({{ admin.role }})</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div>
-      <label>Действие</label>
-      <select name="action">
-        <option value="">Все</option>
-        {% for item in action_options %}
-        <option value="{{ item }}" {% if filters.action == item %}selected{% endif %}>{{ item }}</option>
-        {% endfor %}
-      </select>
-    </div>
+    <div><label>Сотрудник</label><select name="admin_id"><option value="">Все</option>{% for admin in admins %}<option value="{{ admin.id }}" {% if filters.admin_id == admin.id %}selected{% endif %}>{{ admin.username }} ({{ admin.role }})</option>{% endfor %}</select></div>
+    <div><label>Действие</label><select name="action"><option value="">Все</option>{% for item in action_options %}<option value="{{ item }}" {% if filters.action == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></div>
     <div><label>От даты</label><input type="date" name="date_from" value="{{ filters.date_from }}"></div>
     <div><label>До даты</label><input type="date" name="date_to" value="{{ filters.date_to }}"></div>
-    <div>
-      <label>Сортировка</label>
-      <select name="sort">
-        <option value="desc" {% if filters.sort == 'desc' %}selected{% endif %}>Новые сверху</option>
-        <option value="asc" {% if filters.sort == 'asc' %}selected{% endif %}>Старые сверху</option>
-      </select>
-    </div>
-    <div class="btn-row" style="align-items:flex-end;"><button class="btn" type="submit">Применить</button><a class="btn ghost" href="/admin/admin-actions">Сбросить</a></div>
+    <div><label>Сортировка</label><select name="sort"><option value="desc" {% if filters.sort == 'desc' %}selected{% endif %}>Новые сначала</option><option value="asc" {% if filters.sort == 'asc' %}selected{% endif %}>Старые сначала</option></select></div>
+    <div class="btn-row" style="align-items:end;"><button class="btn" type="submit">Применить</button><a class="btn ghost" href="/admin/admin-actions">Сбросить</a></div>
   </form>
 </div>
 
 <div class="table-wrap">
   <table class="compact-table">
-    <thead><tr><th>Когда</th><th>Кто</th><th>Действие</th><th>Объект</th><th>ID</th><th>Детали</th></tr></thead>
+    <thead><tr><th>Когда</th><th>Кто</th><th>Действие</th><th>Сущность</th><th>ID</th><th>Коротко</th></tr></thead>
     <tbody>
       {% for item in rows %}
       <tr>
-        <td>{{ item.created_at }}</td>
-        <td>{{ item.admin.full_name if item.admin and item.admin.full_name else (item.admin.username if item.admin else "Система") }}</td>
+        <td>{{ item.created_at.strftime('%Y-%m-%d %H:%M') if item.created_at else '—' }}</td>
+        <td>{{ item.admin.full_name if item.admin and item.admin.full_name else (item.admin.username if item.admin else 'Система') }}</td>
         <td><span class="chip gray">{{ item.action }}</span></td>
         <td>{{ item.entity_type }}</td>
         <td>{{ item.entity_id }}</td>
-        <td>{{ item.payload_json or "—" }}</td>
+        <td>{{ item.payload_json[:140] if item.payload_json else "—" }}</td>
       </tr>
       {% else %}
       <tr><td colspan="6"><span class="muted">Нет действий.</span></td></tr>

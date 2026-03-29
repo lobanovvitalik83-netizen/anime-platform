@@ -1,19 +1,22 @@
 {% extends "base.html" %}
 {% block content %}
-<div style="max-width:460px;margin:60px auto;">
-  <div class="card">
-    <div class="page-header" style="margin-bottom:12px;">
-      <div>
-        <h1 class="page-title" style="font-size:28px;">Вход в панель</h1>
-        <div class="page-subtitle">Рабочая панель проекта, сообщений, репортов, аналитики и персонала.</div>
-      </div>
+<div class="auth-card">
+  <h1 style="margin-top:0;">Вход в Media Bridge</h1>
+  <div class="muted" style="margin-bottom:16px;">Авторизация в рабочую панель проекта.</div>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="post" action="/admin/login" class="grid">
+    <div>
+      <label>Логин</label>
+      <input name="username" required>
     </div>
-    {% if error %}<div class="error">{{ error }}</div>{% endif %}
-    <form method="post" action="/admin/login" class="grid">
-      <div><label>Логин</label><input name="username" required></div>
-      <div><label>Пароль</label><input type="password" name="password" required></div>
-      <div class="btn-row"><button class="btn green" type="submit">Войти</button><a class="btn ghost" href="/admin/forgot-password">Забыл пароль</a></div>
-    </form>
-  </div>
+    <div>
+      <label>Пароль</label>
+      <input type="password" name="password" required>
+    </div>
+    <div class="btn-row">
+      <button class="btn green" type="submit">Войти</button>
+      <a class="btn ghost" href="/admin/forgot-password">Забыл пароль</a>
+    </div>
+  </form>
 </div>
 {% endblock %}

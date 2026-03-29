@@ -4,6 +4,7 @@ from starlette.responses import RedirectResponse
 
 from app.core.database import get_db_session
 from app.services.notification_service import NotificationService
+from app.services.permission_service import PermissionService
 from app.web.auth import get_current_admin_from_request, redirect_to_login
 from app.web.templates import templates
 
@@ -11,6 +12,9 @@ router = APIRouter(include_in_schema=False)
 
 
 def render_template(name: str, request: Request, **context):
+    current_admin = context.get("current_admin")
+    if current_admin:
+        context.setdefault("current_permissions", sorted(PermissionService().get_permissions(current_admin)))
     return templates.TemplateResponse(name, {"request": request, **context})
 
 
