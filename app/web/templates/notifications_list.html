@@ -4,12 +4,12 @@
   <div>
     <h1 class="page-title">Уведомления</h1>
     <div class="page-subtitle">
-      Центр рабочих событий: новые репорты, сообщения, ответы и системные события по карточкам.
+      Личный центр событий пользователя: новые репорты, ответы, сообщения и системные изменения по карточкам.
     </div>
   </div>
   <div class="btn-row">
-    <a class="btn secondary" href="/admin/notifications">Все</a>
-    <a class="btn ghost" href="/admin/notifications?only_unread=true">Только непрочитанные</a>
+    <a class="btn ghost" href="/admin/notifications">Все</a>
+    <a class="btn secondary" href="/admin/notifications?only_unread=true">Только новые</a>
   </div>
 </div>
 
@@ -30,15 +30,15 @@
       <tr>
         <td>{{ item.created_at }}</td>
         <td><span class="chip gray">{{ item.kind }}</span></td>
-        <td>{{ item.title }}</td>
+        <td><b>{{ item.title }}</b></td>
         <td>{{ item.body or "—" }}</td>
         <td>{% if item.is_read %}<span class="chip gray">Прочитано</span>{% else %}<span class="chip green">Новое</span>{% endif %}</td>
         <td>
           <div class="btn-row">
-            {% if item.link_url %}<a class="btn secondary" href="{{ item.link_url }}">Открыть</a>{% endif %}
+            {% if item.link_url %}<a class="btn ghost" href="{{ item.link_url }}">Открыть</a>{% endif %}
             {% if not item.is_read %}
             <form method="post" action="/admin/notifications/{{ item.id }}/read" class="inline">
-              <button class="btn green" type="submit">Прочитано</button>
+              <button class="btn green" type="submit">Пометить как прочитанное</button>
             </form>
             {% endif %}
           </div>

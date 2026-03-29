@@ -2,42 +2,37 @@
 {% block content %}
 <div class="page-header">
   <div>
-    <h1 class="page-title">Инструменты редактора</h1>
-    <div class="page-subtitle">
-      Рабочая точка редактора: быстрые переходы, последние карточки, lookup и коммуникация с командой.
-    </div>
+    <h1 class="page-title">Редакторская зона</h1>
+    <div class="page-subtitle">Инструменты, сгруппированные отдельно от управления системой: создание карточек, lookup, сообщения и репорты.</div>
   </div>
 </div>
 
 <div class="grid cards">
-  <div class="card list-card">
-    <h3 class="section-title">Быстрое создание карточки</h3>
-    <div class="muted">Переход прямо в мастер создания новой карточки.</div>
-    <div class="btn-row"><a class="btn green" href="/admin/card-builder">Открыть</a></div>
+  <div class="card">
+    <h3 class="section-title">Создание карточки</h3>
+    <div class="section-subtitle">Открывает мастер создания карточки с кодом и внешним storage.</div>
+    <a class="btn green" href="/admin/card-builder">Открыть мастер</a>
   </div>
-
-  <div class="card list-card">
-    <h3 class="section-title">Lookup test</h3>
-    <div class="muted">Быстрая проверка кода и переход к аналитике результата.</div>
-    <div class="btn-row"><a class="btn secondary" href="/admin/lookup-test">Открыть</a></div>
+  <div class="card">
+    <h3 class="section-title">Lookup / коды</h3>
+    <div class="section-subtitle">Быстрая проверка кодов и переход к статистике.</div>
+    <div class="btn-row">
+      <a class="btn secondary" href="/admin/lookup-test">Lookup test</a>
+      <a class="btn ghost" href="/admin/codes">Коды</a>
+    </div>
   </div>
-
-  <div class="card list-card">
-    <h3 class="section-title">Live сообщения</h3>
-    <div class="muted">Живой чат с коллегами без перезагрузки страницы.</div>
-    <div class="btn-row"><a class="btn secondary" href="/admin/chats-live">Открыть</a></div>
-  </div>
-
-  <div class="card list-card">
-    <h3 class="section-title">Репорты из Telegram</h3>
-    <div class="muted">Просмотр обращений пользователей и ответы прямо в Telegram.</div>
-    <div class="btn-row"><a class="btn secondary" href="/admin/reports">Открыть</a></div>
+  <div class="card">
+    <h3 class="section-title">Коммуникация</h3>
+    <div class="section-subtitle">Живые сообщения и обращения из Telegram в отдельных разделах.</div>
+    <div class="btn-row">
+      <a class="btn secondary" href="/admin/chats-live">Сообщения</a>
+      <a class="btn ghost" href="/admin/reports">Репорты</a>
+    </div>
   </div>
 </div>
 
 <div class="card" style="margin-top:18px;">
   <h3 class="section-title">Последние карточки</h3>
-  <div class="section-subtitle">Быстрый обзор последних элементов, с которыми можно продолжить работу.</div>
   <div class="table-wrap">
     <table>
       <thead><tr><th>ID</th><th>Название</th><th>Жанр</th><th>Статус</th></tr></thead>

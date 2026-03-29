@@ -3,9 +3,13 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">Репорты</h1>
-    <div class="page-subtitle">
-      Обращения из Telegram-бота. Внутри каждого тикета видно пользователя, его Telegram и историю диалога с ответом прямо из админки.
-    </div>
+    <div class="page-subtitle">Отдельный рабочий список обращений из Telegram. Здесь удобно фильтровать, открывать и обрабатывать тикеты.</div>
+  </div>
+  <div class="btn-row">
+    <a class="btn ghost" href="/admin/reports">Все</a>
+    <a class="btn secondary" href="/admin/reports?status=open">Открытые</a>
+    <a class="btn secondary" href="/admin/reports?status=in_progress">В работе</a>
+    <a class="btn secondary" href="/admin/reports?status=closed">Закрытые</a>
   </div>
 </div>
 
@@ -43,7 +47,7 @@
         </td>
         <td>{{ item.last_message_preview or "—" }}</td>
         <td>{{ item.updated_at }}</td>
-        <td><a class="btn secondary" href="/admin/reports/{{ item.id }}">Открыть</a></td>
+        <td><a class="btn secondary" href="/admin/reports/{{ item.id }}">Открыть тикет</a></td>
       </tr>
       {% else %}
       <tr><td colspan="7"><span class="muted">Репортов пока нет.</span></td></tr>

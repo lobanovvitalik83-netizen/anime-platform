@@ -1,23 +1,66 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="login-box">
-  <div class="card">
-    <h1>Вход в админку</h1>
-    <p class="muted">Войди логином и паролем администратора.</p>
-    {% if error %}
-      <div class="error">{{ error }}</div>
-    {% endif %}
-    <form method="post" action="/admin/login" class="grid">
+<div class="public-card">
+  <div class="login-layout">
+    <div class="login-visual">
       <div>
-        <label for="username">Логин</label>
-        <input id="username" name="username" required>
+        <div class="chip" style="background:rgba(255,255,255,.10);color:#fff;border-color:rgba(255,255,255,.12);">Telegram-style admin experience</div>
+        <h1>Современная панель проекта</h1>
+        <p>
+          Новый интерфейс разделяет контент, аналитику, репорты, сообщения, пользователей и настройки по понятным зонам,
+          как в современных manager-style сервисах.
+        </p>
+
+        <div class="login-features">
+          <div class="login-feature">
+            <b>Коммуникации отдельно</b>
+            <div class="muted" style="color:rgba(255,255,255,.72);margin-top:6px;">Сообщения и репорты больше не смешиваются с контентом.</div>
+          </div>
+          <div class="login-feature">
+            <b>Контроль отдельно</b>
+            <div class="muted" style="color:rgba(255,255,255,.72);margin-top:6px;">Аналитика, уведомления и действия админов находятся в отдельных зонах.</div>
+          </div>
+          <div class="login-feature">
+            <b>Профиль и настройки</b>
+            <div class="muted" style="color:rgba(255,255,255,.72);margin-top:6px;">Оформлены ближе к современным сервисам и внутренним менеджерам.</div>
+          </div>
+        </div>
       </div>
-      <div>
-        <label for="password">Пароль</label>
-        <input id="password" name="password" type="password" required>
+      <div class="muted" style="color:rgba(255,255,255,.58);">Media Bridge · secure admin access</div>
+    </div>
+
+    <div class="login-form-wrap">
+      <div class="login-form">
+        <div>
+          <div style="font-size:28px;font-weight:800;letter-spacing:-.02em;">Вход в панель</div>
+          <div class="muted" style="margin-top:8px;">Войди под своим логином и паролем администратора.</div>
+        </div>
+
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" action="/admin/login" class="grid">
+          <div>
+            <label for="username">Логин</label>
+            <input id="username" name="username" placeholder="Введите логин" required>
+          </div>
+          <div>
+            <label for="password">Пароль</label>
+            <input id="password" name="password" type="password" placeholder="Введите пароль" required>
+          </div>
+          <button class="btn" type="submit">Войти</button>
+        </form>
+
+        <div class="auth-divider">или</div>
+
+        <div class="btn-row">
+          <a class="btn ghost" href="/admin/forgot-password">Забыл пароль</a>
+        </div>
+
+        <div class="muted">Сброс пароля пока создаёт внутренний запрос администратору. Почту подключим следующим этапом.</div>
       </div>
-      <button class="btn" type="submit">Войти</button>
-    </form>
+    </div>
   </div>
 </div>
 {% endblock %}

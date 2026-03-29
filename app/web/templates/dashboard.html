@@ -1,69 +1,71 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="hero-card">
-  <div class="page-header" style="margin-bottom:0;">
-    <div>
-      <h1 class="hero-title">Админ-панель</h1>
-      <p class="hero-subtitle">
-        Здесь собраны основные рабочие блоки проекта: медиа, коды, репорты, сообщения, аналитика, действия админов и уведомления.
-      </p>
+<div class="split-hero">
+  <div class="hero-card">
+    <h1 class="hero-title">Единая панель управления</h1>
+    <p class="hero-subtitle">
+      Разделы сгруппированы как в современных менеджерских сервисах: контент отдельно, аналитика отдельно, коммуникации отдельно, управление отдельно.
+      Основная логика проекта сохранена, а интерфейс переведён в более современный manager-style формат.
+    </p>
+    <div class="btn-row" style="margin-top:18px;">
+      <a class="btn green" href="/admin/card-builder">Создать карточку</a>
+      <a class="btn secondary" href="/admin/chats-live">Открыть сообщения</a>
+      <a class="btn ghost" href="/admin/reports">Открыть репорты</a>
     </div>
-    <div class="inline-list">
-      <span class="chip">Роль: {{ current_admin.role }}</span>
-      <span class="chip gray">Логин: {{ current_admin.username }}</span>
+  </div>
+
+  <div class="card">
+    <h3 class="section-title">Сводная диаграмма</h3>
+    <div class="section-subtitle">Визуальное сравнение ключевых разделов проекта.</div>
+    {% set maxv = [counts.titles or 1, counts.assets or 1, counts.codes or 1, counts.reports or 1]|max %}
+    <div class="kpi-chart">
+      <div class="bar-row">
+        <div class="bar-head"><span>Карточки</span><b>{{ counts.titles }}</b></div>
+        <div class="bar-track"><div class="bar-fill" style="width:{{ (counts.titles / maxv * 100)|round(0, 'floor') }}%"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-head"><span>Медиа</span><b>{{ counts.assets }}</b></div>
+        <div class="bar-track"><div class="bar-fill" style="width:{{ (counts.assets / maxv * 100)|round(0, 'floor') }}%"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-head"><span>Коды</span><b>{{ counts.codes }}</b></div>
+        <div class="bar-track"><div class="bar-fill" style="width:{{ (counts.codes / maxv * 100)|round(0, 'floor') }}%"></div></div>
+      </div>
+      <div class="bar-row">
+        <div class="bar-head"><span>Репорты</span><b>{{ counts.reports or 0 }}</b></div>
+        <div class="bar-track"><div class="bar-fill" style="width:{{ ((counts.reports or 0) / maxv * 100)|round(0, 'floor') }}%"></div></div>
+      </div>
     </div>
   </div>
 </div>
 
-<div class="grid cards" style="margin-bottom:20px;">
+<div class="grid cards" style="margin-bottom:18px;">
   <div class="card"><div class="stat">{{ counts.titles }}</div><div class="stat-label">Карточек</div></div>
-  <div class="card"><div class="stat">{{ counts.assets }}</div><div class="stat-label">Медиа</div></div>
-  <div class="card"><div class="stat">{{ counts.codes }}</div><div class="stat-label">Кодов</div></div>
+  <div class="card"><div class="stat">{{ counts.assets }}</div><div class="stat-label">Медиа-объектов</div></div>
+  <div class="card"><div class="stat">{{ counts.codes }}</div><div class="stat-label">Кодов доступа</div></div>
   <div class="card"><div class="stat">{{ counts.reports or 0 }}</div><div class="stat-label">Репортов</div></div>
 </div>
 
-<div class="grid cards">
-  <div class="card list-card">
-    <h3 class="section-title">Оперативная работа</h3>
-    <div class="muted">Быстрый вход в живые сообщения, репорты и уведомления.</div>
-    <div class="btn-row">
-      <a class="btn secondary" href="/admin/chats-live">Live сообщения</a>
-      <a class="btn secondary" href="/admin/reports">Репорты</a>
-      <a class="btn secondary" href="/admin/notifications">Уведомления</a>
-    </div>
-  </div>
-
-  <div class="card list-card">
-    <h3 class="section-title">Контент</h3>
-    <div class="muted">Медиа, карточки и коды доступа в одном рабочем контуре.</div>
+<div class="grid two">
+  <div class="card section-card">
+    <h3 class="section-title">Операционная зона</h3>
+    <div class="section-subtitle">Быстрые переходы к рабочим инструментам админа и редактора.</div>
     <div class="btn-row">
       <a class="btn secondary" href="/admin/media">Медиа</a>
-      <a class="btn secondary" href="/admin/card-builder">Создать карточку</a>
       <a class="btn secondary" href="/admin/codes">Коды</a>
+      <a class="btn secondary" href="/admin/editor-tools">Инструменты редактора</a>
+      <a class="btn secondary" href="/admin/import-export/advanced">Импорт / экспорт</a>
     </div>
   </div>
 
-  <div class="card list-card">
-    <h3 class="section-title">Контроль и аудит</h3>
-    <div class="muted">Аналитика проекта и журнал действий администраторов.</div>
+  <div class="card section-card">
+    <h3 class="section-title">Коммуникация и контроль</h3>
+    <div class="section-subtitle">Отдельные каналы для сообщений, репортов, уведомлений и аудита.</div>
     <div class="btn-row">
-      <a class="btn secondary" href="/admin/analytics">Аналитика</a>
-      <a class="btn secondary" href="/admin/analytics/advanced">Расширенная</a>
+      <a class="btn secondary" href="/admin/chats-live">Сообщения</a>
+      <a class="btn secondary" href="/admin/reports">Репорты</a>
+      <a class="btn secondary" href="/admin/notifications">Уведомления</a>
       <a class="btn secondary" href="/admin/admin-actions">Действия админов</a>
-    </div>
-  </div>
-
-  <div class="card list-card">
-    <h3 class="section-title">Управление проектом</h3>
-    <div class="muted">Персонал, настройки и импорт/экспорт рабочих данных.</div>
-    <div class="btn-row">
-      {% if current_admin.role in ["admin", "assistant", "superadmin"] %}
-      <a class="btn secondary" href="/admin/import-export">Импорт/экспорт</a>
-      <a class="btn secondary" href="/admin/team">Персонал</a>
-      {% endif %}
-      {% if current_admin.role in ["assistant", "superadmin"] %}
-      <a class="btn secondary" href="/admin/settings/advanced">Настройки</a>
-      {% endif %}
     </div>
   </div>
 </div>

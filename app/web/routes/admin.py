@@ -5,11 +5,13 @@ from starlette.responses import RedirectResponse
 from app.core.config import settings
 from app.core.database import get_db_session
 from app.core.exceptions import AuthenticationError
+from app.repositories.admin_repository import AdminRepository
 from app.services.analytics_service import AnalyticsService
 from app.services.asset_service import AssetService
 from app.services.auth_service import AuthService
 from app.services.chat_service import ChatService
 from app.services.code_service import CodeService
+from app.services.notification_service import NotificationService
 from app.services.import_export_service import ImportExportService
 from app.services.media_card_service import MediaCardService
 from app.services.media_service import MediaService
@@ -100,6 +102,51 @@ async def admin_login_submit(request: Request, db: Session = Depends(get_db_sess
     response = redirect_to("/admin")
     set_auth_cookie(response, admin.id)
     return response
+
+
+@router.get("/admin/forgot-password")
+def admin_forgot_password_page(request: Request):
+    return render_template("forgot_password.html", request, page_title="Забыл пароль", current_admin=None, error=None, success=None)
+
+
+@router.post("/admin/forgot-password")
+async def admin_forgot_password_submit(request: Request, db: Session = Depends(get_db_session)):
+    form = await request.form()
+    username = str(form.get("username", "")).strip()
+
+    if not username:
+        return render_template(
+            "forgot_password.html",
+            request,
+            page_title="Забыл пароль",
+            current_admin=None,
+            error="Укажи логин пользователя.",
+            success=None,
+        )
+
+    repo = AdminRepository(db)
+    target = repo.get_by_username(username)
+    if target:
+        notifier = NotificationService(db)
+        for admin in repo.list_all():
+            if admin.role == "superadmin":
+                notifier.notify_admin(
+                    admin.id,
+                    kind="password_reset_request",
+                    title="Запрос на сброс пароля",
+                    body=f"Пользователь {username} запросил сброс пароля через форму входа.",
+                    link_url="/admin/team",
+                )
+        db.commit()
+
+    return render_template(
+        "forgot_password.html",
+        request,
+        page_title="Забыл пароль",
+        current_admin=None,
+        error=None,
+        success="Если такой пользователь существует, запрос на сброс пароля отправлен ответственному администратору.",
+    )
 
 
 @router.get("/admin/logout")

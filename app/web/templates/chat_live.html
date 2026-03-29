@@ -1,52 +1,61 @@
 {% extends "base.html" %}
 {% block content %}
 {% if error %}<div class="error">{{ error }}</div>{% endif %}
-<div class="tg-shell">
-  <div class="tg-list">
-    <div class="tg-list-head">
-      <div class="btn-row" style="justify-content:space-between; align-items:center;">
-        <b>Диалоги</b>
-        {% if messages_enabled %}<a class="btn green" href="/admin/chats/new">Новый</a>{% endif %}
-      </div>
-      <form method="get" action="/admin/chats-live" style="margin-top:10px;">
-        <input name="q" value="{{ q or '' }}" placeholder="Поиск по диалогам">
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Сообщения</h1>
+    <div class="page-subtitle">
+      Отдельная Telegram-style зона для внутренней коммуникации команды: список диалогов слева, переписка справа, без перезагрузки страницы.
+    </div>
+  </div>
+  <div class="btn-row">
+    {% if messages_enabled %}<a class="btn green" href="/admin/chats/new">Новый чат</a>{% endif %}
+  </div>
+</div>
+
+<div class="tele-shell">
+  <div class="tele-list">
+    <div class="tele-list-head">
+      <form method="get" action="/admin/chats-live">
+        <label>Поиск по диалогам</label>
+        <input name="q" value="{{ q or '' }}" placeholder="Название чата">
       </form>
     </div>
-    <div class="tg-list-body">
+    <div class="tele-list-body">
       {% for item in chats %}
-      <a class="tg-chat-item {% if selected_chat and item.id == selected_chat.id %}active{% endif %}" href="/admin/chats-live/{{ item.id }}">
+      <a class="tele-item {% if selected_chat and item.id == selected_chat.id %}active{% endif %}" href="/admin/chats-live/{{ item.id }}">
         <div class="avatar">
           <span>{{ item.title[0:1] }}</span>
         </div>
-        <div class="tg-chat-main">
-          <div class="tg-chat-title">
-            <b>{{ item.title }}</b>
+        <div class="tele-item-main">
+          <div class="tele-item-top">
+            <b class="tele-item-title">{{ item.title }}</b>
             <span class="muted">{% if item.messages %}{{ item.messages[-1].created_at }}{% endif %}</span>
           </div>
-          <span class="tg-preview muted">{% if item.messages %}{{ item.messages[-1].content }}{% else %}Нет сообщений{% endif %}</span>
+          <div class="tele-item-preview muted">{% if item.messages %}{{ item.messages[-1].content }}{% else %}Нет сообщений{% endif %}</div>
         </div>
       </a>
       {% else %}
-      <div class="card" style="margin:16px;"><div class="muted">Чатов пока нет.</div></div>
+      <div class="empty-state">Чатов пока нет.</div>
       {% endfor %}
     </div>
   </div>
 
-  <div class="tg-panel">
+  <div class="tele-panel">
     {% if selected_chat %}
-    <div class="tg-panel-head">
+    <div class="tele-head">
       <div>
-        <div><b>{{ selected_chat.title }}</b></div>
+        <div style="font-size:20px;font-weight:800;">{{ selected_chat.title }}</div>
         <div class="muted">
           {% for p in selected_chat.participants if p.admin and p.admin.is_active %}
           {{ p.admin.full_name or p.admin.username }}{% if not loop.last %}, {% endif %}
           {% endfor %}
         </div>
       </div>
-      {% if not messages_enabled %}<span class="pill">Сообщения отключены</span>{% endif %}
+      {% if not messages_enabled %}<span class="chip yellow">Сообщения отключены</span>{% endif %}
     </div>
-    <div class="tg-messages" id="tgMessages"></div>
-    <div class="tg-compose">
+    <div class="tele-messages" id="tgMessages"></div>
+    <div class="tele-compose">
       <form id="chatSendForm">
         <textarea id="chatBody" name="content" placeholder="Сообщение" {% if not messages_enabled %}disabled{% endif %}></textarea>
         <div class="btn-row" style="margin-top:10px;">
@@ -55,7 +64,7 @@
       </form>
     </div>
     {% else %}
-    <div class="card" style="margin:16px;"><div class="muted">Выбери чат слева.</div></div>
+    <div class="empty-state">Выбери чат слева.</div>
     {% endif %}
   </div>
 </div>

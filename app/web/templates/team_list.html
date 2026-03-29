@@ -1,64 +1,77 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="btn-row" style="margin-bottom:16px;">
-  <h1 style="margin:0; flex:1;">Пользователи</h1>
-  <a class="btn green" href="/admin/team/new">Создать пользователя</a>
+<div class="page-header">
+  <div>
+    <h1 class="page-title">Пользователи и роли</h1>
+    <div class="page-subtitle">
+      Отдельная manager-зона для персонала: роли, блокировки, права, сброс пароля и разграничение доступа.
+    </div>
+  </div>
+  <div class="btn-row">
+    <a class="btn green" href="/admin/team/new">Создать пользователя</a>
+  </div>
 </div>
 
 {% if error %}<div class="error">{{ error }}</div>{% endif %}
 
-<table>
-  <thead>
-    <tr>
-      <th>ID</th>
-      <th>Логин</th>
-      <th>Имя</th>
-      <th>Должность</th>
-      <th>Роль</th>
-      <th>Активен</th>
-      <th>Создан</th>
-      <th>Действия</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for item in admins %}
-    <tr>
-      <td>{{ item.id }}</td>
-      <td>{{ item.username }}</td>
-      <td>{% if item.is_active %}{{ item.full_name or "" }}{% else %}<span class="muted">Профиль скрыт</span>{% endif %}</td>
-      <td>{% if item.is_active %}{{ item.position or "" }}{% else %}<span class="muted">Профиль скрыт</span>{% endif %}</td>
-      <td>{{ item.role }}</td>
-      <td>{{ "yes" if item.is_active else "no" }}</td>
-      <td>{{ item.created_at }}</td>
-      <td>
-        <div class="btn-row">
-          {% if item.id in manageable_ids %}
-          <a class="btn secondary" href="/admin/team/{{ item.id }}/edit">Редактировать</a>
-          {% if current_admin.role == "superadmin" %}<a class="btn secondary" href="/admin/team/{{ item.id }}/permissions">Права</a>{% endif %}
-          <form method="post" action="/admin/team/{{ item.id }}/reset-password" class="inline">
-            <button class="btn secondary" type="submit">Сбросить пароль</button>
-          </form>
+<div class="grid cards" style="margin-bottom:18px;">
+  <div class="card"><div class="stat">{{ admins|length }}</div><div class="stat-label">Доступных пользователей</div></div>
+  <div class="card"><div class="stat">{{ admins|selectattr("role", "equalto", "admin")|list|length }}</div><div class="stat-label">Админов</div></div>
+  <div class="card"><div class="stat">{{ admins|selectattr("role", "equalto", "editor")|list|length }}</div><div class="stat-label">Редакторов</div></div>
+  <div class="card"><div class="stat">{{ admins|selectattr("is_active")|list|length }}</div><div class="stat-label">Активных</div></div>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Логин</th>
+        <th>Профиль</th>
+        <th>Роль</th>
+        <th>Статус</th>
+        <th>Создан</th>
+        <th>Действия</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in admins %}
+      <tr>
+        <td>{{ item.id }}</td>
+        <td><b>{{ item.username }}</b></td>
+        <td>
           {% if item.is_active %}
-          <form method="post" action="/admin/team/{{ item.id }}/deactivate" class="inline">
-            <button class="btn" style="background:#d97706;" type="submit">Блокировать</button>
-          </form>
+            {{ item.full_name or "—" }}<br>
+            <span class="muted">{{ item.position or "Без должности" }}</span>
           {% else %}
-          <form method="post" action="/admin/team/{{ item.id }}/activate" class="inline">
-            <button class="btn green" type="submit">Разблокировать</button>
-          </form>
+            <span class="muted">Профиль скрыт</span>
           {% endif %}
-          {% if current_admin.role == "superadmin" %}
-          <form method="post" action="/admin/team/{{ item.id }}/delete" class="inline">
-            <button class="btn" style="background:#dc2626;" type="submit">Удалить</button>
-          </form>
-          {% endif %}
-          {% else %}
-          <span class="muted">Недоступно</span>
-          {% endif %}
-        </div>
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+        </td>
+        <td><span class="chip gray">{{ item.role }}</span></td>
+        <td>{% if item.is_active %}<span class="chip green">Активен</span>{% else %}<span class="chip red">Заблокирован</span>{% endif %}</td>
+        <td>{{ item.created_at }}</td>
+        <td>
+          <div class="btn-row">
+            {% if item.id in manageable_ids %}
+              <a class="btn secondary" href="/admin/team/{{ item.id }}/edit">Редактировать</a>
+              {% if current_admin.role == "superadmin" %}<a class="btn ghost" href="/admin/team/{{ item.id }}/permissions">Права</a>{% endif %}
+              <form method="post" action="/admin/team/{{ item.id }}/reset-password" class="inline"><button class="btn ghost" type="submit">Сброс пароля</button></form>
+              {% if item.is_active %}
+                <form method="post" action="/admin/team/{{ item.id }}/deactivate" class="inline"><button class="btn red" type="submit">Блокировать</button></form>
+              {% else %}
+                <form method="post" action="/admin/team/{{ item.id }}/activate" class="inline"><button class="btn green" type="submit">Разблокировать</button></form>
+              {% endif %}
+              {% if current_admin.role == "superadmin" %}
+                <form method="post" action="/admin/team/{{ item.id }}/delete" class="inline"><button class="btn red" type="submit">Удалить</button></form>
+              {% endif %}
+            {% else %}
+              <span class="muted">Недоступно</span>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endblock %}

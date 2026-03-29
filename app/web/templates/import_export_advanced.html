@@ -1,25 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="page-header">
-  <div>
-    <h1 class="page-title">Импорт / экспорт+</h1>
-    <div class="page-subtitle">
-      Центральная точка для полной выгрузки проекта, отдельных отчётов и шаблонов загрузки.
-    </div>
-  </div>
-</div>
-
+<h1>Импорт / экспорт+</h1>
 <div class="grid cards">
-  <div class="card list-card">
-    <h3 class="section-title">Полная выгрузка</h3>
-    <div class="muted">Скачать одним архивом все отчёты и основные CSV проекта.</div>
-    <div class="btn-row"><a class="btn green" href="/admin/export/everything.zip">Скачать everything.zip</a></div>
+  <div class="card">
+    <h3>Полная выгрузка</h3>
+    <div class="muted">Скачать одним архивом все отчёты и все основные CSV.</div>
+    <div class="btn-row" style="margin-top:12px;"><a class="btn green" href="/admin/export/everything.zip">Скачать everything.zip</a></div>
   </div>
-
-  <div class="card list-card">
-    <h3 class="section-title">Отдельные отчёты</h3>
-    <div class="muted">Выгрузка по разделам без лишних данных.</div>
-    <div class="btn-row">
+  <div class="card">
+    <h3>Отдельные отчёты</h3>
+    <div class="btn-row" style="margin-top:12px;">
       <a class="btn secondary" href="/admin/export/users.csv">Пользователи</a>
       <a class="btn secondary" href="/admin/export/reports.csv">Репорты</a>
       <a class="btn secondary" href="/admin/export/analytics.csv">Аналитика</a>
@@ -27,14 +17,12 @@
       <a class="btn secondary" href="/admin/export/assets.csv">Медиа</a>
     </div>
   </div>
-
-  <div class="card list-card">
-    <h3 class="section-title">Шаблоны загрузки</h3>
-    <div class="muted">Быстрый старт для корректного импорта CSV.</div>
-    <div class="btn-row">
+  <div class="card">
+    <h3>Шаблоны загрузки</h3>
+    <div class="btn-row" style="margin-top:12px;">
       <a class="btn secondary" href="/admin/templates/titles.csv">Шаблон titles</a>
       <a class="btn secondary" href="/admin/templates/codes.csv">Шаблон codes</a>
-      <a class="btn ghost" href="/admin/import-export">Обычный импорт/экспорт</a>
+      <a class="btn secondary" href="/admin/import-export">Обычный импорт/экспорт</a>
     </div>
   </div>
 </div>
