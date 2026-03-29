@@ -21,9 +21,9 @@ _polling_task = None
 def build_dispatcher() -> Dispatcher:
     dispatcher = Dispatcher()
     dispatcher.include_router(start_router)
-    dispatcher.include_router(fallback_router)
     dispatcher.include_router(code_lookup_router)
     dispatcher.include_router(report_support_router)
+    dispatcher.include_router(fallback_router)
     return dispatcher
 
 

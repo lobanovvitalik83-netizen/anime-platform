@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="btn-row" style="margin-bottom:16px;">
-  <h1 style="margin:0; flex:1;">Коды доступа</h1>
+  <h1 style="margin:0; flex:1;">Коды доступа и статистика</h1>
   <a class="btn green" href="/admin/codes/generate">Сгенерировать коды</a>
   <a class="btn secondary" href="/admin/export/codes.csv">Экспорт CSV</a>
   <a class="btn secondary" href="/admin/analytics/advanced">Аналитика кодов</a>
@@ -17,7 +17,7 @@
 
 <div class="grid" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr); margin-bottom:18px;">
   <div class="card">
-    <h3>Топ найденных кодов</h3>
+    <h3>Отдельно: самые найденные коды</h3>
     <table>
       <thead><tr><th>Код</th><th>Карточка</th><th>Найдено</th></tr></thead>
       <tbody>
@@ -34,7 +34,7 @@
     </table>
   </div>
   <div class="card">
-    <h3>Топ ненайденных кодов</h3>
+    <h3>Отдельно: самые ненайденные коды</h3>
     <table>
       <thead><tr><th>Код</th><th>Есть в базе</th><th>Не найдено</th></tr></thead>
       <tbody>

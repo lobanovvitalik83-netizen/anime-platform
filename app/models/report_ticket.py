@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, Index, String, Text
+from sqlalchemy import BigInteger, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -10,11 +10,12 @@ class ReportTicket(TimestampMixin, Base):
     __table_args__ = (
         Index("ix_report_tickets_status", "status"),
         Index("ix_report_tickets_tg_user_id", "tg_user_id"),
+        Index("ix_report_tickets_assigned_admin_id", "assigned_admin_id"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tg_user_id: Mapped[int] = mapped_column(nullable=False)
-    tg_chat_id: Mapped[int] = mapped_column(nullable=False)
+    tg_user_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    tg_chat_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     tg_username: Mapped[str | None] = mapped_column(String(255), nullable=True)
     tg_full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(50), default="open", nullable=False)

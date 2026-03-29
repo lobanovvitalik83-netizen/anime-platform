@@ -9,6 +9,7 @@ from app.core.exceptions import ValidationError
 from app.repositories.admin_repository import AdminRepository
 from app.repositories.import_job_repository import ImportJobRepository
 from app.repositories.report_repository import ReportRepository
+from app.repositories.audit_log_repository import AuditLogRepository
 from app.services.analytics_service import AnalyticsService
 from app.services.asset_service import AssetService
 from app.services.code_service import CodeService
@@ -25,6 +26,7 @@ class ImportExportService:
         self.admins = AdminRepository(session)
         self.reports = ReportRepository(session)
         self.analytics = AnalyticsService(session)
+        self.audit_logs = AuditLogRepository(session)
 
     def list_jobs(self):
         return self.jobs.list_all()
@@ -101,10 +103,40 @@ class ImportExportService:
                 "users.csv": self.export_users_csv(),
                 "reports.csv": self.export_reports_csv(),
                 "analytics.csv": self.export_analytics_csv(),
+                "admin_actions.csv": self.export_admin_actions_csv(),
             }
             for name, content in files.items():
                 zf.writestr(name, content)
         return buffer.getvalue()
+
+
+    def export_admin_actions_csv(self, *, admin_id: int | None = None, action: str = "", date_from: str = "", date_to: str = "", sort: str = "desc") -> str:
+        rows = []
+        for item in self.audit_logs.list_filtered(admin_id=admin_id, action=action, date_from=date_from, date_to=date_to, sort=sort, limit=5000):
+            rows.append({
+                "created_at": item.created_at.isoformat() if item.created_at else "",
+                "admin_id": item.admin_id or "",
+                "admin_username": item.admin.username if item.admin else "",
+                "admin_role": item.admin.role if item.admin else "",
+                "action": item.action,
+                "entity_type": item.entity_type or "",
+                "entity_id": item.entity_id or "",
+                "payload_json": item.payload_json or "",
+            })
+        return self._render_csv(rows)
+
+    def preview_csv(self, content: bytes, *, kind: str) -> dict:
+        decoded = self._decode(content)
+        reader = csv.DictReader(io.StringIO(decoded))
+        fieldnames = list(reader.fieldnames or [])
+        rows = []
+        for idx, row in enumerate(reader, start=2):
+            if len(rows) >= 15:
+                break
+            rows.append({"row_number": idx, **row})
+        required = {"titles": ["type", "title"], "codes": ["code"]}.get(kind, [])
+        missing = [col for col in required if col not in fieldnames]
+        return {"fieldnames": ["row_number"] + fieldnames, "rows": rows, "missing": missing}
 
     def template_titles_csv(self) -> str:
         return "type,title,status\nanime,Naruto,draft\n"

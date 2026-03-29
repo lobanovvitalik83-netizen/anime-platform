@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Импорт / экспорт+</h1>
-<div class="grid cards">
+<div class="grid cards" style="margin-bottom:18px;">
   <div class="card">
     <h3>Полная выгрузка</h3>
-    <div class="muted">Скачать одним архивом все отчёты и все основные CSV.</div>
+    <div class="muted">Скачать одним архивом все отчёты и основные CSV.</div>
     <div class="btn-row" style="margin-top:12px;"><a class="btn green" href="/admin/export/everything.zip">Скачать everything.zip</a></div>
   </div>
   <div class="card">
@@ -13,6 +13,7 @@
       <a class="btn secondary" href="/admin/export/users.csv">Пользователи</a>
       <a class="btn secondary" href="/admin/export/reports.csv">Репорты</a>
       <a class="btn secondary" href="/admin/export/analytics.csv">Аналитика</a>
+      <a class="btn secondary" href="/admin/export/admin-actions.csv">Действия админов</a>
       <a class="btn secondary" href="/admin/export/codes.csv">Коды</a>
       <a class="btn secondary" href="/admin/export/assets.csv">Медиа</a>
     </div>
@@ -22,8 +23,24 @@
     <div class="btn-row" style="margin-top:12px;">
       <a class="btn secondary" href="/admin/templates/titles.csv">Шаблон titles</a>
       <a class="btn secondary" href="/admin/templates/codes.csv">Шаблон codes</a>
-      <a class="btn secondary" href="/admin/import-export">Обычный импорт/экспорт</a>
+      <a class="btn secondary" href="/admin/import-jobs">История импортов</a>
     </div>
+  </div>
+</div>
+<div class="grid cards">
+  <div class="card">
+    <h3>Preview titles CSV</h3>
+    <form method="post" action="/admin/import-preview/titles/csv" enctype="multipart/form-data" class="grid">
+      <input type="file" name="file" accept=".csv,text/csv" required>
+      <button class="btn" type="submit">Показать preview</button>
+    </form>
+  </div>
+  <div class="card">
+    <h3>Preview codes CSV</h3>
+    <form method="post" action="/admin/import-preview/codes/csv" enctype="multipart/form-data" class="grid">
+      <input type="file" name="file" accept=".csv,text/csv" required>
+      <button class="btn" type="submit">Показать preview</button>
+    </form>
   </div>
 </div>
 {% endblock %}

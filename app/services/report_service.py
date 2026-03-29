@@ -82,6 +82,7 @@ class ReportService:
             body=f"От {author}: {body[:180]}",
             link_url=f"/admin/reports/{ticket.id}",
         )
+        self.audit.log(None, "report_message_from_telegram", "report_ticket", str(ticket.id), {"tg_user_id": tg_user_id, "body": body[:120]})
 
         self.session.commit()
         return ticket
@@ -107,6 +108,7 @@ class ReportService:
         )
         await self._send_to_telegram(ticket.tg_chat_id, body)
         self.audit.log(actor.id, "reply_report_ticket", "report_ticket", str(ticket.id), {"tg_user_id": ticket.tg_user_id})
+        self.notifications.notify_by_permission("reports_view", kind="report_reply", title=f"Ответ в репорте #{ticket.id}", body=body[:180], link_url=f"/admin/reports/{ticket.id}", exclude_admin_ids={actor.id})
         self.session.commit()
         return self.get_ticket(ticket.id)
 

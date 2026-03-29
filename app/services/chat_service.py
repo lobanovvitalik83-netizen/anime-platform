@@ -7,6 +7,7 @@ from app.repositories.chat_repository import ChatRepository
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
 from app.services.site_setting_service import SiteSettingService
+from app.services.notification_service import NotificationService
 
 
 class ChatService:
@@ -16,6 +17,7 @@ class ChatService:
         self.admins = AdminRepository(session)
         self.audit = AuditService(session)
         self.site_settings = SiteSettingService(session)
+        self.notifications = NotificationService(session)
         self.notifications = NotificationService(session)
 
     def list_active_admins(self) -> list[Admin]:

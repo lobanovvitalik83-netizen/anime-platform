@@ -261,3 +261,30 @@ async def user_permissions_submit(admin_id: int, request: Request, db: Session =
     target = admins_repo.update(target, extra_permissions=PermissionService().serialize_permissions(selected))
     db.commit()
     return render_template("permissions_form.html", request, page_title="Разрешения", current_admin=current_admin, target=target, all_permissions=ALL_PERMISSIONS, permission_labels=PERMISSION_LABELS, selected_permissions=selected, error=None, success="Разрешения обновлены.")
+
+
+@router.get("/admin/export/admin-actions.csv")
+def export_admin_actions_csv(request: Request, db: Session = Depends(get_db_session), admin_id: int | None = None, action: str = "", date_from: str = "", date_to: str = "", sort: str = "desc"):
+    current_admin, redirect = require_auth(request, db, permission="admin_actions_view")
+    if redirect:
+        return redirect
+    content = ImportExportService(db).export_admin_actions_csv(admin_id=admin_id, action=action, date_from=date_from, date_to=date_to, sort=sort)
+    return Response(content=content, media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=admin_actions.csv"})
+
+@router.post("/admin/import-preview/titles/csv")
+async def import_preview_titles_csv(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db_session)):
+    current_admin, redirect = require_auth(request, db, permission="import_export")
+    if redirect:
+        return redirect
+    content = await file.read()
+    preview = ImportExportService(db).preview_csv(content, kind="titles")
+    return render_template("import_preview.html", request, page_title="Preview titles", current_admin=current_admin, preview=preview, kind="titles", filename=file.filename or "titles.csv")
+
+@router.post("/admin/import-preview/codes/csv")
+async def import_preview_codes_csv(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db_session)):
+    current_admin, redirect = require_auth(request, db, permission="import_export")
+    if redirect:
+        return redirect
+    content = await file.read()
+    preview = ImportExportService(db).preview_csv(content, kind="codes")
+    return render_template("import_preview.html", request, page_title="Preview codes", current_admin=current_admin, preview=preview, kind="codes", filename=file.filename or "codes.csv")

@@ -14,6 +14,7 @@ from app.services.audit_service import AuditService
 from app.services.code_service import CodeService
 from app.services.external_media_storage_service import ExternalMediaStorageService
 from app.services.media_upload_service import MediaUploadService
+from app.services.notification_service import NotificationService
 from app.services.media_service import MediaService
 from app.services.yandex_disk_storage_service import YandexDiskStorageService
 
@@ -53,6 +54,7 @@ class MediaCardService:
         self.code_service = CodeService(session)
         self.upload_service = MediaUploadService()
         self.external_storage = ExternalMediaStorageService()
+        self.notifications = NotificationService(session)
 
     def list_cards(self, q: str | None = None, genre: str | None = None, status: str | None = None) -> list[MediaCardRow]:
         rows: list[MediaCardRow] = []
@@ -208,6 +210,8 @@ class MediaCardService:
                 },
             )[0]
 
+        self.notifications.notify_by_permission("media_manage", kind="media", title="Создана новая карточка", body=title.title, link_url=f"/admin/media/{title.id}/edit", exclude_admin_ids={admin_id})
+        self.notifications.notify_by_permission("media_manage", kind="media", title="Карточка обновлена", body=title.title, link_url=f"/admin/media/{title.id}/edit", exclude_admin_ids={admin_id})
         self.session.commit()
         return {"title": title, "season": season, "episode": episode, "asset": asset, "code": code}
 
@@ -410,6 +414,7 @@ class MediaCardService:
 
         self.audit.log(admin_id, "delete_media_title", "media_title", str(title.id), {"title": title.title})
         self.title_repo.delete(title)
+        self.notifications.notify_by_permission("media_manage", kind="media", title="Карточка удалена", body=title.title, link_url="/admin/media", exclude_admin_ids={admin_id})
         self.session.commit()
 
     async def _resolve_media_payload(

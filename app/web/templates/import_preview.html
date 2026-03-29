@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Preview импорта: {{ kind }}</h1>
+{% if preview.missing %}<div class="error">Не хватает колонок: {{ preview.missing|join(', ') }}</div>{% endif %}
+<div class="card" style="margin-bottom:18px;">
+  <div><b>Файл:</b> {{ filename }}</div>
+  <div><b>Показано строк:</b> {{ preview.rows|length }}</div>
+  <div class="muted">После preview импорт запускается отдельной загрузкой файла тем же разделом.</div>
+</div>
+<table>
+  <thead><tr>{% for c in preview.fieldnames %}<th>{{ c }}</th>{% endfor %}</tr></thead>
+  <tbody>
+    {% for row in preview.rows %}
+    <tr>{% for c in preview.fieldnames %}<td>{{ row.get(c, '') }}</td>{% endfor %}</tr>
+    {% else %}
+    <tr><td colspan="{{ preview.fieldnames|length }}"><span class="muted">Строк не найдено.</span></td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<div class="btn-row" style="margin-top:16px;">
+  <a class="btn secondary" href="/admin/import-export/advanced">Назад</a>
+</div>
+{% endblock %}

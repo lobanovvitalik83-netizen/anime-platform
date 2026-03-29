@@ -16,7 +16,7 @@
 </div>
 
 <div class="grid cards" style="margin-bottom:16px;">
-  <div class="card"><div class="stat">{{ cards|length }}</div><div>Карточек в выдаче</div></div>
+  <div class="card"><div class="stat">{{ cards|length }}</div><div>Карточек по фильтру</div></div>
   <div class="card"><div class="stat">{{ cards|selectattr("status", "equalto", "active")|list|length }}</div><div>Активных</div></div>
   <div class="card"><div class="stat">{{ cards|selectattr("asset_type", "equalto", "video")|list|length }}</div><div>С видео</div></div>
   <div class="card"><div class="stat">{{ cards|selectattr("code_value")|list|length }}</div><div>С кодом доступа</div></div>
@@ -50,7 +50,7 @@
         <div><b>Сезон:</b> {{ item.season_number or "—" }}</div>
         <div><b>Серия:</b> {{ item.episode_number or "—" }}</div>
         <div><b>Тип медиа:</b> {{ item.asset_type or "—" }}</div>
-        <div><b>Хранилище:</b> {{ item.storage_provider or item.storage_kind or "—" }}</div>
+        <div><b>Внешнее хранилище:</b> {{ item.storage_provider or item.storage_kind or "—" }}</div>
         <div><b>Код доступа:</b> {% if item.code_value %}<span class="code">{{ item.code_value }}</span>{% else %}—{% endif %}</div>
       </div>
       <div class="btn-row" style="margin-top:12px;">
