@@ -15,6 +15,7 @@ from app.repositories.media_asset_repository import MediaAssetRepository
 from app.repositories.report_repository import ReportRepository
 from app.services.media_service import MediaService
 
+
 @dataclass
 class CodeAnalyticsRow:
     code_value: str
@@ -25,6 +26,7 @@ class CodeAnalyticsRow:
     access_code_exists: bool
     access_code_status: str | None
     title_name: str | None
+
 
 class AnalyticsService:
     def __init__(self, session: Session):
@@ -39,25 +41,33 @@ class AnalyticsService:
         self.reports = ReportRepository(session)
 
     def record_lookup_attempt(self, *, code_value: str, is_found: bool, source: str, access_code: AccessCode | None = None, error_text: str | None = None) -> None:
-        self.events.create(code_value=code_value, access_code_id=access_code.id if access_code else None, title_id=access_code.title_id if access_code else None, season_id=access_code.season_id if access_code else None, episode_id=access_code.episode_id if access_code else None, is_found=is_found, source=source, error_text=error_text)
+        self.events.create(
+            code_value=code_value,
+            access_code_id=access_code.id if access_code else None,
+            title_id=access_code.title_id if access_code else None,
+            season_id=access_code.season_id if access_code else None,
+            episode_id=access_code.episode_id if access_code else None,
+            is_found=is_found,
+            source=source,
+            error_text=error_text,
+        )
         self.session.commit()
 
     def get_summary(self) -> dict:
         items = self.events.list_all()
-        unique_codes = {item.code_value for item in items}
-        found_codes = {item.code_value for item in items if item.is_found}
-        not_found_codes = {item.code_value for item in items if not item.is_found}
         reports = self.reports.list_tickets()
+        chats = self.chats.list_chats()
+        admins = self.admins.list_all()
+        unique_codes = {item.code_value for item in items}
         return {
             "total_attempts": len(items),
             "found_attempts": sum(1 for item in items if item.is_found),
             "not_found_attempts": sum(1 for item in items if not item.is_found),
             "unique_codes": len(unique_codes),
-            "unique_found_codes": len(found_codes),
-            "unique_not_found_codes": len(not_found_codes),
+            "chats_total": len(chats),
             "reports_total": len(reports),
             "reports_open": sum(1 for item in reports if item.status != "closed"),
-            "chats_total": len(self.chats.list_chats()),
+            "admins_total": len(admins),
         }
 
     def list_recent_lookup_events(self, limit: int = 150):
@@ -66,22 +76,28 @@ class AnalyticsService:
     def list_recent_audit_logs(self, limit: int = 150):
         return self.audit_logs.list_recent(limit=limit)
 
-    def get_staff_activity(self):
+    def get_staff_activity(self) -> list[dict]:
         counter = Counter()
-        for log in self.audit_logs.list_recent(limit=5000):
+        for log in self.audit_logs.list_recent(limit=2000):
             counter[log.admin_id] += 1
         rows = []
         for admin in self.admins.list_all():
-            rows.append({"admin_id": admin.id, "username": admin.username, "role": admin.role, "actions_count": counter.get(admin.id, 0)})
+            rows.append({
+                "admin_id": admin.id,
+                "username": admin.username,
+                "role": admin.role,
+                "actions_count": counter.get(admin.id, 0),
+            })
         rows.sort(key=lambda x: x["actions_count"], reverse=True)
         return rows
 
-    def list_code_rows(self, q: str = "", outcome: str = ""):
+    def list_code_rows(self, q: str = "", outcome: str = "") -> list[CodeAnalyticsRow]:
         items = self.events.list_all()
-        grouped = {}
+        grouped: dict[str, list] = {}
         for item in items:
             grouped.setdefault(item.code_value, []).append(item)
-        rows = []
+
+        rows: list[CodeAnalyticsRow] = []
         search = (q or "").strip().lower()
         normalized_outcome = (outcome or "").strip().lower()
 
@@ -91,6 +107,7 @@ class AnalyticsService:
             found_attempts = sum(1 for item in events_sorted if item.is_found)
             not_found_attempts = total_attempts - found_attempts
             last_seen = events_sorted[0].created_at
+
             access_code = self.access_codes.get_by_code(code_value)
             title_name = None
             if access_code and access_code.title_id:
@@ -98,7 +115,9 @@ class AnalyticsService:
                     title_name = self.media.get_title(access_code.title_id).title
                 except Exception:
                     title_name = None
-            row = CodeAnalyticsRow(code_value=code_value, total_attempts=total_attempts, found_attempts=found_attempts, not_found_attempts=not_found_attempts, last_seen=last_seen, access_code_exists=bool(access_code), access_code_status=access_code.status if access_code else None, title_name=title_name)
+
+            row = CodeAnalyticsRow(code_value, total_attempts, found_attempts, not_found_attempts, last_seen, bool(access_code), access_code.status if access_code else None, title_name)
+
             haystack = " ".join([row.code_value, row.title_name or "", row.access_code_status or ""]).lower()
             if search and search not in haystack:
                 continue
@@ -107,16 +126,46 @@ class AnalyticsService:
             if normalized_outcome == "not_found" and row.not_found_attempts <= 0:
                 continue
             rows.append(row)
+
         rows.sort(key=lambda item: item.last_seen, reverse=True)
         return rows
 
-    def get_code_detail(self, code_value: str):
+    def get_top_codes(self, *, kind: str = "found", limit: int = 10) -> list[CodeAnalyticsRow]:
+        rows = self.list_code_rows()
+        if kind == "found":
+            rows = [row for row in rows if row.found_attempts > 0]
+            rows.sort(key=lambda x: (x.found_attempts, x.total_attempts), reverse=True)
+        else:
+            rows = [row for row in rows if row.not_found_attempts > 0]
+            rows.sort(key=lambda x: (x.not_found_attempts, x.total_attempts), reverse=True)
+        return rows[:limit]
+
+    def get_code_detail(self, code_value: str) -> dict:
         events = self.events.list_by_code_value(code_value)
         access_code = self.access_codes.get_by_code(code_value)
         card = self._resolve_card(access_code) if access_code else None
-        return {"code_value": code_value, "events": events, "access_code": access_code, "card": card, "total_attempts": len(events), "found_attempts": sum(1 for item in events if item.is_found), "not_found_attempts": sum(1 for item in events if not item.is_found), "last_seen": events[0].created_at if events else None}
+        return {
+            "code_value": code_value,
+            "events": events,
+            "access_code": access_code,
+            "card": card,
+            "total_attempts": len(events),
+            "found_attempts": sum(1 for item in events if item.is_found),
+            "not_found_attempts": sum(1 for item in events if not item.is_found),
+            "last_seen": events[0].created_at if events else None,
+        }
 
-    def _resolve_card(self, access_code: AccessCode | None):
+    def export_summary_rows(self) -> list[dict]:
+        rows = [{"metric": key, "value": value} for key, value in self.get_summary().items()]
+        for row in self.get_staff_activity():
+            rows.append({"metric": f"actions_{row['username']}", "value": row["actions_count"]})
+        for row in self.get_top_codes(kind="found", limit=20):
+            rows.append({"metric": f"top_found_{row.code_value}", "value": row.found_attempts})
+        for row in self.get_top_codes(kind="not_found", limit=20):
+            rows.append({"metric": f"top_not_found_{row.code_value}", "value": row.not_found_attempts})
+        return rows
+
+    def _resolve_card(self, access_code: AccessCode | None) -> dict | None:
         if not access_code:
             return None
         title = season = episode = None
@@ -139,22 +188,32 @@ class AnalyticsService:
             try: title = self.media.get_title(season.title_id)
             except Exception: title = None
         asset = self._pick_best_asset(title.id if title else None, season.id if season else None, episode.id if episode else None)
-        return {"access_code_status": access_code.status, "title": title.title if title else None, "genre": title.type if title else None, "season_number": season.season_number if season else None, "episode_number": episode.episode_number if episode else None, "asset_type": asset.asset_type if asset else None, "storage_kind": asset.storage_kind if asset else None, "external_url": asset.external_url if asset else None, "telegram_file_id": asset.telegram_file_id if asset else None}
+        return {
+            "access_code_status": access_code.status,
+            "title": title.title if title else None,
+            "genre": title.type if title else None,
+            "season_number": season.season_number if season else None,
+            "episode_number": episode.episode_number if episode else None,
+            "asset_type": asset.asset_type if asset else None,
+            "storage_kind": asset.storage_kind if asset else None,
+            "external_url": asset.external_url if asset else None,
+        }
 
     def _pick_best_asset(self, title_id: int | None, season_id: int | None, episode_id: int | None) -> MediaAsset | None:
         candidates = self.assets.list_lookup_candidates(title_id=title_id, season_id=season_id, episode_id=episode_id)
         if not candidates:
             return None
-        def scope_priority(asset):
-            if episode_id and asset.episode_id == episode_id: return 0
-            if season_id and asset.season_id == season_id: return 1
-            if title_id and asset.title_id == title_id: return 2
-            return 3
-        def primary_priority(asset): return 0 if asset.is_primary else 1
-        return sorted(candidates, key=lambda item: (scope_priority(item), primary_priority(item), -item.id))[0]
 
-    def export_summary_rows(self):
-        rows = [{"metric": key, "value": value} for key, value in self.get_summary().items()]
-        for row in self.get_staff_activity():
-            rows.append({"metric": f"staff_actions_{row['username']}", "value": row["actions_count"]})
-        return rows
+        def scope_priority(asset: MediaAsset) -> int:
+            if episode_id and asset.episode_id == episode_id:
+                return 0
+            if season_id and asset.season_id == season_id:
+                return 1
+            if title_id and asset.title_id == title_id:
+                return 2
+            return 3
+
+        def primary_priority(asset: MediaAsset) -> int:
+            return 0 if asset.is_primary else 1
+
+        return sorted(candidates, key=lambda item: (scope_priority(item), primary_priority(item), -item.id))[0]

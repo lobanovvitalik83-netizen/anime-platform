@@ -1,21 +1,29 @@
 from app.models.admin import Admin
 
-ALL_PERMISSIONS = [
-    "reports_view",
-    "reports_reply",
-    "settings_manage",
-    "analytics_view",
-    "import_export",
-    "editor_tools",
-    "team_manage",
-    "messages_manage",
+PERMISSION_DEFINITIONS = [
+    ("reports_view", "Просмотр репортов"),
+    ("reports_reply", "Ответ на репорты"),
+    ("settings_manage", "Настройки сайта"),
+    ("analytics_view", "Просмотр аналитики"),
+    ("analytics_export", "Экспорт аналитики"),
+    ("import_export", "Импорт и экспорт данных"),
+    ("editor_tools", "Инструменты редактора"),
+    ("team_manage", "Управление персоналом"),
+    ("messages_manage", "Сообщения и чаты"),
+    ("media_manage", "Управление медиа"),
+    ("codes_manage", "Управление кодами"),
+    ("admin_actions_view", "Просмотр действий админов"),
 ]
+
+ALL_PERMISSIONS = [code for code, _label in PERMISSION_DEFINITIONS]
+PERMISSION_LABELS = {code: label for code, label in PERMISSION_DEFINITIONS}
 
 DEFAULT_ROLE_PERMISSIONS = {
     "superadmin": set(ALL_PERMISSIONS),
-    "admin": {"reports_view", "reports_reply", "analytics_view", "import_export", "editor_tools", "team_manage", "messages_manage"},
+    "assistant": set(ALL_PERMISSIONS) - {"team_manage"},  # helper role, close to owner but not full control over personnel
+    "admin": {"reports_view", "reports_reply", "analytics_view", "analytics_export", "import_export", "editor_tools", "team_manage", "messages_manage", "media_manage", "codes_manage", "admin_actions_view"},
     "support": {"reports_view", "reports_reply", "messages_manage"},
-    "editor": {"editor_tools", "messages_manage"},
+    "editor": {"editor_tools", "messages_manage", "media_manage", "codes_manage"},
 }
 
 class PermissionService:
@@ -34,3 +42,6 @@ class PermissionService:
         if not admin:
             return False
         return permission in self.get_permissions(admin)
+
+    def label(self, permission: str) -> str:
+        return PERMISSION_LABELS.get(permission, permission)

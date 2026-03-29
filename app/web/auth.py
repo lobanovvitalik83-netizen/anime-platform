@@ -10,7 +10,8 @@ ROLE_LEVELS = {
     "editor": 1,
     "support": 1,
     "admin": 2,
-    "superadmin": 3,
+    "assistant": 3,
+    "superadmin": 4,
 }
 
 def has_required_role(admin: Admin | None, min_role: str = "editor") -> bool:

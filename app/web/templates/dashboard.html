@@ -5,20 +5,13 @@
   <div class="card"><div class="stat">{{ counts.titles }}</div><div>Карточек</div></div>
   <div class="card"><div class="stat">{{ counts.assets }}</div><div>Медиа</div></div>
   <div class="card"><div class="stat">{{ counts.codes }}</div><div>Кодов</div></div>
-  <div class="card"><div class="stat">{{ current_admin.role }}</div><div>Ваша роль</div></div>
-</div>
-
-<div class="card" style="margin-bottom:20px;">
-  <h2>Stage 24</h2>
-  <div class="muted">
-    Live-чаты без refresh, репорты из Telegram, granular permissions, новые инструменты editor, advanced settings, advanced analytics и advanced import/export.
-  </div>
+  <div class="card"><div class="stat">{{ counts.reports or 0 }}</div><div>Репортов</div></div>
 </div>
 
 <div class="grid cards">
-  <div class="card"><h3>Сообщения</h3><div class="btn-row"><a class="btn secondary" href="/admin/chats-live">Открыть</a></div></div>
-  <div class="card"><h3>Репорты</h3><div class="btn-row"><a class="btn secondary" href="/admin/reports">Открыть</a></div></div>
-  <div class="card"><h3>Настройки+</h3><div class="btn-row"><a class="btn secondary" href="/admin/settings/advanced">Открыть</a></div></div>
-  <div class="card"><h3>Аналитика+</h3><div class="btn-row"><a class="btn secondary" href="/admin/analytics/advanced">Открыть</a></div></div>
+  <div class="card"><h3>Live сообщения</h3><div class="muted">Как Telegram: диалоги слева, чат справа, автообновление без перезагрузки.</div><div class="btn-row" style="margin-top:12px;"><a class="btn secondary" href="/admin/chats-live">Открыть</a></div></div>
+  <div class="card"><h3>Репорты</h3><div class="muted">Обращения из Telegram-бота с ответом прямо пользователю.</div><div class="btn-row" style="margin-top:12px;"><a class="btn secondary" href="/admin/reports">Открыть</a></div></div>
+  <div class="card"><h3>Аналитика</h3><div class="muted">Коды, топ найденных / ненайденных, активность сотрудников.</div><div class="btn-row" style="margin-top:12px;"><a class="btn secondary" href="/admin/analytics">Открыть</a><a class="btn secondary" href="/admin/analytics/advanced">Расширенная</a></div></div>
+  <div class="card"><h3>Журнал действий</h3><div class="muted">Отдельное окно действий админов с фильтрами по времени.</div><div class="btn-row" style="margin-top:12px;"><a class="btn secondary" href="/admin/admin-actions">Открыть</a></div></div>
 </div>
 {% endblock %}

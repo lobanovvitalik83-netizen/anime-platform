@@ -1,22 +1,20 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="card">
-  <h1>Разрешения пользователя {{ target.username }}</h1>
+  <h1>Разрешения пользователя</h1>
+  <p class="muted">{{ target.username }} / {{ target.role }}</p>
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
   {% if success %}<div class="success">{{ success }}</div>{% endif %}
   <form method="post" action="/admin/team/{{ target.id }}/permissions" class="grid">
     <div class="form-grid">
       {% for perm in all_permissions %}
-      <label style="display:flex;gap:8px;align-items:center;">
+      <label style="display:flex; gap:8px; align-items:center;">
         <input type="checkbox" name="extra_permissions" value="{{ perm }}" {% if perm in selected_permissions %}checked{% endif %} style="width:auto;">
-        {{ perm }}
+        {{ permission_labels.get(perm, perm) }}
       </label>
       {% endfor %}
     </div>
-    <div class="btn-row">
-      <button class="btn green" type="submit">Сохранить разрешения</button>
-      <a class="btn secondary" href="/admin/team">Назад</a>
-    </div>
+    <div class="btn-row"><button class="btn green" type="submit">Сохранить</button><a class="btn secondary" href="/admin/team">Назад</a></div>
   </form>
 </div>
 {% endblock %}

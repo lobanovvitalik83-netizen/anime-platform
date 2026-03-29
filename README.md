@@ -1,21 +1,35 @@
-# Stage 24 - Live chats, Telegram reports, permissions
+# Stage 25 - reports fix + helper role + private docs + admin actions + enhanced analytics
 
-Архив включает:
-- live-чаты без перезагрузки страницы
-- Telegram-like layout для внутренних сообщений
-- Telegram reports: сообщения пользователей из бота попадают в админку
-- reply в report из админки отправляется именно этому пользователю в Telegram
-- новая роль `support`
-- дополнительные разрешения на пользователя
-- расширенные страницы:
-  - /admin/chats-live
-  - /admin/reports
-  - /admin/team/{id}/permissions
-  - /admin/settings/advanced
+Что добавлено:
+- Telegram bot:
+  - кнопки Поиск по коду / Репорт / Помощь
+  - репорты создаются только в режиме Репорт
+  - помощь показывает инструкцию и контакт
+- live-чаты остаются
+- API docs закрыты для всех, кроме superadmin:
+  - /docs и /openapi.json отключены
+  - private docs доступны по /admin/api-docs
+- новая роль:
+  - assistant
+  - почти как помощник owner: много прав, но не superadmin
+- права с человеческими названиями
+- отдельное окно действий админов:
+  - /admin/admin-actions
+  - фильтры по сотруднику, действию, датам, сортировке
+- расширенная аналитика:
   - /admin/analytics/advanced
+  - топ найденных кодов
+  - топ ненайденных кодов
+  - активность сотрудников
+- улучшенный импорт/экспорт:
   - /admin/import-export/advanced
-  - /admin/editor-tools
+  - everything.zip
+  - отдельные CSV
+- улучшены экраны:
+  - медиа
+  - коды
+  - настройки
+  - права
 
-Важно:
-- live реализован через периодический fetch/polling без refresh страницы
-- это не websocket, но сообщения обновляются в реальном времени для оператора
+Важно по .env:
+- TELEGRAM_HELP_CONTACT=...

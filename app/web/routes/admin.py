@@ -15,6 +15,8 @@ from app.services.media_card_service import MediaCardService
 from app.services.media_service import MediaService
 from app.services.public_lookup_service import PublicLookupService
 from app.services.site_setting_service import SiteSettingService
+from app.services.report_service import ReportService
+from app.services.permission_service import PERMISSION_LABELS
 from app.web.auth import clear_auth_cookie, get_current_admin_from_request, has_required_role, redirect_to, redirect_to_login, set_auth_cookie
 from app.web.templates import templates
 
@@ -122,7 +124,7 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db_session)):
         request,
         page_title="Панель",
         current_admin=current_admin,
-        counts={"titles": len(media_service.list_titles()), "assets": len(asset_service.list_assets()), "codes": len(code_service.list_codes())},
+        counts={"titles": len(media_service.list_titles()), "assets": len(asset_service.list_assets()), "codes": len(code_service.list_codes()), "reports": len(ReportService(db).list_tickets())},
     )
 
 

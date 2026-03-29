@@ -1,5 +1,7 @@
+from datetime import datetime, timedelta
+
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.audit_log import AuditLog
 
@@ -15,5 +17,38 @@ class AuditLogRepository:
         return entity
 
     def list_recent(self, limit: int = 200) -> list[AuditLog]:
-        statement = select(AuditLog).order_by(AuditLog.id.desc()).limit(limit)
-        return list(self.session.scalars(statement))
+        statement = (
+            select(AuditLog)
+            .options(joinedload(AuditLog.admin))
+            .order_by(AuditLog.id.desc())
+            .limit(limit)
+        )
+        return list(self.session.scalars(statement).unique())
+
+    def list_filtered(
+        self,
+        *,
+        admin_id: int | None = None,
+        action: str = "",
+        date_from: str = "",
+        date_to: str = "",
+        sort: str = "desc",
+        limit: int = 500,
+    ) -> list[AuditLog]:
+        statement = select(AuditLog).options(joinedload(AuditLog.admin))
+        if admin_id:
+            statement = statement.where(AuditLog.admin_id == admin_id)
+        if action:
+            statement = statement.where(AuditLog.action == action)
+        if date_from:
+            statement = statement.where(AuditLog.created_at >= datetime.fromisoformat(date_from))
+        if date_to:
+            end_dt = datetime.fromisoformat(date_to) + timedelta(days=1)
+            statement = statement.where(AuditLog.created_at < end_dt)
+        statement = statement.order_by(AuditLog.created_at.asc() if sort == "asc" else AuditLog.created_at.desc())
+        statement = statement.limit(limit)
+        return list(self.session.scalars(statement).unique())
+
+    def list_actions(self) -> list[str]:
+        rows = self.session.execute(select(AuditLog.action).distinct().order_by(AuditLog.action.asc())).all()
+        return [row[0] for row in rows]

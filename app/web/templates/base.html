@@ -7,7 +7,7 @@
   <style>
     :root { color-scheme: light; }
     body { margin:0; font-family: Arial, sans-serif; background:#eef2f7; color:#1f2937; }
-    .wrap { max-width:1360px; margin:0 auto; padding:24px; }
+    .wrap { max-width:1380px; margin:0 auto; padding:24px; }
     .topbar { background:#17212b; color:#fff; }
     .topbar .wrap { display:flex; align-items:center; justify-content:space-between; gap:16px; }
     .brand { font-size:22px; font-weight:700; color:#fff; text-decoration:none; }
@@ -15,12 +15,12 @@
     .nav a { color:#e6eef8; text-decoration:none; padding:8px 12px; border-radius:10px; background:#243447; }
     .nav a:hover { background:#2f4359; color:#fff; }
     .grid { display:grid; gap:18px; }
-    .grid.cards { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
-    .people-grid { display:grid; gap:18px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .grid.cards { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
     .card { background:#fff; border-radius:16px; box-shadow:0 8px 28px rgba(0,0,0,.07); padding:20px; }
     .btn { display:inline-block; padding:10px 14px; border-radius:10px; text-decoration:none; border:0; background:#2b79ff; color:#fff; cursor:pointer; }
     .btn.secondary { background:#42526b; }
     .btn.green { background:#16a34a; }
+    .btn.red { background:#dc2626; }
     .btn-row { display:flex; gap:10px; flex-wrap:wrap; }
     table { width:100%; border-collapse:collapse; background:#fff; border-radius:14px; overflow:hidden; }
     th, td { text-align:left; padding:12px 14px; border-bottom:1px solid #e5e7eb; vertical-align:top; }
@@ -29,34 +29,15 @@
     label { display:block; font-weight:600; margin-bottom:6px; }
     input, select, textarea { width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid #d1d5db; border-radius:10px; background:#fff; }
     textarea { min-height:120px; resize:vertical; }
-    .form-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:16px; }
+    .form-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:16px; }
     .muted { color:#6b7280; font-size:14px; }
     .error { background:#fef2f2; color:#991b1b; padding:12px 14px; border-radius:12px; margin-bottom:16px; }
     .success { background:#ecfdf5; color:#065f46; padding:12px 14px; border-radius:12px; margin-bottom:16px; }
     .code { font-family: monospace; background:#f3f4f6; padding:2px 6px; border-radius:6px; }
     .stat { font-size:30px; font-weight:700; margin-bottom:6px; }
+    .chip { display:inline-block; padding:6px 10px; border-radius:999px; background:#eef2ff; color:#1d4ed8; font-size:12px; font-weight:700; }
     .avatar { width:64px; height:64px; border-radius:999px; overflow:hidden; background:#dbe3ef; display:flex; align-items:center; justify-content:center; }
     .avatar img { width:100%; height:100%; object-fit:cover; }
-    .pill { display:inline-block; padding:6px 10px; border-radius:999px; background:#edf4ff; color:#1d4ed8; font-size:12px; font-weight:700; }
-
-    .tg-shell { display:grid; grid-template-columns: 340px minmax(0,1fr); gap:18px; min-height:70vh; }
-    .tg-list { background:#fff; border-radius:16px; box-shadow:0 8px 28px rgba(0,0,0,.07); overflow:hidden; display:flex; flex-direction:column; }
-    .tg-list-head { padding:16px; border-bottom:1px solid #e5e7eb; }
-    .tg-list-body { overflow:auto; max-height:72vh; }
-    .tg-chat-item { display:flex; gap:12px; padding:14px 16px; border-bottom:1px solid #eef2f7; text-decoration:none; color:#1f2937; }
-    .tg-chat-item.active { background:#edf4ff; }
-    .tg-chat-main { min-width:0; flex:1; }
-    .tg-chat-title { display:flex; justify-content:space-between; gap:8px; }
-    .tg-chat-title b, .tg-preview { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
-    .tg-panel { background:#e9eef5; border-radius:16px; box-shadow:0 8px 28px rgba(0,0,0,.07); display:flex; flex-direction:column; min-height:72vh; overflow:hidden; }
-    .tg-panel-head { background:#fff; padding:16px; border-bottom:1px solid #e5e7eb; display:flex; justify-content:space-between; align-items:center; gap:16px; }
-    .tg-messages { padding:18px; overflow:auto; flex:1; display:flex; flex-direction:column; gap:12px; }
-    .bubble-row { display:flex; }
-    .bubble-row.me { justify-content:flex-end; }
-    .bubble { max-width:72%; background:#fff; border-radius:18px; padding:10px 14px; box-shadow:0 3px 12px rgba(0,0,0,.05); }
-    .bubble-row.me .bubble { background:#d7f7c2; }
-    .bubble-meta { color:#6b7280; font-size:12px; margin-top:4px; }
-    .tg-compose { background:#fff; padding:14px; border-top:1px solid #e5e7eb; }
   </style>
 </head>
 <body>
@@ -67,18 +48,18 @@
       <div class="nav">
         <a href="/admin">Панель</a>
         <a href="/admin/media">Медиа</a>
-        <a href="/admin/card-builder">Создание карточки</a>
+        <a href="/admin/card-builder">Создать карточку</a>
         <a href="/admin/people">Сотрудники</a>
         <a href="/admin/chats-live">Сообщения</a>
         <a href="/admin/reports">Репорты</a>
         <a href="/admin/editor-tools">Инструменты</a>
         <a href="/admin/analytics">Аналитика</a>
-        <a href="/admin/analytics/advanced">Аналитика+</a>
-        <a href="/admin/import-export/advanced">Импорт/экспорт+</a>
-        {% if current_admin.role in ["admin", "superadmin"] %}<a href="/admin/team">Пользователи</a>{% endif %}
-        {% if current_admin.role == "superadmin" %}<a href="/admin/settings/advanced">Настройки+</a>{% endif %}
+        <a href="/admin/admin-actions">Действия админов</a>
+        {% if current_admin.role in ["admin", "assistant", "superadmin"] %}<a href="/admin/import-export">Импорт/экспорт</a>{% endif %}
+        {% if current_admin.role in ["admin", "assistant", "superadmin"] %}<a href="/admin/team">Персонал</a>{% endif %}
+        {% if current_admin.role in ["assistant", "superadmin"] %}<a href="/admin/settings/advanced">Настройки</a>{% endif %}
         <a href="/admin/profile">Профиль</a>
-        <a href="/docs">API docs</a>
+        {% if current_admin.role == "superadmin" %}<a href="/admin/api-docs">API docs</a>{% endif %}
         <a href="/admin/logout">Выход ({{ current_admin.username }} / {{ current_admin.role }})</a>
       </div>
     </div>

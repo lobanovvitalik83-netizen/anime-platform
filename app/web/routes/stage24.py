@@ -1,4 +1,6 @@
-import json
+from datetime import datetime
+import io
+import zipfile
 
 from fastapi import APIRouter, Body, Depends, File, Request, UploadFile
 from fastapi.responses import JSONResponse, Response, RedirectResponse
@@ -11,9 +13,11 @@ from app.services.auth_service import AuthService
 from app.services.chat_service import ChatService
 from app.services.import_export_service import ImportExportService
 from app.services.media_card_service import MediaCardService
-from app.services.permission_service import ALL_PERMISSIONS, PermissionService
+from app.services.permission_service import ALL_PERMISSIONS, PERMISSION_LABELS, PermissionService
 from app.services.report_service import ReportService
 from app.services.site_setting_service import SiteSettingService
+from app.services.audit_service import AuditService
+from app.repositories.audit_log_repository import AuditLogRepository
 from app.web.auth import get_current_admin_from_request, redirect_to_login
 from app.web.templates import templates
 
@@ -77,11 +81,13 @@ def chats_live_send(chat_id: int, request: Request, db: Session = Depends(get_db
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
 
 @router.get("/admin/reports")
-def reports_page(request: Request, db: Session = Depends(get_db_session)):
+def reports_page(request: Request, db: Session = Depends(get_db_session), status: str = ""):
     current_admin, redirect = require_auth(request, db, permission="reports_view")
     if redirect:
         return redirect
     tickets = ReportService(db).list_tickets()
+    if status:
+        tickets = [t for t in tickets if t.status == status]
     return render_template("reports_list.html", request, page_title="Репорты", current_admin=current_admin, tickets=tickets, error=None)
 
 @router.get("/admin/reports/{ticket_id}")
@@ -130,7 +136,7 @@ def settings_advanced(request: Request, db: Session = Depends(get_db_session)):
     if redirect:
         return redirect
     settings_service = SiteSettingService(db)
-    return render_template("settings_advanced.html", request, page_title="Настройки+", current_admin=current_admin, messages_enabled=settings_service.is_messages_enabled(), reports_enabled=settings_service.is_reports_enabled(), maintenance_mode=settings_service.is_maintenance_mode(), site_title=settings_service.get_str("site_title", "Media Bridge"), logo_url=settings_service.get_str("logo_url", ""), error=None, success=None)
+    return render_template("settings_advanced.html", request, page_title="Настройки+", current_admin=current_admin, messages_enabled=settings_service.is_messages_enabled(), reports_enabled=settings_service.is_reports_enabled(), maintenance_mode=settings_service.is_maintenance_mode(), site_title=settings_service.get_str("site_title", "Media Bridge"), logo_url=settings_service.get_str("logo_url", ""), help_contact=settings_service.get_str("telegram_help_contact", ""), error=None, success=None)
 
 @router.post("/admin/settings/advanced")
 async def settings_advanced_submit(request: Request, db: Session = Depends(get_db_session)):
@@ -144,7 +150,8 @@ async def settings_advanced_submit(request: Request, db: Session = Depends(get_d
     settings_service.set_maintenance_mode(form.get("maintenance_mode") == "on")
     settings_service.set_str("site_title", str(form.get("site_title", "")).strip() or "Media Bridge")
     settings_service.set_str("logo_url", str(form.get("logo_url", "")).strip())
-    return render_template("settings_advanced.html", request, page_title="Настройки+", current_admin=current_admin, messages_enabled=settings_service.is_messages_enabled(), reports_enabled=settings_service.is_reports_enabled(), maintenance_mode=settings_service.is_maintenance_mode(), site_title=settings_service.get_str("site_title", "Media Bridge"), logo_url=settings_service.get_str("logo_url", ""), error=None, success="Настройки сохранены.")
+    settings_service.set_str("telegram_help_contact", str(form.get("help_contact", "")).strip())
+    return render_template("settings_advanced.html", request, page_title="Настройки+", current_admin=current_admin, messages_enabled=settings_service.is_messages_enabled(), reports_enabled=settings_service.is_reports_enabled(), maintenance_mode=settings_service.is_maintenance_mode(), site_title=settings_service.get_str("site_title", "Media Bridge"), logo_url=settings_service.get_str("logo_url", ""), help_contact=settings_service.get_str("telegram_help_contact", ""), error=None, success="Настройки сохранены.")
 
 @router.get("/admin/analytics/advanced")
 def analytics_advanced(request: Request, db: Session = Depends(get_db_session)):
@@ -152,7 +159,34 @@ def analytics_advanced(request: Request, db: Session = Depends(get_db_session)):
     if redirect:
         return redirect
     service = AnalyticsService(db)
-    return render_template("analytics_advanced.html", request, page_title="Аналитика+", current_admin=current_admin, summary=service.get_summary(), staff_activity=service.get_staff_activity())
+    return render_template("analytics_advanced.html", request, page_title="Аналитика+", current_admin=current_admin, summary=service.get_summary(), staff_activity=service.get_staff_activity(), top_found=service.get_top_codes(kind="found", limit=10), top_not_found=service.get_top_codes(kind="not_found", limit=10))
+
+@router.get("/admin/admin-actions")
+def admin_actions_page(
+    request: Request,
+    db: Session = Depends(get_db_session),
+    admin_id: int | None = None,
+    action: str = "",
+    date_from: str = "",
+    date_to: str = "",
+    sort: str = "desc",
+):
+    current_admin, redirect = require_auth(request, db, permission="admin_actions_view")
+    if redirect:
+        return redirect
+    repo = AuditLogRepository(db)
+    actions = repo.list_filtered(admin_id=admin_id, action=action, date_from=date_from, date_to=date_to, sort=sort)
+    admins = AdminRepository(db).list_all()
+    return render_template(
+        "admin_actions.html",
+        request,
+        page_title="Действия админов",
+        current_admin=current_admin,
+        rows=actions,
+        admins=admins,
+        action_options=repo.list_actions(),
+        filters={"admin_id": admin_id, "action": action, "date_from": date_from, "date_to": date_to, "sort": sort},
+    )
 
 @router.get("/admin/import-export/advanced")
 def import_export_advanced(request: Request, db: Session = Depends(get_db_session)):
@@ -160,6 +194,14 @@ def import_export_advanced(request: Request, db: Session = Depends(get_db_sessio
     if redirect:
         return redirect
     return render_template("import_export_advanced.html", request, page_title="Импорт / экспорт+", current_admin=current_admin)
+
+@router.get("/admin/export/everything.zip")
+def export_everything_zip(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = require_auth(request, db, permission="import_export")
+    if redirect:
+        return redirect
+    payload = ImportExportService(db).export_everything_zip()
+    return Response(content=payload, media_type="application/zip", headers={"Content-Disposition": "attachment; filename=everything_export.zip"})
 
 @router.get("/admin/export/users.csv")
 def export_users_csv(request: Request, db: Session = Depends(get_db_session)):
@@ -177,7 +219,7 @@ def export_reports_csv(request: Request, db: Session = Depends(get_db_session)):
 
 @router.get("/admin/export/analytics.csv")
 def export_analytics_csv(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = require_auth(request, db, permission="analytics_view")
+    current_admin, redirect = require_auth(request, db, permission="analytics_export")
     if redirect:
         return redirect
     return Response(content=ImportExportService(db).export_analytics_csv(), media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=analytics.csv"})
@@ -204,7 +246,7 @@ def user_permissions_page(admin_id: int, request: Request, db: Session = Depends
     service = AuthService(db)
     target = service.get_manageable_admin(current_admin, admin_id)
     selected = PermissionService().parse_permissions(target.extra_permissions)
-    return render_template("permissions_form.html", request, page_title="Разрешения", current_admin=current_admin, target=target, all_permissions=ALL_PERMISSIONS, selected_permissions=selected, error=None, success=None)
+    return render_template("permissions_form.html", request, page_title="Разрешения", current_admin=current_admin, target=target, all_permissions=ALL_PERMISSIONS, permission_labels=PERMISSION_LABELS, selected_permissions=selected, error=None, success=None)
 
 @router.post("/admin/team/{admin_id}/permissions")
 async def user_permissions_submit(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
@@ -218,4 +260,4 @@ async def user_permissions_submit(admin_id: int, request: Request, db: Session =
     admins_repo = AdminRepository(db)
     target = admins_repo.update(target, extra_permissions=PermissionService().serialize_permissions(selected))
     db.commit()
-    return render_template("permissions_form.html", request, page_title="Разрешения", current_admin=current_admin, target=target, all_permissions=ALL_PERMISSIONS, selected_permissions=selected, error=None, success="Разрешения обновлены.")
+    return render_template("permissions_form.html", request, page_title="Разрешения", current_admin=current_admin, target=target, all_permissions=ALL_PERMISSIONS, permission_labels=PERMISSION_LABELS, selected_permissions=selected, error=None, success="Разрешения обновлены.")
