@@ -5,6 +5,7 @@ from app.models.admin import Admin
 from app.repositories.admin_repository import AdminRepository
 from app.repositories.chat_repository import ChatRepository
 from app.services.audit_service import AuditService
+from app.services.site_setting_service import SiteSettingService
 
 
 class ChatService:
@@ -13,9 +14,17 @@ class ChatService:
         self.chats = ChatRepository(session)
         self.admins = AdminRepository(session)
         self.audit = AuditService(session)
+        self.site_settings = SiteSettingService(session)
 
     def list_active_admins(self) -> list[Admin]:
         return self.admins.list_active()
+
+    def messages_enabled(self) -> bool:
+        return self.site_settings.is_messages_enabled()
+
+    def ensure_messages_enabled(self) -> None:
+        if not self.messages_enabled():
+            raise ValidationError("Сообщения временно отключены superadmin.")
 
     def list_chats_for_admin(self, admin: Admin):
         visible = []
@@ -35,6 +44,8 @@ class ChatService:
         return chat
 
     def create_chat(self, creator: Admin, *, title: str, participant_ids: list[int]):
+        self.ensure_messages_enabled()
+
         title = title.strip()
         if not title:
             raise ValidationError("Название чата обязательно.")
@@ -57,7 +68,40 @@ class ChatService:
         self.session.commit()
         return self.chats.get_chat(chat.id)
 
+    def find_direct_chat(self, left_admin_id: int, right_admin_id: int):
+        target = {left_admin_id, right_admin_id}
+        for chat in self.chats.list_chats():
+            participant_ids = {participant.admin_id for participant in chat.participants if participant.admin and participant.admin.is_active}
+            if participant_ids == target and len(participant_ids) == 2:
+                return chat
+        return None
+
+    def get_or_create_direct_chat(self, actor: Admin, target_admin_id: int):
+        self.ensure_messages_enabled()
+
+        if actor.id == target_admin_id:
+            raise ValidationError("Нельзя открыть диалог с самим собой.")
+
+        target = self.admins.get_by_id(target_admin_id)
+        if not target or not target.is_active:
+            raise ValidationError("Пользователь недоступен для диалога.")
+
+        existing = self.find_direct_chat(actor.id, target.id)
+        if existing:
+            return existing
+
+        title = f"Диалог: {actor.username} / {target.username}"
+        chat = self.chats.create_chat(title=title, created_by_admin_id=actor.id)
+        self.chats.add_participant(chat.id, actor.id)
+        self.chats.add_participant(chat.id, target.id)
+
+        self.audit.log(admin_id=actor.id, action="create_direct_chat", entity_type="chat_room", entity_id=str(chat.id), payload={"target_admin_id": target.id})
+        self.session.commit()
+        return self.chats.get_chat(chat.id)
+
     def post_message(self, actor: Admin, chat_id: int, content: str):
+        self.ensure_messages_enabled()
+
         content = content.strip()
         if not content:
             raise ValidationError("Сообщение не может быть пустым.")

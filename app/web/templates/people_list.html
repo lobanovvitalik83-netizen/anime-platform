@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="btn-row" style="margin-bottom:16px;">
+  <h1 style="margin:0; flex:1;">Сотрудники</h1>
+  <a class="btn secondary" href="/admin/chats">Мои сообщения</a>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <form method="get" action="/admin/people" class="form-grid">
+    <div>
+      <label>Поиск</label>
+      <input name="q" value="{{ q }}" placeholder="Имя, логин, должность">
+    </div>
+    <div class="btn-row" style="align-items:end;">
+      <button class="btn" type="submit">Найти</button>
+      <a class="btn secondary" href="/admin/people">Сбросить</a>
+    </div>
+  </form>
+</div>
+
+<div class="people-grid">
+  {% for item in people %}
+  <div class="person-card">
+    <div class="profile-cover"></div>
+    <div class="profile-head">
+      <div class="btn-row" style="align-items:center; justify-content:space-between;">
+        <div class="avatar">
+          {% if item.avatar_url %}
+          <img src="{{ item.avatar_url }}" alt="avatar">
+          {% else %}
+          <span class="muted">avatar</span>
+          {% endif %}
+        </div>
+        <span class="chip">{{ item.role }}</span>
+      </div>
+
+      <h3 style="margin:14px 0 6px;">{{ item.full_name or item.username }}</h3>
+      <div class="muted" style="margin-bottom:8px;">@{{ item.username }}</div>
+      <div class="muted" style="margin-bottom:10px;">{{ item.position or "Без должности" }}</div>
+      {% if item.about %}
+      <div style="margin-bottom:14px;">{{ item.about }}</div>
+      {% endif %}
+
+      <div class="btn-row">
+        <a class="btn secondary" href="/admin/people/{{ item.id }}">Открыть профиль</a>
+        {% if messages_enabled and item.id != current_admin.id %}
+        <form method="post" action="/admin/people/{{ item.id }}/message" class="inline">
+          <button class="btn green" type="submit">Написать</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="card"><div class="muted">Сотрудники не найдены.</div></div>
+  {% endfor %}
+</div>
+{% endblock %}

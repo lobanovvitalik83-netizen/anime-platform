@@ -9,10 +9,11 @@ from app.services.asset_service import AssetService
 from app.services.auth_service import AuthService
 from app.services.chat_service import ChatService
 from app.services.code_service import CodeService
-from app.services.media_card_service import MediaCardService
 from app.services.import_export_service import ImportExportService
+from app.services.media_card_service import MediaCardService
 from app.services.media_service import MediaService
 from app.services.public_lookup_service import PublicLookupService
+from app.services.site_setting_service import SiteSettingService
 from app.web.auth import clear_auth_cookie, get_current_admin_from_request, has_required_role, redirect_to, redirect_to_login, set_auth_cookie
 from app.web.templates import templates
 
@@ -63,6 +64,10 @@ def _team_manageable_ids(current_admin, admins):
     if current_admin.role == "admin":
         return {item.id for item in admins if item.role == "editor"}
     return set()
+
+
+def _messages_enabled(db: Session) -> bool:
+    return SiteSettingService(db).is_messages_enabled()
 
 
 @router.get("/")
@@ -116,11 +121,7 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db_session)):
         request,
         page_title="Панель",
         current_admin=current_admin,
-        counts={
-            "titles": len(media_service.list_titles()),
-            "assets": len(asset_service.list_assets()),
-            "codes": len(code_service.list_codes()),
-        },
+        counts={"titles": len(media_service.list_titles()), "assets": len(asset_service.list_assets()), "codes": len(code_service.list_codes())},
     )
 
 
@@ -137,21 +138,17 @@ async def admin_media_bulk_delete(request: Request, db: Session = Depends(get_db
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
-
     form = await request.form()
     selected_ids = [int(item) for item in form.getlist("selected_ids")]
     service = MediaCardService(db)
-
     if not selected_ids:
         return _render_media_cards(request, current_admin, db, error="Не выбраны карточки.")
-
     try:
         for item_id in selected_ids:
             service.delete_card(current_admin.id, item_id)
     except Exception as exc:
         db.rollback()
         return _render_media_cards(request, current_admin, db, error=str(exc))
-
     return redirect_to("/admin/media")
 
 
@@ -160,13 +157,11 @@ def admin_media_delete(title_id: int, request: Request, db: Session = Depends(ge
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
-
     try:
         MediaCardService(db).delete_card(current_admin.id, title_id)
     except Exception as exc:
         db.rollback()
         return _render_media_cards(request, current_admin, db, error=str(exc))
-
     return redirect_to("/admin/media")
 
 
@@ -189,20 +184,7 @@ def admin_media_edit_page(title_id: int, request: Request, db: Session = Depends
         "generate_code": True,
         "status": card["title"].status,
     }
-
-    return render_template(
-        "card_builder.html",
-        request,
-        page_title=f"Редактирование карточки #{title_id}",
-        current_admin=current_admin,
-        error=None,
-        success=None,
-        values=values,
-        result=None,
-        action_url=f"/admin/media/{title_id}/edit",
-        submit_label="Сохранить карточку",
-        upload_chat_ready=bool(settings.resolved_media_upload_chat_id),
-    )
+    return render_template("card_builder.html", request, page_title=f"Редактирование карточки #{title_id}", current_admin=current_admin, error=None, success=None, values=values, result=None, action_url=f"/admin/media/{title_id}/edit", submit_label="Сохранить карточку", upload_chat_ready=bool(settings.resolved_media_upload_chat_id))
 
 
 @router.post("/admin/media/{title_id}/edit")
@@ -210,7 +192,6 @@ async def admin_media_edit_submit(title_id: int, request: Request, db: Session =
     current_admin, redirect = get_admin_or_redirect(request, db)
     if redirect:
         return redirect
-
     form = await request.form()
     upload = form.get("media_file")
 
@@ -245,42 +226,11 @@ async def admin_media_edit_submit(title_id: int, request: Request, db: Session =
         file_bytes = await upload.read()
 
     try:
-        result = await MediaCardService(db).update_card(
-            current_admin.id,
-            title_id,
-            values,
-            upload_file_name=file_name,
-            upload_file_content_type=file_content_type,
-            upload_file_bytes=file_bytes,
-        )
-        return render_template(
-            "card_builder.html",
-            request,
-            page_title=f"Редактирование карточки #{title_id}",
-            current_admin=current_admin,
-            error=None,
-            success="Карточка обновлена.",
-            values=values,
-            result=result,
-            action_url=f"/admin/media/{title_id}/edit",
-            submit_label="Сохранить карточку",
-            upload_chat_ready=bool(settings.resolved_media_upload_chat_id),
-        )
+        result = await MediaCardService(db).update_card(current_admin.id, title_id, values, upload_file_name=file_name, upload_file_content_type=file_content_type, upload_file_bytes=file_bytes)
+        return render_template("card_builder.html", request, page_title=f"Редактирование карточки #{title_id}", current_admin=current_admin, error=None, success="Карточка обновлена.", values=values, result=result, action_url=f"/admin/media/{title_id}/edit", submit_label="Сохранить карточку", upload_chat_ready=bool(settings.resolved_media_upload_chat_id))
     except Exception as exc:
         db.rollback()
-        return render_template(
-            "card_builder.html",
-            request,
-            page_title=f"Редактирование карточки #{title_id}",
-            current_admin=current_admin,
-            error=str(exc),
-            success=None,
-            values=values,
-            result=None,
-            action_url=f"/admin/media/{title_id}/edit",
-            submit_label="Сохранить карточку",
-            upload_chat_ready=bool(settings.resolved_media_upload_chat_id),
-        )
+        return render_template("card_builder.html", request, page_title=f"Редактирование карточки #{title_id}", current_admin=current_admin, error=str(exc), success=None, values=values, result=None, action_url=f"/admin/media/{title_id}/edit", submit_label="Сохранить карточку", upload_chat_ready=bool(settings.resolved_media_upload_chat_id))
 
 
 @router.get("/admin/card-builder")
@@ -288,20 +238,7 @@ def admin_card_builder_page(request: Request, db: Session = Depends(get_db_sessi
     current_admin, redirect = get_admin_or_redirect(request, db)
     if redirect:
         return redirect
-
-    return render_template(
-        "card_builder.html",
-        request,
-        page_title="Создание карточки",
-        current_admin=current_admin,
-        error=None,
-        success=None,
-        values={"generate_code": True, "status": "active", "asset_type": "image", "genre": "anime"},
-        result=None,
-        action_url="/admin/card-builder",
-        submit_label="Создать карточку",
-        upload_chat_ready=bool(settings.resolved_media_upload_chat_id),
-    )
+    return render_template("card_builder.html", request, page_title="Создание карточки", current_admin=current_admin, error=None, success=None, values={"generate_code": True, "status": "active", "asset_type": "image", "genre": "anime"}, result=None, action_url="/admin/card-builder", submit_label="Создать карточку", upload_chat_ready=bool(settings.resolved_media_upload_chat_id))
 
 
 @router.post("/admin/card-builder")
@@ -309,7 +246,6 @@ async def admin_card_builder_submit(request: Request, db: Session = Depends(get_
     current_admin, redirect = get_admin_or_redirect(request, db)
     if redirect:
         return redirect
-
     form = await request.form()
     upload = form.get("media_file")
 
@@ -338,48 +274,17 @@ async def admin_card_builder_submit(request: Request, db: Session = Depends(get_
     file_name = None
     file_content_type = None
     file_bytes = None
-
     if upload and getattr(upload, "filename", ""):
         file_name = upload.filename
         file_content_type = getattr(upload, "content_type", None)
         file_bytes = await upload.read()
 
     try:
-        result = await MediaCardService(db).create_card(
-            admin_id=current_admin.id,
-            payload=values,
-            upload_file_name=file_name,
-            upload_file_content_type=file_content_type,
-            upload_file_bytes=file_bytes,
-        )
-        return render_template(
-            "card_builder.html",
-            request,
-            page_title="Создание карточки",
-            current_admin=current_admin,
-            error=None,
-            success="Карточка успешно создана.",
-            values={"generate_code": True, "status": "active", "asset_type": "image", "genre": "anime"},
-            result=result,
-            action_url="/admin/card-builder",
-            submit_label="Создать карточку",
-            upload_chat_ready=bool(settings.resolved_media_upload_chat_id),
-        )
+        result = await MediaCardService(db).create_card(admin_id=current_admin.id, payload=values, upload_file_name=file_name, upload_file_content_type=file_content_type, upload_file_bytes=file_bytes)
+        return render_template("card_builder.html", request, page_title="Создание карточки", current_admin=current_admin, error=None, success="Карточка успешно создана.", values={"generate_code": True, "status": "active", "asset_type": "image", "genre": "anime"}, result=result, action_url="/admin/card-builder", submit_label="Создать карточку", upload_chat_ready=bool(settings.resolved_media_upload_chat_id))
     except Exception as exc:
         db.rollback()
-        return render_template(
-            "card_builder.html",
-            request,
-            page_title="Создание карточки",
-            current_admin=current_admin,
-            error=str(exc),
-            success=None,
-            values=values,
-            result=None,
-            action_url="/admin/card-builder",
-            submit_label="Создать карточку",
-            upload_chat_ready=bool(settings.resolved_media_upload_chat_id),
-        )
+        return render_template("card_builder.html", request, page_title="Создание карточки", current_admin=current_admin, error=str(exc), success=None, values=values, result=None, action_url="/admin/card-builder", submit_label="Создать карточку", upload_chat_ready=bool(settings.resolved_media_upload_chat_id))
 
 
 @router.get("/admin/codes")
@@ -387,15 +292,7 @@ def admin_codes(request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
-
-    return render_template(
-        "codes_list.html",
-        request,
-        page_title="Коды",
-        current_admin=current_admin,
-        codes=CodeService(db).list_codes(),
-        error=None,
-    )
+    return render_template("codes_list.html", request, page_title="Коды", current_admin=current_admin, codes=CodeService(db).list_codes(), error=None)
 
 
 @router.get("/admin/codes/generate")
@@ -403,20 +300,8 @@ def admin_codes_generate_page(request: Request, db: Session = Depends(get_db_ses
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
-
     media_service = MediaService(db)
-    return render_template(
-        "code_generate.html",
-        request,
-        page_title="Генерация кодов",
-        current_admin=current_admin,
-        titles=media_service.list_titles(),
-        seasons=media_service.list_seasons(),
-        episodes=media_service.list_episodes(),
-        error=None,
-        values={},
-        generated_codes=None,
-    )
+    return render_template("code_generate.html", request, page_title="Генерация кодов", current_admin=current_admin, titles=media_service.list_titles(), seasons=media_service.list_seasons(), episodes=media_service.list_episodes(), error=None, values={}, generated_codes=None)
 
 
 @router.post("/admin/codes/generate")
@@ -426,10 +311,6 @@ async def admin_codes_generate_submit(request: Request, db: Session = Depends(ge
         return redirect
 
     media_service = MediaService(db)
-    titles = media_service.list_titles()
-    seasons = media_service.list_seasons()
-    episodes = media_service.list_episodes()
-
     form = await request.form()
     payload = {
         "quantity": int(str(form.get("quantity")).strip()),
@@ -443,31 +324,9 @@ async def admin_codes_generate_submit(request: Request, db: Session = Depends(ge
         generated_codes = CodeService(db).generate_codes(current_admin.id, payload)
     except Exception as exc:
         db.rollback()
-        return render_template(
-            "code_generate.html",
-            request,
-            page_title="Генерация кодов",
-            current_admin=current_admin,
-            titles=titles,
-            seasons=seasons,
-            episodes=episodes,
-            error=str(exc),
-            values=payload,
-            generated_codes=None,
-        )
+        return render_template("code_generate.html", request, page_title="Генерация кодов", current_admin=current_admin, titles=media_service.list_titles(), seasons=media_service.list_seasons(), episodes=media_service.list_episodes(), error=str(exc), values=payload, generated_codes=None)
 
-    return render_template(
-        "code_generate.html",
-        request,
-        page_title="Генерация кодов",
-        current_admin=current_admin,
-        titles=titles,
-        seasons=seasons,
-        episodes=episodes,
-        error=None,
-        values=payload,
-        generated_codes=generated_codes,
-    )
+    return render_template("code_generate.html", request, page_title="Генерация кодов", current_admin=current_admin, titles=media_service.list_titles(), seasons=media_service.list_seasons(), episodes=media_service.list_episodes(), error=None, values=payload, generated_codes=generated_codes)
 
 
 @router.get("/admin/codes/{code_id}/edit")
@@ -475,30 +334,11 @@ def admin_code_edit_page(code_id: int, request: Request, db: Session = Depends(g
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
-
     code_service = CodeService(db)
     media_service = MediaService(db)
     item = code_service.get_code(code_id)
-    values = {
-        "code": item.code,
-        "title_id": item.title_id or "",
-        "season_id": item.season_id or "",
-        "episode_id": item.episode_id or "",
-        "status": item.status,
-    }
-    return render_template(
-        "code_form.html",
-        request,
-        page_title=f"Редактировать код #{item.id}",
-        current_admin=current_admin,
-        titles=media_service.list_titles(),
-        seasons=media_service.list_seasons(),
-        episodes=media_service.list_episodes(),
-        error=None,
-        values=values,
-        action_url=f"/admin/codes/{item.id}/edit",
-        submit_label="Сохранить изменения",
-    )
+    values = {"code": item.code, "title_id": item.title_id or "", "season_id": item.season_id or "", "episode_id": item.episode_id or "", "status": item.status}
+    return render_template("code_form.html", request, page_title=f"Редактировать код #{item.id}", current_admin=current_admin, titles=media_service.list_titles(), seasons=media_service.list_seasons(), episodes=media_service.list_episodes(), error=None, values=values, action_url=f"/admin/codes/{item.id}/edit", submit_label="Сохранить изменения")
 
 
 @router.post("/admin/codes/{code_id}/edit")
@@ -506,35 +346,14 @@ async def admin_code_edit_submit(code_id: int, request: Request, db: Session = D
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
-
     media_service = MediaService(db)
     form = await request.form()
-    payload = {
-        "code": str(form.get("code", "")).strip(),
-        "title_id": to_int(str(form.get("title_id", "")).strip() or None),
-        "season_id": to_int(str(form.get("season_id", "")).strip() or None),
-        "episode_id": to_int(str(form.get("episode_id", "")).strip() or None),
-        "status": str(form.get("status", "active")).strip(),
-    }
-
+    payload = {"code": str(form.get("code", "")).strip(), "title_id": to_int(str(form.get("title_id", "")).strip() or None), "season_id": to_int(str(form.get("season_id", "")).strip() or None), "episode_id": to_int(str(form.get("episode_id", "")).strip() or None), "status": str(form.get("status", "active")).strip()}
     try:
         CodeService(db).update_code(current_admin.id, code_id, payload)
     except Exception as exc:
         db.rollback()
-        return render_template(
-            "code_form.html",
-            request,
-            page_title=f"Редактировать код #{code_id}",
-            current_admin=current_admin,
-            titles=media_service.list_titles(),
-            seasons=media_service.list_seasons(),
-            episodes=media_service.list_episodes(),
-            error=str(exc),
-            values=payload,
-            action_url=f"/admin/codes/{code_id}/edit",
-            submit_label="Сохранить изменения",
-        )
-
+        return render_template("code_form.html", request, page_title=f"Редактировать код #{code_id}", current_admin=current_admin, titles=media_service.list_titles(), seasons=media_service.list_seasons(), episodes=media_service.list_episodes(), error=str(exc), values=payload, action_url=f"/admin/codes/{code_id}/edit", submit_label="Сохранить изменения")
     return redirect_to("/admin/codes")
 
 
@@ -570,11 +389,9 @@ async def admin_codes_bulk_action(request: Request, db: Session = Depends(get_db
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
-
     form = await request.form()
     action = str(form.get("bulk_action", "")).strip()
     selected_values = form.getlist("selected_ids")
-
     if not action:
         return render_template("codes_list.html", request, page_title="Коды", current_admin=current_admin, codes=CodeService(db).list_codes(), error="Не выбрано массовое действие.")
     if not selected_values:
@@ -595,7 +412,6 @@ async def admin_codes_bulk_action(request: Request, db: Session = Depends(get_db
     except Exception as exc:
         db.rollback()
         return render_template("codes_list.html", request, page_title="Коды", current_admin=current_admin, codes=CodeService(db).list_codes(), error=str(exc))
-
     return redirect_to("/admin/codes")
 
 
@@ -666,7 +482,6 @@ async def admin_import_titles_csv(request: Request, file: UploadFile = File(...)
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
-
     try:
         content = await file.read()
         job = ImportExportService(db).import_titles_csv(current_admin.id, file.filename or "titles.csv", content)
@@ -682,7 +497,6 @@ async def admin_import_codes_csv(request: Request, file: UploadFile = File(...),
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
-
     try:
         content = await file.read()
         job = ImportExportService(db).import_codes_csv(current_admin.id, file.filename or "codes.csv", content)
@@ -698,7 +512,6 @@ def admin_lookup_test(request: Request, db: Session = Depends(get_db_session), c
     current_admin, redirect = get_admin_or_redirect(request, db)
     if redirect:
         return redirect
-
     result = None
     error = None
     if code:
@@ -707,7 +520,6 @@ def admin_lookup_test(request: Request, db: Session = Depends(get_db_session), c
         except Exception as exc:
             db.rollback()
             error = str(exc)
-
     return render_template("lookup_test.html", request, page_title="Тест lookup", current_admin=current_admin, code=code or "", result=result, error=error)
 
 
@@ -724,11 +536,9 @@ async def admin_profile_submit(request: Request, db: Session = Depends(get_db_se
     current_admin, redirect = get_admin_or_redirect(request, db)
     if redirect:
         return redirect
-
     form = await request.form()
     avatar_file = form.get("avatar_file")
     service = AuthService(db)
-
     try:
         service.update_profile(
             current_admin,
@@ -738,11 +548,9 @@ async def admin_profile_submit(request: Request, db: Session = Depends(get_db_se
             about=str(form.get("about", "")).strip() or None,
             avatar_url=str(form.get("avatar_url", "")).strip() or None,
         )
-
         if avatar_file and getattr(avatar_file, "filename", ""):
             content = await avatar_file.read()
             service.upload_profile_avatar(current_admin.id, file_bytes=content, file_name=avatar_file.filename, content_type=getattr(avatar_file, "content_type", None))
-
         refreshed = AuthService(db).get_admin(current_admin.id)
         return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, error=None, success="Профиль обновлён.", password_error=None, password_success=None)
     except Exception as exc:
@@ -756,11 +564,9 @@ async def admin_profile_password_submit(request: Request, db: Session = Depends(
     current_admin, redirect = get_admin_or_redirect(request, db)
     if redirect:
         return redirect
-
     form = await request.form()
     current_password = str(form.get("current_password", "")).strip()
     new_password = str(form.get("new_password", "")).strip()
-
     try:
         AuthService(db).change_own_password(current_admin.id, current_password, new_password)
         refreshed = AuthService(db).get_admin(current_admin.id)
@@ -771,12 +577,60 @@ async def admin_profile_password_submit(request: Request, db: Session = Depends(
         return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, error=None, success=None, password_error=str(exc), password_success=None)
 
 
+@router.get("/admin/people")
+def admin_people_page(request: Request, db: Session = Depends(get_db_session), q: str = ""):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    service = AuthService(db)
+    people = service.list_active_admins()
+    search = (q or "").strip().lower()
+    if search:
+        def _match(item):
+            blob = " ".join([
+                item.username or "",
+                item.full_name or "",
+                item.position or "",
+                item.about or "",
+            ]).lower()
+            return search in blob
+        people = [item for item in people if _match(item)]
+
+    return render_template("people_list.html", request, page_title="Сотрудники", current_admin=current_admin, people=people, q=q, messages_enabled=_messages_enabled(db))
+
+
+@router.get("/admin/people/{admin_id}")
+def admin_person_profile(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    person = AuthService(db).get_admin(admin_id)
+    if not person.is_active:
+        return render_template("forbidden.html", request, page_title="Профиль скрыт", current_admin=current_admin, error="Этот профиль недоступен.")
+    return render_template("person_profile.html", request, page_title=person.full_name or person.username, current_admin=current_admin, person=person, messages_enabled=_messages_enabled(db))
+
+
+@router.post("/admin/people/{admin_id}/message")
+def admin_person_message(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+    try:
+        chat = ChatService(db).get_or_create_direct_chat(current_admin, admin_id)
+        return redirect_to(f"/admin/chats/{chat.id}")
+    except Exception as exc:
+        db.rollback()
+        person = AuthService(db).get_admin(admin_id)
+        return render_template("person_profile.html", request, page_title=person.full_name or person.username, current_admin=current_admin, person=person, messages_enabled=_messages_enabled(db), error=str(exc))
+
+
 @router.get("/admin/team")
 def admin_team_page(request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
-
     service = AuthService(db)
     admins = service.list_admins_for_actor(current_admin)
     manageable_ids = _team_manageable_ids(current_admin, admins)
@@ -788,23 +642,8 @@ def admin_team_new_page(request: Request, db: Session = Depends(get_db_session))
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
-
     allowed_roles = AuthService(db).allowed_create_roles(current_admin)
-    return render_template(
-        "team_form.html",
-        request,
-        page_title="Создать пользователя",
-        current_admin=current_admin,
-        error=None,
-        success=None,
-        credentials=None,
-        values={"role": allowed_roles[0] if allowed_roles else "editor", "is_active": True, "generate_password": True},
-        allowed_roles=allowed_roles,
-        action_url="/admin/team/new",
-        submit_label="Создать пользователя",
-        is_edit=False,
-        reset_password_url=None,
-    )
+    return render_template("team_form.html", request, page_title="Создать пользователя", current_admin=current_admin, error=None, success=None, credentials=None, values={"role": allowed_roles[0] if allowed_roles else "editor", "is_active": True, "generate_password": True}, allowed_roles=allowed_roles, action_url="/admin/team/new", submit_label="Создать пользователя", is_edit=False, reset_password_url=None)
 
 
 @router.post("/admin/team/new")
@@ -812,60 +651,16 @@ async def admin_team_new_submit(request: Request, db: Session = Depends(get_db_s
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
-
     form = await request.form()
-    values = {
-        "username": str(form.get("username", "")).strip(),
-        "role": str(form.get("role", "editor")).strip(),
-        "is_active": form.get("is_active") == "on",
-        "generate_password": form.get("generate_password") == "on",
-        "password": str(form.get("password", "")).strip(),
-    }
-
+    values = {"username": str(form.get("username", "")).strip(), "role": str(form.get("role", "editor")).strip(), "is_active": form.get("is_active") == "on", "generate_password": form.get("generate_password") == "on", "password": str(form.get("password", "")).strip()}
     service = AuthService(db)
     allowed_roles = service.allowed_create_roles(current_admin)
-
     try:
-        created, plain_password = service.create_admin(
-            current_admin,
-            username=values["username"],
-            role=values["role"],
-            password=values["password"],
-            generate_password_flag=values["generate_password"],
-            is_active=values["is_active"],
-        )
-        return render_template(
-            "team_form.html",
-            request,
-            page_title="Создать пользователя",
-            current_admin=current_admin,
-            error=None,
-            success="Пользователь создан.",
-            credentials={"username": created.username, "password": plain_password},
-            values={"role": allowed_roles[0] if allowed_roles else "editor", "is_active": True, "generate_password": True},
-            allowed_roles=allowed_roles,
-            action_url="/admin/team/new",
-            submit_label="Создать пользователя",
-            is_edit=False,
-            reset_password_url=None,
-        )
+        created, plain_password = service.create_admin(current_admin, username=values["username"], role=values["role"], password=values["password"], generate_password_flag=values["generate_password"], is_active=values["is_active"])
+        return render_template("team_form.html", request, page_title="Создать пользователя", current_admin=current_admin, error=None, success="Пользователь создан.", credentials={"username": created.username, "password": plain_password}, values={"role": allowed_roles[0] if allowed_roles else "editor", "is_active": True, "generate_password": True}, allowed_roles=allowed_roles, action_url="/admin/team/new", submit_label="Создать пользователя", is_edit=False, reset_password_url=None)
     except Exception as exc:
         db.rollback()
-        return render_template(
-            "team_form.html",
-            request,
-            page_title="Создать пользователя",
-            current_admin=current_admin,
-            error=str(exc),
-            success=None,
-            credentials=None,
-            values=values,
-            allowed_roles=allowed_roles,
-            action_url="/admin/team/new",
-            submit_label="Создать пользователя",
-            is_edit=False,
-            reset_password_url=None,
-        )
+        return render_template("team_form.html", request, page_title="Создать пользователя", current_admin=current_admin, error=str(exc), success=None, credentials=None, values=values, allowed_roles=allowed_roles, action_url="/admin/team/new", submit_label="Создать пользователя", is_edit=False, reset_password_url=None)
 
 
 @router.get("/admin/team/{admin_id}/edit")
@@ -873,26 +668,10 @@ def admin_team_edit_page(admin_id: int, request: Request, db: Session = Depends(
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
-
     service = AuthService(db)
     item = service.get_manageable_admin(current_admin, admin_id)
     allowed_roles = service.allowed_create_roles(current_admin)
-
-    return render_template(
-        "team_form.html",
-        request,
-        page_title=f"Редактировать пользователя #{admin_id}",
-        current_admin=current_admin,
-        error=None,
-        success=None,
-        credentials=None,
-        values={"username": item.username, "role": item.role, "is_active": item.is_active},
-        allowed_roles=allowed_roles,
-        action_url=f"/admin/team/{admin_id}/edit",
-        submit_label="Сохранить пользователя",
-        is_edit=True,
-        reset_password_url=f"/admin/team/{admin_id}/reset-password",
-    )
+    return render_template("team_form.html", request, page_title=f"Редактировать пользователя #{admin_id}", current_admin=current_admin, error=None, success=None, credentials=None, values={"username": item.username, "role": item.role, "is_active": item.is_active}, allowed_roles=allowed_roles, action_url=f"/admin/team/{admin_id}/edit", submit_label="Сохранить пользователя", is_edit=True, reset_password_url=f"/admin/team/{admin_id}/reset-password")
 
 
 @router.post("/admin/team/{admin_id}/edit")
@@ -900,51 +679,17 @@ async def admin_team_edit_submit(admin_id: int, request: Request, db: Session = 
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
-
     service = AuthService(db)
     allowed_roles = service.allowed_create_roles(current_admin)
     form = await request.form()
-    values = {
-        "username": str(form.get("username", "")).strip(),
-        "role": str(form.get("role", "editor")).strip(),
-        "is_active": form.get("is_active") == "on",
-    }
-
+    values = {"username": str(form.get("username", "")).strip(), "role": str(form.get("role", "editor")).strip(), "is_active": form.get("is_active") == "on"}
     try:
         managed = service.update_managed_admin(current_admin, admin_id, username=values["username"], role=values["role"], is_active=values["is_active"])
-        return render_template(
-            "team_form.html",
-            request,
-            page_title=f"Редактировать пользователя #{admin_id}",
-            current_admin=current_admin,
-            error=None,
-            success="Пользователь обновлён.",
-            credentials=None,
-            values={"username": managed.username, "role": managed.role, "is_active": managed.is_active},
-            allowed_roles=allowed_roles,
-            action_url=f"/admin/team/{admin_id}/edit",
-            submit_label="Сохранить пользователя",
-            is_edit=True,
-            reset_password_url=f"/admin/team/{admin_id}/reset-password",
-        )
+        return render_template("team_form.html", request, page_title=f"Редактировать пользователя #{admin_id}", current_admin=current_admin, error=None, success="Пользователь обновлён.", credentials=None, values={"username": managed.username, "role": managed.role, "is_active": managed.is_active}, allowed_roles=allowed_roles, action_url=f"/admin/team/{admin_id}/edit", submit_label="Сохранить пользователя", is_edit=True, reset_password_url=f"/admin/team/{admin_id}/reset-password")
     except Exception as exc:
         db.rollback()
         target = service.get_admin(admin_id)
-        return render_template(
-            "team_form.html",
-            request,
-            page_title=f"Редактировать пользователя #{admin_id}",
-            current_admin=current_admin,
-            error=str(exc),
-            success=None,
-            credentials=None,
-            values={"username": target.username, "role": values["role"], "is_active": values["is_active"]},
-            allowed_roles=allowed_roles,
-            action_url=f"/admin/team/{admin_id}/edit",
-            submit_label="Сохранить пользователя",
-            is_edit=True,
-            reset_password_url=f"/admin/team/{admin_id}/reset-password",
-        )
+        return render_template("team_form.html", request, page_title=f"Редактировать пользователя #{admin_id}", current_admin=current_admin, error=str(exc), success=None, credentials=None, values={"username": target.username, "role": values["role"], "is_active": values["is_active"]}, allowed_roles=allowed_roles, action_url=f"/admin/team/{admin_id}/edit", submit_label="Сохранить пользователя", is_edit=True, reset_password_url=f"/admin/team/{admin_id}/reset-password")
 
 
 @router.post("/admin/team/{admin_id}/reset-password")
@@ -952,45 +697,15 @@ def admin_team_reset_password(admin_id: int, request: Request, db: Session = Dep
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
-
     service = AuthService(db)
     allowed_roles = service.allowed_create_roles(current_admin)
-
     try:
         target, plain_password = service.reset_managed_admin_password(current_admin, admin_id)
-        return render_template(
-            "team_form.html",
-            request,
-            page_title=f"Редактировать пользователя #{admin_id}",
-            current_admin=current_admin,
-            error=None,
-            success="Пароль сброшен.",
-            credentials={"username": target.username, "password": plain_password},
-            values={"username": target.username, "role": target.role, "is_active": target.is_active},
-            allowed_roles=allowed_roles,
-            action_url=f"/admin/team/{admin_id}/edit",
-            submit_label="Сохранить пользователя",
-            is_edit=True,
-            reset_password_url=f"/admin/team/{admin_id}/reset-password",
-        )
+        return render_template("team_form.html", request, page_title=f"Редактировать пользователя #{admin_id}", current_admin=current_admin, error=None, success="Пароль сброшен.", credentials={"username": target.username, "password": plain_password}, values={"username": target.username, "role": target.role, "is_active": target.is_active}, allowed_roles=allowed_roles, action_url=f"/admin/team/{admin_id}/edit", submit_label="Сохранить пользователя", is_edit=True, reset_password_url=f"/admin/team/{admin_id}/reset-password")
     except Exception as exc:
         db.rollback()
         target = service.get_admin(admin_id)
-        return render_template(
-            "team_form.html",
-            request,
-            page_title=f"Редактировать пользователя #{admin_id}",
-            current_admin=current_admin,
-            error=str(exc),
-            success=None,
-            credentials=None,
-            values={"username": target.username, "role": target.role, "is_active": target.is_active},
-            allowed_roles=allowed_roles,
-            action_url=f"/admin/team/{admin_id}/edit",
-            submit_label="Сохранить пользователя",
-            is_edit=True,
-            reset_password_url=f"/admin/team/{admin_id}/reset-password",
-        )
+        return render_template("team_form.html", request, page_title=f"Редактировать пользователя #{admin_id}", current_admin=current_admin, error=str(exc), success=None, credentials=None, values={"username": target.username, "role": target.role, "is_active": target.is_active}, allowed_roles=allowed_roles, action_url=f"/admin/team/{admin_id}/edit", submit_label="Сохранить пользователя", is_edit=True, reset_password_url=f"/admin/team/{admin_id}/reset-password")
 
 
 @router.post("/admin/team/{admin_id}/deactivate")
@@ -998,7 +713,6 @@ def admin_team_deactivate(admin_id: int, request: Request, db: Session = Depends
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
-
     service = AuthService(db)
     try:
         service.set_managed_admin_active(current_admin, admin_id, False)
@@ -1014,7 +728,6 @@ def admin_team_activate(admin_id: int, request: Request, db: Session = Depends(g
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
-
     service = AuthService(db)
     try:
         service.set_managed_admin_active(current_admin, admin_id, True)
@@ -1030,7 +743,6 @@ def admin_team_delete(admin_id: int, request: Request, db: Session = Depends(get
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="superadmin")
     if redirect:
         return redirect
-
     service = AuthService(db)
     try:
         service.delete_managed_admin(current_admin, admin_id)
@@ -1046,9 +758,9 @@ def admin_chats_page(request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db)
     if redirect:
         return redirect
-
-    chats = ChatService(db).list_chats_for_admin(current_admin)
-    return render_template("chat_list.html", request, page_title="Чаты", current_admin=current_admin, chats=chats, error=None)
+    chat_service = ChatService(db)
+    chats = chat_service.list_chats_for_admin(current_admin)
+    return render_template("chat_list.html", request, page_title="Чаты", current_admin=current_admin, chats=chats, error=None, messages_enabled=chat_service.messages_enabled())
 
 
 @router.get("/admin/chats/new")
@@ -1056,9 +768,9 @@ def admin_chat_new_page(request: Request, db: Session = Depends(get_db_session))
     current_admin, redirect = get_admin_or_redirect(request, db)
     if redirect:
         return redirect
-
-    admins = [item for item in ChatService(db).list_active_admins() if item.id != current_admin.id]
-    return render_template("chat_new.html", request, page_title="Создать чат", current_admin=current_admin, admins=admins, error=None, values={}, selected_ids=[])
+    chat_service = ChatService(db)
+    admins = [item for item in chat_service.list_active_admins() if item.id != current_admin.id]
+    return render_template("chat_new.html", request, page_title="Создать чат", current_admin=current_admin, admins=admins, error=None, values={}, selected_ids=[], messages_enabled=chat_service.messages_enabled())
 
 
 @router.post("/admin/chats/new")
@@ -1066,19 +778,17 @@ async def admin_chat_new_submit(request: Request, db: Session = Depends(get_db_s
     current_admin, redirect = get_admin_or_redirect(request, db)
     if redirect:
         return redirect
-
     form = await request.form()
     title = str(form.get("title", "")).strip()
     selected_ids = [int(item) for item in form.getlist("participant_ids")]
     service = ChatService(db)
     admins = [item for item in service.list_active_admins() if item.id != current_admin.id]
-
     try:
         chat = service.create_chat(current_admin, title=title, participant_ids=selected_ids)
         return redirect_to(f"/admin/chats/{chat.id}")
     except Exception as exc:
         db.rollback()
-        return render_template("chat_new.html", request, page_title="Создать чат", current_admin=current_admin, admins=admins, error=str(exc), values={"title": title}, selected_ids=selected_ids)
+        return render_template("chat_new.html", request, page_title="Создать чат", current_admin=current_admin, admins=admins, error=str(exc), values={"title": title}, selected_ids=selected_ids, messages_enabled=service.messages_enabled())
 
 
 @router.get("/admin/chats/{chat_id}")
@@ -1086,14 +796,14 @@ def admin_chat_room(chat_id: int, request: Request, db: Session = Depends(get_db
     current_admin, redirect = get_admin_or_redirect(request, db)
     if redirect:
         return redirect
-
+    service = ChatService(db)
     try:
-        chat = ChatService(db).get_chat_for_admin(current_admin, chat_id)
-        return render_template("chat_room.html", request, page_title=chat.title, current_admin=current_admin, chat=chat, error=None)
+        chat = service.get_chat_for_admin(current_admin, chat_id)
+        return render_template("chat_room.html", request, page_title=chat.title, current_admin=current_admin, chat=chat, error=None, messages_enabled=service.messages_enabled())
     except Exception as exc:
         db.rollback()
-        chats = ChatService(db).list_chats_for_admin(current_admin)
-        return render_template("chat_list.html", request, page_title="Чаты", current_admin=current_admin, chats=chats, error=str(exc))
+        chats = service.list_chats_for_admin(current_admin)
+        return render_template("chat_list.html", request, page_title="Чаты", current_admin=current_admin, chats=chats, error=str(exc), messages_enabled=service.messages_enabled())
 
 
 @router.post("/admin/chats/{chat_id}/message")
@@ -1101,18 +811,38 @@ async def admin_chat_send_message(chat_id: int, request: Request, db: Session = 
     current_admin, redirect = get_admin_or_redirect(request, db)
     if redirect:
         return redirect
-
     form = await request.form()
     content = str(form.get("content", "")).strip()
-
+    service = ChatService(db)
     try:
-        chat = ChatService(db).post_message(current_admin, chat_id, content)
-        return render_template("chat_room.html", request, page_title=chat.title, current_admin=current_admin, chat=chat, error=None)
+        chat = service.post_message(current_admin, chat_id, content)
+        return render_template("chat_room.html", request, page_title=chat.title, current_admin=current_admin, chat=chat, error=None, messages_enabled=service.messages_enabled())
     except Exception as exc:
         db.rollback()
         try:
-            chat = ChatService(db).get_chat_for_admin(current_admin, chat_id)
-            return render_template("chat_room.html", request, page_title=chat.title, current_admin=current_admin, chat=chat, error=str(exc))
+            chat = service.get_chat_for_admin(current_admin, chat_id)
+            return render_template("chat_room.html", request, page_title=chat.title, current_admin=current_admin, chat=chat, error=str(exc), messages_enabled=service.messages_enabled())
         except Exception:
-            chats = ChatService(db).list_chats_for_admin(current_admin)
-            return render_template("chat_list.html", request, page_title="Чаты", current_admin=current_admin, chats=chats, error=str(exc))
+            chats = service.list_chats_for_admin(current_admin)
+            return render_template("chat_list.html", request, page_title="Чаты", current_admin=current_admin, chats=chats, error=str(exc), messages_enabled=service.messages_enabled())
+
+
+@router.get("/admin/settings/general")
+def admin_settings_general_page(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="superadmin")
+    if redirect:
+        return redirect
+    service = SiteSettingService(db)
+    return render_template("settings_general.html", request, page_title="Общие настройки", current_admin=current_admin, messages_enabled=service.is_messages_enabled(), error=None, success=None)
+
+
+@router.post("/admin/settings/general")
+async def admin_settings_general_submit(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="superadmin")
+    if redirect:
+        return redirect
+    form = await request.form()
+    enabled = form.get("messages_enabled") == "on"
+    service = SiteSettingService(db)
+    service.set_messages_enabled(enabled)
+    return render_template("settings_general.html", request, page_title="Общие настройки", current_admin=current_admin, messages_enabled=service.is_messages_enabled(), error=None, success="Настройки обновлены.")

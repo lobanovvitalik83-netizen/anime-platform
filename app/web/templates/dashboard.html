@@ -11,9 +11,9 @@
 <div class="card" style="margin-bottom:20px;">
   <h2>Права роли</h2>
   <div class="muted">
-    editor — карточки, профиль, смена своего пароля, чаты<br>
+    editor — карточки, профиль, смена своего пароля, сотрудники, сообщения<br>
     admin — всё editor + пользователи editor + импорт/экспорт + удаление<br>
-    superadmin / owner — всё admin + управление admin и editor + удаление учёток
+    superadmin / owner — всё admin + управление admin и editor + удаление учёток + глобальный тумблер сообщений
   </div>
 </div>
 
@@ -22,9 +22,11 @@
   <div class="btn-row">
     <a class="btn green" href="/admin/card-builder">Создать карточку</a>
     <a class="btn secondary" href="/admin/media">Открыть медиа</a>
+    <a class="btn secondary" href="/admin/people">Сотрудники</a>
+    <a class="btn secondary" href="/admin/chats">Сообщения</a>
     <a class="btn secondary" href="/admin/profile">Мой профиль</a>
-    <a class="btn secondary" href="/admin/chats">Чаты</a>
     {% if current_admin.role in ["admin", "superadmin"] %}<a class="btn secondary" href="/admin/team">Пользователи</a>{% endif %}
+    {% if current_admin.role == "superadmin" %}<a class="btn secondary" href="/admin/settings/general">Настройки</a>{% endif %}
   </div>
 </div>
 {% endblock %}

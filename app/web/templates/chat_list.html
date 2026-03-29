@@ -1,10 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="btn-row" style="margin-bottom:16px;">
-  <h1 style="margin:0; flex:1;">Чаты</h1>
+  <h1 style="margin:0; flex:1;">Сообщения</h1>
+  {% if messages_enabled %}
   <a class="btn green" href="/admin/chats/new">Создать чат</a>
+  {% endif %}
+  <a class="btn secondary" href="/admin/people">Сотрудники</a>
 </div>
 
+{% if not messages_enabled %}
+<div class="error">Сообщения сейчас отключены superadmin.</div>
+{% endif %}
 {% if error %}<div class="error">{{ error }}</div>{% endif %}
 
 <div class="grid">

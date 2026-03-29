@@ -9,3 +9,4 @@ from app.models.media_asset import MediaAsset
 from app.models.media_episode import MediaEpisode
 from app.models.media_season import MediaSeason
 from app.models.media_title import MediaTitle
+from app.models.site_setting import SiteSetting

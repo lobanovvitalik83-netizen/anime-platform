@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="layout-two">
+  <div class="grid">
+    <div class="person-card">
+      <div class="profile-cover"></div>
+      <div class="profile-head">
+        <div class="avatar">
+          {% if person.avatar_url %}
+          <img src="{{ person.avatar_url }}" alt="avatar">
+          {% else %}
+          <span class="muted">avatar</span>
+          {% endif %}
+        </div>
+
+        <h1 style="margin:14px 0 6px;">{{ person.full_name or person.username }}</h1>
+        <div class="muted" style="margin-bottom:6px;">@{{ person.username }}</div>
+        <div class="muted" style="margin-bottom:10px;">{{ person.position or "Без должности" }}</div>
+        <span class="chip">{{ person.role }}</span>
+
+        <div class="btn-row" style="margin-top:16px;">
+          {% if messages_enabled and person.id != current_admin.id %}
+          <form method="post" action="/admin/people/{{ person.id }}/message" class="inline">
+            <button class="btn green" type="submit">Написать сообщение</button>
+          </form>
+          {% endif %}
+          <a class="btn secondary" href="/admin/people">Назад к сотрудникам</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>О сотруднике</h2>
+      {% if person.about %}
+        <div>{{ person.about }}</div>
+      {% else %}
+        <div class="muted">Пока без описания.</div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h2>Данные</h2>
+      <div class="grid">
+        <div><b>Логин:</b> @{{ person.username }}</div>
+        <div><b>Имя:</b> {{ person.full_name or "—" }}</div>
+        <div><b>Должность:</b> {{ person.position or "—" }}</div>
+        <div><b>Роль:</b> {{ person.role }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -15,6 +15,9 @@
   </div>
 </div>
 
+{% if not messages_enabled %}
+<div class="error">Сообщения сейчас отключены superadmin. Просмотр чата доступен, отправка новых сообщений выключена.</div>
+{% endif %}
 {% if error %}<div class="error">{{ error }}</div>{% endif %}
 
 <div class="grid" style="margin-bottom:16px;">
@@ -35,10 +38,10 @@
   <form method="post" action="/admin/chats/{{ chat.id }}/message" class="grid">
     <div>
       <label>Новое сообщение</label>
-      <textarea name="content" required></textarea>
+      <textarea name="content" required {% if not messages_enabled %}disabled{% endif %}></textarea>
     </div>
     <div class="btn-row">
-      <button class="btn green" type="submit">Отправить</button>
+      <button class="btn green" type="submit" {% if not messages_enabled %}disabled{% endif %}>Отправить</button>
     </div>
   </form>
 </div>

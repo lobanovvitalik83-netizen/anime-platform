@@ -6,18 +6,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     :root { color-scheme: light; }
-    body { margin:0; font-family: Arial, sans-serif; background:#f5f7fb; color:#1f2937; }
-    .wrap { max-width:1280px; margin:0 auto; padding:24px; }
-    .topbar { background:#111827; color:#fff; }
+    body { margin:0; font-family: Arial, sans-serif; background:#eef2f7; color:#1f2937; }
+    .wrap { max-width:1320px; margin:0 auto; padding:24px; }
+    .topbar { background:#1f3b63; color:#fff; }
     .topbar .wrap { display:flex; align-items:center; justify-content:space-between; gap:16px; }
     .brand { font-size:22px; font-weight:700; color:#fff; text-decoration:none; }
     .nav { display:flex; flex-wrap:wrap; gap:10px; }
-    .nav a { color:#d1d5db; text-decoration:none; padding:8px 12px; border-radius:10px; background:#1f2937; }
-    .nav a:hover { background:#374151; color:#fff; }
+    .nav a { color:#e5efff; text-decoration:none; padding:8px 12px; border-radius:10px; background:#294d80; }
+    .nav a:hover { background:#3a639d; color:#fff; }
+    .layout-two { display:grid; grid-template-columns: minmax(260px, 320px) minmax(0, 1fr); gap:20px; }
     .grid { display:grid; gap:18px; }
     .grid.cards { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
     .media-grid { display:grid; gap:18px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+    .people-grid { display:grid; gap:18px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
     .card { background:#fff; border-radius:16px; box-shadow:0 8px 28px rgba(0,0,0,.07); padding:20px; }
+    .person-card { background:#fff; border-radius:18px; box-shadow:0 8px 28px rgba(0,0,0,.07); overflow:hidden; }
+    .profile-cover { height:120px; background:linear-gradient(135deg, #4974b8 0%, #6aa0ff 100%); }
+    .profile-head { padding:0 18px 18px; margin-top:-40px; }
+    .avatar { width:120px; height:120px; border-radius:999px; overflow:hidden; background:#dbe3ef; display:flex; align-items:center; justify-content:center; border:4px solid #fff; }
+    .avatar.small { width:56px; height:56px; border-width:2px; }
+    .avatar img { width:100%; height:100%; object-fit:cover; }
     .media-card { background:#fff; border-radius:18px; box-shadow:0 8px 28px rgba(0,0,0,.07); overflow:hidden; }
     .media-preview { height:220px; background:#e5e7eb; display:flex; align-items:center; justify-content:center; overflow:hidden; }
     .media-preview img { width:100%; height:100%; object-fit:cover; }
@@ -25,7 +33,7 @@
     .media-body { padding:18px; }
     h1, h2, h3 { margin-top:0; }
     .btn { display:inline-block; padding:10px 14px; border-radius:10px; text-decoration:none; border:0; background:#2563eb; color:#fff; cursor:pointer; }
-    .btn.secondary { background:#374151; }
+    .btn.secondary { background:#42526b; }
     .btn.green { background:#059669; }
     .btn-row { display:flex; gap:10px; flex-wrap:wrap; }
     table { width:100%; border-collapse:collapse; background:#fff; border-radius:14px; overflow:hidden; }
@@ -41,13 +49,12 @@
     .success { background:#ecfdf5; color:#065f46; padding:12px 14px; border-radius:12px; margin-bottom:16px; }
     .code { font-family: monospace; background:#f3f4f6; padding:2px 6px; border-radius:6px; }
     .stat { font-size:30px; font-weight:700; margin-bottom:6px; }
-    .login-box { max-width:420px; margin:80px auto; }
     .chip { display:inline-block; padding:6px 10px; border-radius:999px; background:#eef2ff; color:#1d4ed8; font-size:12px; font-weight:700; }
-    .media-meta { display:grid; gap:8px; margin-bottom:14px; }
-    .avatar { width:120px; height:120px; border-radius:999px; overflow:hidden; background:#e5e7eb; display:flex; align-items:center; justify-content:center; }
-    .avatar img { width:100%; height:100%; object-fit:cover; }
-    .message-box { padding:12px 14px; border-radius:12px; background:#f9fafb; }
+    .message-box { padding:12px 14px; border-radius:12px; background:#f8fafc; }
     .message-box.me { background:#dbeafe; }
+    .sidebar-nav { display:grid; gap:10px; }
+    .sidebar-nav a { display:block; padding:12px 14px; background:#fff; border-radius:12px; text-decoration:none; color:#1f2937; box-shadow:0 8px 28px rgba(0,0,0,.05); }
+    .sidebar-nav a:hover { background:#f8fbff; }
   </style>
 </head>
 <body>
@@ -59,10 +66,12 @@
         <a href="/admin">Панель</a>
         <a href="/admin/media">Медиа</a>
         <a href="/admin/card-builder">Создание карточки</a>
-        <a href="/admin/chats">Чаты</a>
+        <a href="/admin/people">Сотрудники</a>
+        <a href="/admin/chats">Сообщения</a>
         {% if current_admin.role in ["admin", "superadmin"] %}<a href="/admin/import-export">Импорт/экспорт</a>{% endif %}
         <a href="/admin/lookup-test">Тест lookup</a>
         {% if current_admin.role in ["admin", "superadmin"] %}<a href="/admin/team">Пользователи</a>{% endif %}
+        {% if current_admin.role == "superadmin" %}<a href="/admin/settings/general">Настройки</a>{% endif %}
         <a href="/admin/profile">Профиль</a>
         <a href="/docs">API docs</a>
         <a href="/admin/logout">Выход ({{ current_admin.username }} / {{ current_admin.role }})</a>
