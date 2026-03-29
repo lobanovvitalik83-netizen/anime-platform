@@ -20,7 +20,11 @@ class AssetService:
         season_id: int | None = None,
         episode_id: int | None = None,
     ) -> list[MediaAsset]:
-        return self.assets.list_assets(title_id=title_id, season_id=season_id, episode_id=episode_id)
+        return self.assets.list_all(
+            title_id=title_id,
+            season_id=season_id,
+            episode_id=episode_id,
+        )
 
     def get_asset(self, asset_id: int) -> MediaAsset:
         entity = self.assets.get_by_id(asset_id)
