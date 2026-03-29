@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, File, Request, Response, UploadFile
 from sqlalchemy.orm import Session
 from starlette.responses import RedirectResponse
 
+from app.core.config import settings
 from app.core.database import get_db_session
 from app.core.exceptions import AuthenticationError
 from app.services.asset_service import AssetService
@@ -1283,24 +1284,40 @@ async def admin_assets_bulk_delete(request: Request, db: Session = Depends(get_d
     return redirect_to("/admin/assets")
 
 
-def _render_media_cards(request: Request, current_admin, db: Session, error: str | None = None):
-    cards = MediaCardService(db).list_cards()
+
+def _render_media_cards(
+    request: Request,
+    current_admin,
+    db: Session,
+    q: str = "",
+    genre: str = "",
+    status: str = "",
+    error: str | None = None,
+):
+    cards = MediaCardService(db).list_cards(q=q, genre=genre, status=status)
     return render_template(
         "media_cards_list.html",
         request,
         page_title="Медиа",
         current_admin=current_admin,
         cards=cards,
+        filters={"q": q, "genre": genre, "status": status},
         error=error,
     )
 
 
 @router.get("/admin/media")
-def admin_media_cards(request: Request, db: Session = Depends(get_db_session)):
+def admin_media_cards(
+    request: Request,
+    db: Session = Depends(get_db_session),
+    q: str = "",
+    genre: str = "",
+    status: str = "",
+):
     current_admin, redirect = get_admin_or_redirect(request, db)
     if redirect:
         return redirect
-    return _render_media_cards(request, current_admin, db)
+    return _render_media_cards(request, current_admin, db, q=q, genre=genre, status=status)
 
 
 @router.post("/admin/media/bulk-delete")
@@ -1372,6 +1389,7 @@ def admin_media_edit_page(title_id: int, request: Request, db: Session = Depends
         result=None,
         action_url=f"/admin/media/{title_id}/edit",
         submit_label="Сохранить карточку",
+        upload_chat_ready=bool(settings.resolved_media_upload_chat_id),
     )
 
 
@@ -1434,6 +1452,7 @@ async def admin_media_edit_submit(title_id: int, request: Request, db: Session =
             result=result,
             action_url=f"/admin/media/{title_id}/edit",
             submit_label="Сохранить карточку",
+            upload_chat_ready=bool(settings.resolved_media_upload_chat_id),
         )
     except Exception as exc:
         db.rollback()
@@ -1448,6 +1467,7 @@ async def admin_media_edit_submit(title_id: int, request: Request, db: Session =
             result=None,
             action_url=f"/admin/media/{title_id}/edit",
             submit_label="Сохранить карточку",
+            upload_chat_ready=bool(settings.resolved_media_upload_chat_id),
         )
 
 
@@ -1468,6 +1488,7 @@ def admin_card_builder_page(request: Request, db: Session = Depends(get_db_sessi
         result=None,
         action_url="/admin/card-builder",
         submit_label="Создать карточку",
+        upload_chat_ready=bool(settings.resolved_media_upload_chat_id),
     )
 
 
@@ -1530,6 +1551,7 @@ async def admin_card_builder_submit(request: Request, db: Session = Depends(get_
             result=result,
             action_url="/admin/card-builder",
             submit_label="Создать карточку",
+            upload_chat_ready=bool(settings.resolved_media_upload_chat_id),
         )
     except Exception as exc:
         db.rollback()
@@ -1544,4 +1566,5 @@ async def admin_card_builder_submit(request: Request, db: Session = Depends(get_
             result=None,
             action_url="/admin/card-builder",
             submit_label="Создать карточку",
+            upload_chat_ready=bool(settings.resolved_media_upload_chat_id),
         )

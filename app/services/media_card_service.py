@@ -3,7 +3,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import NotFoundError, ValidationError
+from app.core.exceptions import ValidationError
 from app.repositories.access_code_repository import AccessCodeRepository
 from app.repositories.media_asset_repository import MediaAssetRepository
 from app.repositories.media_episode_repository import MediaEpisodeRepository
@@ -48,10 +48,27 @@ class MediaCardService:
         self.code_service = CodeService(session)
         self.upload_service = MediaUploadService()
 
-    def list_cards(self) -> list[MediaCardRow]:
+    def list_cards(
+        self,
+        q: str | None = None,
+        genre: str | None = None,
+        status: str | None = None,
+    ) -> list[MediaCardRow]:
         rows: list[MediaCardRow] = []
         titles = self.media_service.list_titles()
+
+        search = (q or "").strip().lower()
+        selected_genre = (genre or "").strip().lower()
+        selected_status = (status or "").strip().lower()
+
         for title in titles:
+            if search and search not in (title.title or "").lower():
+                continue
+            if selected_genre and title.type != selected_genre:
+                continue
+            if selected_status and title.status != selected_status:
+                continue
+
             seasons = self.media_service.list_seasons(title_id=title.id)
             episodes = self.media_service.list_episodes(title_id=title.id)
             assets = self.asset_repo.list_all(title_id=title.id)
@@ -82,6 +99,8 @@ class MediaCardService:
                     created_at=title.created_at,
                 )
             )
+
+        rows.sort(key=lambda item: item.created_at, reverse=True)
         return rows
 
     def get_card(self, title_id: int) -> dict:
@@ -114,11 +133,11 @@ class MediaCardService:
     ) -> dict:
         title_name = (payload.get("title") or "").strip()
         if not title_name:
-            raise ValidationError("Название обязательно")
+            raise ValidationError("Название обязательно.")
 
         genre = (payload.get("genre") or "").strip().lower()
         if genre not in {"anime", "series", "movie"}:
-            raise ValidationError("Жанр должен быть: anime, series или movie")
+            raise ValidationError("Жанр должен быть: anime, series или movie.")
 
         status = (payload.get("status") or "draft").strip()
 
@@ -222,11 +241,11 @@ class MediaCardService:
 
         title_name = (payload.get("title") or "").strip()
         if not title_name:
-            raise ValidationError("Название обязательно")
+            raise ValidationError("Название обязательно.")
 
         genre = (payload.get("genre") or "").strip().lower()
         if genre not in {"anime", "series", "movie"}:
-            raise ValidationError("Жанр должен быть: anime, series или movie")
+            raise ValidationError("Жанр должен быть: anime, series или movie.")
 
         status = (payload.get("status") or title.status or "draft").strip()
 
@@ -282,8 +301,7 @@ class MediaCardService:
             self.audit.log(admin_id, "update_media_episode", "media_episode", str(episode.id), {"episode_number": target_episode_number})
 
         external_url = (payload.get("external_url") or "").strip()
-        should_update_asset = bool(uploaded_media or external_url or asset)
-        if should_update_asset:
+        if uploaded_media or external_url or asset:
             asset_payload = {
                 "title_id": title.id,
                 "season_id": season.id if season else None,
@@ -297,7 +315,7 @@ class MediaCardService:
             }
 
             if asset_payload["storage_kind"] is None:
-                raise ValidationError("Нужен файл или внешняя ссылка")
+                raise ValidationError("Нужен файл или внешняя ссылка.")
 
             if payload.get("is_primary"):
                 self.asset_repo.unset_primary_for_scope(title.id, season.id if season else None, episode.id if episode else None)

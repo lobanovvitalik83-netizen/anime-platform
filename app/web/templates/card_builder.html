@@ -4,6 +4,13 @@
   <h1>{{ page_title }}</h1>
   <p class="muted">Одно окно: жанр, название, сезон, серия, медиа, статус и автогенерация кода.</p>
 
+  {% if not upload_chat_ready %}
+    <div class="error">
+      Загрузка файлом сейчас недоступна: не настроен <span class="code">TELEGRAM_MEDIA_UPLOAD_CHAT_ID</span>.<br>
+      Пока можно использовать поле <b>внешняя ссылка</b>. После настройки ENV загрузка с компьютера заработает.
+    </div>
+  {% endif %}
+
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
   {% if success %}<div class="success">{{ success }}</div>{% endif %}
 
@@ -69,11 +76,11 @@
         </div>
         <div>
           <label>MIME type</label>
-          <input name="mime_type" value="{{ values.get('mime_type', '') }}" placeholder="image/jpeg или video/mp4">
+          <input name="mime_type" value="{{ values.get('mime_type', '') }}" placeholder="Обычно можно оставить пустым">
         </div>
         <div>
           <label>Загрузить файлом с компьютера</label>
-          <input type="file" name="media_file" accept="image/*,video/mp4">
+          <input type="file" name="media_file" accept="image/*,video/mp4" {% if not upload_chat_ready %}disabled{% endif %}>
         </div>
         <div>
           <label style="display:flex; gap:8px; align-items:center; font-weight:600; margin-top:30px;">

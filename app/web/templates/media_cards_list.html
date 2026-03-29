@@ -6,6 +6,42 @@
   <button class="btn secondary" type="button" onclick="return openSelectedEdit('/admin/media', 'selected_ids')">Открыть выбранные в редактировании</button>
 </div>
 
+<div class="card" style="margin-bottom:16px;">
+  <form method="get" action="/admin/media" class="form-grid">
+    <div>
+      <label>Поиск по названию</label>
+      <input name="q" value="{{ filters.q }}" placeholder="Например: Наруто">
+    </div>
+    <div>
+      <label>Жанр</label>
+      <select name="genre">
+        <option value="">Все</option>
+        <option value="anime" {% if filters.genre == 'anime' %}selected{% endif %}>Аниме</option>
+        <option value="series" {% if filters.genre == 'series' %}selected{% endif %}>Сериал</option>
+        <option value="movie" {% if filters.genre == 'movie' %}selected{% endif %}>Фильм</option>
+      </select>
+    </div>
+    <div>
+      <label>Статус</label>
+      <select name="status">
+        <option value="">Все</option>
+        <option value="draft" {% if filters.status == 'draft' %}selected{% endif %}>draft</option>
+        <option value="active" {% if filters.status == 'active' %}selected{% endif %}>active</option>
+        <option value="inactive" {% if filters.status == 'inactive' %}selected{% endif %}>inactive</option>
+        <option value="archived" {% if filters.status == 'archived' %}selected{% endif %}>archived</option>
+      </select>
+    </div>
+    <div class="btn-row" style="align-items:end;">
+      <button class="btn" type="submit">Применить</button>
+      <a class="btn secondary" href="/admin/media">Сбросить</a>
+    </div>
+  </form>
+</div>
+
+<div class="grid cards" style="margin-bottom:16px;">
+  <div class="card"><div class="stat">{{ cards|length }}</div><div>Карточек в выдаче</div></div>
+</div>
+
 {% if error %}<div class="error">{{ error }}</div>{% endif %}
 
 <form method="post" action="/admin/media/bulk-delete" onsubmit="return confirm('Удалить выбранные карточки?');">
@@ -23,8 +59,12 @@
       <div class="media-preview">
         {% if item.external_url and item.asset_type in ['image', 'poster'] %}
           <img src="{{ item.external_url }}" alt="{{ item.title }}">
+        {% elif item.asset_type == 'video' %}
+          <div class="empty">Видео{% if item.storage_kind %} • {{ item.storage_kind }}{% endif %}</div>
+        {% elif item.telegram_file_id %}
+          <div class="empty">Telegram media</div>
         {% else %}
-          <div class="empty">{% if item.asset_type == 'video' %}Видео{% elif item.telegram_file_id %}Telegram media{% else %}Без превью{% endif %}</div>
+          <div class="empty">Без превью</div>
         {% endif %}
       </div>
       <div class="media-body">
@@ -43,6 +83,7 @@
           <div><b>Сезон:</b> {{ item.season_number or "—" }}</div>
           <div><b>Серия:</b> {{ item.episode_number or "—" }}</div>
           <div><b>Медиа:</b> {{ item.asset_type or "—" }}</div>
+          <div><b>Хранилище:</b> {{ item.storage_kind or "—" }}</div>
           <div><b>Код:</b> {% if item.code_value %}<span class="code">{{ item.code_value }}</span>{% else %}—{% endif %}</div>
         </div>
 
