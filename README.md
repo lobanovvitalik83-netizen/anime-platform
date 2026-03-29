@@ -1,19 +1,18 @@
-# Stage 9 - Bot Card Pipeline
+# Stage 10 - Admin CRUD
 
 В архиве:
-- весь stage 8
-- улучшенный public lookup payload
-- улучшенный выбор primary asset
-- более понятная карточка для Telegram
-- более безопасная отправка image / poster / video
-- fallback на текстовую карточку, если медиа не отправилось
-- нормализация caption под Telegram
+- весь stage 9.3
+- редактирование title / season / episode / asset / code
+- удаление title / season / episode / asset / code
+- деактивация кодов
+- кнопки действий в списках
+- web admin forms для edit
+- подтверждение удаления через браузер confirm()
 
 Что проверять:
+- /admin/titles
+- /admin/seasons
+- /admin/episodes
 - /admin/assets
-- /admin/lookup-test
-- Telegram: /start
-- Telegram: валидный код
-- Telegram: код с image
-- Telegram: код с video
-- Telegram: код без ассета
+- /admin/codes
+- edit / delete / deactivate actions

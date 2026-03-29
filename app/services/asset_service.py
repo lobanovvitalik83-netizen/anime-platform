@@ -57,16 +57,33 @@ class AssetService:
 
     def update_asset(self, admin_id: int, asset_id: int, payload: dict) -> MediaAsset:
         entity = self.get_asset(asset_id)
-        payload = self._normalize_payload(payload, partial=True)
+        payload = self._normalize_payload(payload, partial=False)
+
+        if payload.get("title_id") is not None:
+            self.media.get_title(payload["title_id"])
+        if payload.get("season_id") is not None:
+            self.media.get_season(payload["season_id"])
+        if payload.get("episode_id") is not None:
+            self.media.get_episode(payload["episode_id"])
 
         if payload.get("is_primary") is True:
-            self.assets.unset_primary_for_scope(entity.title_id, entity.season_id, entity.episode_id)
+            self.assets.unset_primary_for_scope(
+                payload.get("title_id"),
+                payload.get("season_id"),
+                payload.get("episode_id"),
+            )
 
         entity = self.assets.update(entity, **payload)
         self.audit.log(admin_id, "update_media_asset", "media_asset", str(entity.id), payload)
         self.session.commit()
         self.session.refresh(entity)
         return entity
+
+    def delete_asset(self, admin_id: int, asset_id: int) -> None:
+        entity = self.get_asset(asset_id)
+        self.audit.log(admin_id, "delete_media_asset", "media_asset", str(entity.id), {"asset_type": entity.asset_type})
+        self.assets.delete(entity)
+        self.session.commit()
 
     def _normalize_payload(self, payload: dict, partial: bool = False) -> dict:
         normalized = dict(payload)

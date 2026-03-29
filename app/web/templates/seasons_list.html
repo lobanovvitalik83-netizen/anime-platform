@@ -32,6 +32,7 @@
       <th>Сезон</th>
       <th>Название</th>
       <th>Описание</th>
+      <th>Действия</th>
     </tr>
   </thead>
   <tbody>
@@ -42,6 +43,14 @@
       <td>{{ item.season_number }}</td>
       <td>{{ item.name or "" }}</td>
       <td>{{ item.description or "" }}</td>
+      <td>
+        <div class="btn-row">
+          <a class="btn secondary" href="/admin/seasons/{{ item.id }}/edit">Редактировать</a>
+          <form method="post" action="/admin/seasons/{{ item.id }}/delete" class="inline" onsubmit="return confirm('Удалить сезон?');">
+            <button class="btn" style="background:#dc2626;" type="submit">Удалить</button>
+          </form>
+        </div>
+      </td>
     </tr>
     {% endfor %}
   </tbody>

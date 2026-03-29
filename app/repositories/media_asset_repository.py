@@ -39,6 +39,10 @@ class MediaAssetRepository:
         self.session.flush()
         return entity
 
+    def delete(self, entity: MediaAsset) -> None:
+        self.session.delete(entity)
+        self.session.flush()
+
     def unset_primary_for_scope(self, title_id: int | None, season_id: int | None, episode_id: int | None) -> None:
         statement = select(MediaAsset).where(
             MediaAsset.title_id.is_(title_id) if title_id is None else MediaAsset.title_id == title_id,

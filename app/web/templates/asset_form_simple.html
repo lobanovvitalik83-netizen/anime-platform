@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="card">
-  <h1>Новый ассет</h1>
+  <h1>{{ page_title }}</h1>
   <p class="muted">Укажи только одно логически подходящее хранилище.</p>
   <p class="muted">Если storage_kind = external_url, поле telegram_file_id оставь пустым.</p>
   <p class="muted">Если storage_kind = telegram_file_id, поле external_url оставь пустым.</p>
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
 
-  <form method="post" action="/admin/assets/new" class="grid">
+  <form method="post" action="{{ action_url }}" class="grid">
     <div class="form-grid">
       <div>
         <label>Title ID</label>
@@ -49,19 +49,8 @@
       </div>
     </div>
 
-    <div class="card" style="background:#f9fafb;">
-      <h3>Пример для картинки эпизода</h3>
-      <pre class="code" style="display:block; white-space:pre-wrap; padding:12px;">episode_id = 1
-asset_type = image
-storage_kind = external_url
-external_url = https://example.com/poster.jpg
-mime_type = image/jpeg
-telegram_file_id = [пусто]
-is_primary = true</pre>
-    </div>
-
     <div class="btn-row">
-      <button class="btn" type="submit">Сохранить</button>
+      <button class="btn" type="submit">{{ submit_label }}</button>
       <a class="btn secondary" href="/admin/assets">Назад</a>
     </div>
   </form>

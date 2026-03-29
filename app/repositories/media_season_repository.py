@@ -29,3 +29,7 @@ class MediaSeasonRepository:
             setattr(entity, key, value)
         self.session.flush()
         return entity
+
+    def delete(self, entity: MediaSeason) -> None:
+        self.session.delete(entity)
+        self.session.flush()

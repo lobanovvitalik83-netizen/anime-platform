@@ -31,3 +31,7 @@ class MediaEpisodeRepository:
             setattr(entity, key, value)
         self.session.flush()
         return entity
+
+    def delete(self, entity: MediaEpisode) -> None:
+        self.session.delete(entity)
+        self.session.flush()

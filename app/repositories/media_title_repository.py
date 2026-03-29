@@ -26,3 +26,7 @@ class MediaTitleRepository:
             setattr(entity, key, value)
         self.session.flush()
         return entity
+
+    def delete(self, entity: MediaTitle) -> None:
+        self.session.delete(entity)
+        self.session.flush()

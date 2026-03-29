@@ -32,6 +32,10 @@ def render_template(name: str, request: Request, **context):
     return templates.TemplateResponse(name, {"request": request, **context})
 
 
+def _render_error(name: str, request: Request, current_admin, error: str, **context):
+    return render_template(name, request, current_admin=current_admin, error=error, **context)
+
+
 @router.get("/")
 def root_redirect() -> RedirectResponse:
     return redirect_to("/admin")
@@ -121,6 +125,8 @@ def admin_title_new_page(request: Request, db: Session = Depends(get_db_session)
         current_admin=current_admin,
         error=None,
         values={},
+        action_url="/admin/titles/new",
+        submit_label="Сохранить",
     )
 
 
@@ -144,15 +150,87 @@ async def admin_title_new_submit(request: Request, db: Session = Depends(get_db_
         MediaService(db).create_title(current_admin.id, payload)
     except Exception as exc:
         db.rollback()
-        return render_template(
+        return _render_error(
             "title_form.html",
             request,
+            current_admin,
+            str(exc),
             page_title="Новый тайтл",
-            current_admin=current_admin,
-            error=str(exc),
             values=payload,
+            action_url="/admin/titles/new",
+            submit_label="Сохранить",
         )
 
+    return redirect_to("/admin/titles")
+
+
+@router.get("/admin/titles/{title_id}/edit")
+def admin_title_edit_page(title_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    item = MediaService(db).get_title(title_id)
+    values = {
+        "type": item.type,
+        "title": item.title,
+        "original_title": item.original_title or "",
+        "description": item.description or "",
+        "year": item.year or "",
+        "status": item.status,
+    }
+    return render_template(
+        "title_form.html",
+        request,
+        page_title=f"Редактировать тайтл #{item.id}",
+        current_admin=current_admin,
+        error=None,
+        values=values,
+        action_url=f"/admin/titles/{item.id}/edit",
+        submit_label="Сохранить изменения",
+    )
+
+
+@router.post("/admin/titles/{title_id}/edit")
+async def admin_title_edit_submit(title_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    payload = {
+        "type": str(form.get("type", "")).strip(),
+        "title": str(form.get("title", "")).strip(),
+        "original_title": str(form.get("original_title", "")).strip() or None,
+        "description": str(form.get("description", "")).strip() or None,
+        "year": to_int(str(form.get("year", "")).strip() or None),
+        "status": str(form.get("status", "draft")).strip(),
+    }
+
+    try:
+        MediaService(db).update_title(current_admin.id, title_id, payload)
+    except Exception as exc:
+        db.rollback()
+        return _render_error(
+            "title_form.html",
+            request,
+            current_admin,
+            str(exc),
+            page_title=f"Редактировать тайтл #{title_id}",
+            values=payload,
+            action_url=f"/admin/titles/{title_id}/edit",
+            submit_label="Сохранить изменения",
+        )
+
+    return redirect_to("/admin/titles")
+
+
+@router.post("/admin/titles/{title_id}/delete")
+def admin_title_delete(title_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+    MediaService(db).delete_title(current_admin.id, title_id)
     return redirect_to("/admin/titles")
 
 
@@ -188,6 +266,8 @@ def admin_season_new_page(request: Request, db: Session = Depends(get_db_session
         titles=MediaService(db).list_titles(),
         error=None,
         values={},
+        action_url="/admin/seasons/new",
+        submit_label="Сохранить",
     )
 
 
@@ -210,16 +290,87 @@ async def admin_season_new_submit(request: Request, db: Session = Depends(get_db
         MediaService(db).create_season(current_admin.id, payload)
     except Exception as exc:
         db.rollback()
-        return render_template(
+        return _render_error(
             "season_form.html",
             request,
+            current_admin,
+            str(exc),
             page_title="Новый сезон",
-            current_admin=current_admin,
             titles=titles,
-            error=str(exc),
             values=payload,
+            action_url="/admin/seasons/new",
+            submit_label="Сохранить",
         )
 
+    return redirect_to("/admin/seasons")
+
+
+@router.get("/admin/seasons/{season_id}/edit")
+def admin_season_edit_page(season_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    item = MediaService(db).get_season(season_id)
+    values = {
+        "title_id": item.title_id,
+        "season_number": item.season_number,
+        "name": item.name or "",
+        "description": item.description or "",
+    }
+    return render_template(
+        "season_form.html",
+        request,
+        page_title=f"Редактировать сезон #{item.id}",
+        current_admin=current_admin,
+        titles=MediaService(db).list_titles(),
+        error=None,
+        values=values,
+        action_url=f"/admin/seasons/{item.id}/edit",
+        submit_label="Сохранить изменения",
+    )
+
+
+@router.post("/admin/seasons/{season_id}/edit")
+async def admin_season_edit_submit(season_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    titles = MediaService(db).list_titles()
+    form = await request.form()
+    payload = {
+        "title_id": int(str(form.get("title_id")).strip()),
+        "season_number": int(str(form.get("season_number")).strip()),
+        "name": str(form.get("name", "")).strip() or None,
+        "description": str(form.get("description", "")).strip() or None,
+    }
+
+    try:
+        MediaService(db).update_season(current_admin.id, season_id, payload)
+    except Exception as exc:
+        db.rollback()
+        return _render_error(
+            "season_form.html",
+            request,
+            current_admin,
+            str(exc),
+            page_title=f"Редактировать сезон #{season_id}",
+            titles=titles,
+            values=payload,
+            action_url=f"/admin/seasons/{season_id}/edit",
+            submit_label="Сохранить изменения",
+        )
+
+    return redirect_to("/admin/seasons")
+
+
+@router.post("/admin/seasons/{season_id}/delete")
+def admin_season_delete(season_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+    MediaService(db).delete_season(current_admin.id, season_id)
     return redirect_to("/admin/seasons")
 
 
@@ -264,6 +415,8 @@ def admin_episode_new_page(request: Request, db: Session = Depends(get_db_sessio
         seasons=media_service.list_seasons(),
         error=None,
         values={},
+        action_url="/admin/episodes/new",
+        submit_label="Сохранить",
     )
 
 
@@ -291,17 +444,98 @@ async def admin_episode_new_submit(request: Request, db: Session = Depends(get_d
         MediaService(db).create_episode(current_admin.id, payload)
     except Exception as exc:
         db.rollback()
-        return render_template(
+        return _render_error(
             "episode_form.html",
             request,
+            current_admin,
+            str(exc),
             page_title="Новый эпизод",
-            current_admin=current_admin,
             titles=titles,
             seasons=seasons,
-            error=str(exc),
             values=payload,
+            action_url="/admin/episodes/new",
+            submit_label="Сохранить",
         )
 
+    return redirect_to("/admin/episodes")
+
+
+@router.get("/admin/episodes/{episode_id}/edit")
+def admin_episode_edit_page(episode_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    item = MediaService(db).get_episode(episode_id)
+    media_service = MediaService(db)
+    values = {
+        "title_id": item.title_id,
+        "season_id": item.season_id or "",
+        "episode_number": item.episode_number,
+        "name": item.name or "",
+        "synopsis": item.synopsis or "",
+        "status": item.status,
+    }
+    return render_template(
+        "episode_form.html",
+        request,
+        page_title=f"Редактировать эпизод #{item.id}",
+        current_admin=current_admin,
+        titles=media_service.list_titles(),
+        seasons=media_service.list_seasons(),
+        error=None,
+        values=values,
+        action_url=f"/admin/episodes/{item.id}/edit",
+        submit_label="Сохранить изменения",
+    )
+
+
+@router.post("/admin/episodes/{episode_id}/edit")
+async def admin_episode_edit_submit(episode_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    media_service = MediaService(db)
+    titles = media_service.list_titles()
+    seasons = media_service.list_seasons()
+
+    form = await request.form()
+    payload = {
+        "title_id": int(str(form.get("title_id")).strip()),
+        "season_id": to_int(str(form.get("season_id", "")).strip() or None),
+        "episode_number": int(str(form.get("episode_number")).strip()),
+        "name": str(form.get("name", "")).strip() or None,
+        "synopsis": str(form.get("synopsis", "")).strip() or None,
+        "status": str(form.get("status", "draft")).strip(),
+    }
+
+    try:
+        MediaService(db).update_episode(current_admin.id, episode_id, payload)
+    except Exception as exc:
+        db.rollback()
+        return _render_error(
+            "episode_form.html",
+            request,
+            current_admin,
+            str(exc),
+            page_title=f"Редактировать эпизод #{episode_id}",
+            titles=titles,
+            seasons=seasons,
+            values=payload,
+            action_url=f"/admin/episodes/{episode_id}/edit",
+            submit_label="Сохранить изменения",
+        )
+
+    return redirect_to("/admin/episodes")
+
+
+@router.post("/admin/episodes/{episode_id}/delete")
+def admin_episode_delete(episode_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+    MediaService(db).delete_episode(current_admin.id, episode_id)
     return redirect_to("/admin/episodes")
 
 
@@ -340,6 +574,8 @@ def admin_asset_new_page(request: Request, db: Session = Depends(get_db_session)
         current_admin=current_admin,
         error=None,
         values={},
+        action_url="/admin/assets/new",
+        submit_label="Сохранить",
     )
 
 
@@ -366,15 +602,93 @@ async def admin_asset_new_submit(request: Request, db: Session = Depends(get_db_
         AssetService(db).create_asset(current_admin.id, payload)
     except Exception as exc:
         db.rollback()
-        return render_template(
+        return _render_error(
             "asset_form_simple.html",
             request,
+            current_admin,
+            str(exc),
             page_title="Новый ассет",
-            current_admin=current_admin,
-            error=str(exc),
             values=payload,
+            action_url="/admin/assets/new",
+            submit_label="Сохранить",
         )
 
+    return redirect_to("/admin/assets")
+
+
+@router.get("/admin/assets/{asset_id}/edit")
+def admin_asset_edit_page(asset_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    item = AssetService(db).get_asset(asset_id)
+    values = {
+        "title_id": item.title_id or "",
+        "season_id": item.season_id or "",
+        "episode_id": item.episode_id or "",
+        "asset_type": item.asset_type,
+        "storage_kind": item.storage_kind,
+        "telegram_file_id": item.telegram_file_id or "",
+        "external_url": item.external_url or "",
+        "mime_type": item.mime_type or "",
+        "is_primary": item.is_primary,
+    }
+    return render_template(
+        "asset_form_simple.html",
+        request,
+        page_title=f"Редактировать ассет #{item.id}",
+        current_admin=current_admin,
+        error=None,
+        values=values,
+        action_url=f"/admin/assets/{item.id}/edit",
+        submit_label="Сохранить изменения",
+    )
+
+
+@router.post("/admin/assets/{asset_id}/edit")
+async def admin_asset_edit_submit(asset_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    payload = {
+        "title_id": to_int(str(form.get("title_id", "")).strip() or None),
+        "season_id": to_int(str(form.get("season_id", "")).strip() or None),
+        "episode_id": to_int(str(form.get("episode_id", "")).strip() or None),
+        "asset_type": str(form.get("asset_type", "")).strip(),
+        "storage_kind": str(form.get("storage_kind", "")).strip(),
+        "telegram_file_id": str(form.get("telegram_file_id", "")).strip() or None,
+        "external_url": str(form.get("external_url", "")).strip() or None,
+        "mime_type": str(form.get("mime_type", "")).strip() or None,
+        "is_primary": form.get("is_primary") == "on",
+    }
+
+    try:
+        AssetService(db).update_asset(current_admin.id, asset_id, payload)
+    except Exception as exc:
+        db.rollback()
+        return _render_error(
+            "asset_form_simple.html",
+            request,
+            current_admin,
+            str(exc),
+            page_title=f"Редактировать ассет #{asset_id}",
+            values=payload,
+            action_url=f"/admin/assets/{asset_id}/edit",
+            submit_label="Сохранить изменения",
+        )
+
+    return redirect_to("/admin/assets")
+
+
+@router.post("/admin/assets/{asset_id}/delete")
+def admin_asset_delete(asset_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+    AssetService(db).delete_asset(current_admin.id, asset_id)
     return redirect_to("/admin/assets")
 
 
@@ -438,15 +752,15 @@ async def admin_codes_generate_submit(request: Request, db: Session = Depends(ge
         generated_codes = CodeService(db).generate_codes(current_admin.id, payload)
     except Exception as exc:
         db.rollback()
-        return render_template(
+        return _render_error(
             "code_generate.html",
             request,
+            current_admin,
+            str(exc),
             page_title="Генерация кодов",
-            current_admin=current_admin,
             titles=titles,
             seasons=seasons,
             episodes=episodes,
-            error=str(exc),
             values=payload,
             generated_codes=None,
         )
@@ -463,6 +777,92 @@ async def admin_codes_generate_submit(request: Request, db: Session = Depends(ge
         values=payload,
         generated_codes=generated_codes,
     )
+
+
+@router.get("/admin/codes/{code_id}/edit")
+def admin_code_edit_page(code_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    code_service = CodeService(db)
+    media_service = MediaService(db)
+    item = code_service.get_code(code_id)
+    values = {
+        "code": item.code,
+        "title_id": item.title_id or "",
+        "season_id": item.season_id or "",
+        "episode_id": item.episode_id or "",
+        "status": item.status,
+    }
+    return render_template(
+        "code_form.html",
+        request,
+        page_title=f"Редактировать код #{item.id}",
+        current_admin=current_admin,
+        titles=media_service.list_titles(),
+        seasons=media_service.list_seasons(),
+        episodes=media_service.list_episodes(),
+        error=None,
+        values=values,
+        action_url=f"/admin/codes/{item.id}/edit",
+        submit_label="Сохранить изменения",
+    )
+
+
+@router.post("/admin/codes/{code_id}/edit")
+async def admin_code_edit_submit(code_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+
+    media_service = MediaService(db)
+    form = await request.form()
+    payload = {
+        "code": str(form.get("code", "")).strip(),
+        "title_id": to_int(str(form.get("title_id", "")).strip() or None),
+        "season_id": to_int(str(form.get("season_id", "")).strip() or None),
+        "episode_id": to_int(str(form.get("episode_id", "")).strip() or None),
+        "status": str(form.get("status", "active")).strip(),
+    }
+
+    try:
+        CodeService(db).update_code(current_admin.id, code_id, payload)
+    except Exception as exc:
+        db.rollback()
+        return _render_error(
+            "code_form.html",
+            request,
+            current_admin,
+            str(exc),
+            page_title=f"Редактировать код #{code_id}",
+            titles=media_service.list_titles(),
+            seasons=media_service.list_seasons(),
+            episodes=media_service.list_episodes(),
+            values=payload,
+            action_url=f"/admin/codes/{code_id}/edit",
+            submit_label="Сохранить изменения",
+        )
+
+    return redirect_to("/admin/codes")
+
+
+@router.post("/admin/codes/{code_id}/deactivate")
+def admin_code_deactivate(code_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+    CodeService(db).deactivate_code(current_admin.id, code_id)
+    return redirect_to("/admin/codes")
+
+
+@router.post("/admin/codes/{code_id}/delete")
+def admin_code_delete(code_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+    CodeService(db).delete_code(current_admin.id, code_id)
+    return redirect_to("/admin/codes")
 
 
 @router.get("/admin/lookup-test")

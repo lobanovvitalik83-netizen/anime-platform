@@ -16,6 +16,7 @@
       <th>Хранилище</th>
       <th>Primary</th>
       <th>Источник</th>
+      <th>Действия</th>
     </tr>
   </thead>
   <tbody>
@@ -31,6 +32,14 @@
       <td>
         {% if item.telegram_file_id %}<span class="code">{{ item.telegram_file_id }}</span>{% endif %}
         {% if item.external_url %}<a href="{{ item.external_url }}" target="_blank">{{ item.external_url }}</a>{% endif %}
+      </td>
+      <td>
+        <div class="btn-row">
+          <a class="btn secondary" href="/admin/assets/{{ item.id }}/edit">Редактировать</a>
+          <form method="post" action="/admin/assets/{{ item.id }}/delete" class="inline" onsubmit="return confirm('Удалить ассет?');">
+            <button class="btn" style="background:#dc2626;" type="submit">Удалить</button>
+          </form>
+        </div>
       </td>
     </tr>
     {% endfor %}

@@ -24,3 +24,13 @@ class AccessCodeRepository:
         self.session.add(entity)
         self.session.flush()
         return entity
+
+    def update(self, entity: AccessCode, **kwargs) -> AccessCode:
+        for key, value in kwargs.items():
+            setattr(entity, key, value)
+        self.session.flush()
+        return entity
+
+    def delete(self, entity: AccessCode) -> None:
+        self.session.delete(entity)
+        self.session.flush()
