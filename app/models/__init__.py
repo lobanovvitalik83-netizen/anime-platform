@@ -14,3 +14,5 @@ from app.models.code_lookup_event import CodeLookupEvent
 
 from app.models.report_message import ReportMessage
 from app.models.report_ticket import ReportTicket
+
+from app.models.admin_notification import AdminNotification

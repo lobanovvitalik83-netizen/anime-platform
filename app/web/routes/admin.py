@@ -413,7 +413,18 @@ def admin_codes(request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
-    return render_template("codes_list.html", request, page_title="Коды", current_admin=current_admin, codes=CodeService(db).list_codes(), error=None)
+    analytics = AnalyticsService(db)
+    return render_template(
+        "codes_list.html",
+        request,
+        page_title="Коды доступа",
+        current_admin=current_admin,
+        codes=CodeService(db).list_codes(),
+        top_found=analytics.get_top_codes(kind="found", limit=8),
+        top_not_found=analytics.get_top_codes(kind="not_found", limit=8),
+        error=None,
+    )
+
 
 
 @router.get("/admin/codes/generate")

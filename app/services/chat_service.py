@@ -5,7 +5,9 @@ from app.models.admin import Admin
 from app.repositories.admin_repository import AdminRepository
 from app.repositories.chat_repository import ChatRepository
 from app.services.audit_service import AuditService
+from app.services.notification_service import NotificationService
 from app.services.site_setting_service import SiteSettingService
+
 
 class ChatService:
     def __init__(self, session: Session):
@@ -14,6 +16,7 @@ class ChatService:
         self.admins = AdminRepository(session)
         self.audit = AuditService(session)
         self.site_settings = SiteSettingService(session)
+        self.notifications = NotificationService(session)
 
     def list_active_admins(self) -> list[Admin]:
         return self.admins.list_active()
@@ -94,16 +97,35 @@ class ChatService:
         chat = self.get_chat_for_admin(actor, chat_id)
         message = self.chats.create_message(chat.id, actor.id, content)
         self.audit.log(admin_id=actor.id, action="post_chat_message", entity_type="chat_room", entity_id=str(chat.id), payload={"content": content[:120]})
+
+        recipient_ids = []
+        for participant in chat.participants:
+            if participant.admin and participant.admin.is_active and participant.admin_id != actor.id:
+                recipient_ids.append(participant.admin_id)
+
+        sender_name = actor.full_name or actor.username
+        for admin_id in recipient_ids:
+            self.notifications.notify_admin(
+                admin_id,
+                kind="chat",
+                title=f"Новое сообщение от {sender_name}",
+                body=content[:180],
+                link_url=f"/admin/chats-live/{chat.id}",
+            )
+
         self.session.commit()
         return message
 
     def list_messages_after(self, actor: Admin, chat_id: int, after_id: int = 0):
         self.get_chat_for_admin(actor, chat_id)
         messages = self.chats.list_messages_after(chat_id, after_id=after_id)
-        return [{
-            "id": item.id,
-            "admin_id": item.admin_id,
-            "content": item.content,
-            "created_at": item.created_at.isoformat(sep=" ", timespec="seconds") if item.created_at else "",
-            "author_name": item.admin.full_name if item.admin and item.admin.full_name else (item.admin.username if item.admin else "Система"),
-        } for item in messages]
+        items = []
+        for item in messages:
+            items.append({
+                "id": item.id,
+                "admin_id": item.admin_id,
+                "content": item.content,
+                "created_at": item.created_at.isoformat(sep=" ", timespec="seconds") if item.created_at else "",
+                "author_name": item.admin.full_name if item.admin and item.admin.full_name else (item.admin.username if item.admin else "Система"),
+            })
+        return items

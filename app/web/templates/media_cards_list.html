@@ -17,6 +17,9 @@
 
 <div class="grid cards" style="margin-bottom:16px;">
   <div class="card"><div class="stat">{{ cards|length }}</div><div>Карточек в выдаче</div></div>
+  <div class="card"><div class="stat">{{ cards|selectattr("status", "equalto", "active")|list|length }}</div><div>Активных</div></div>
+  <div class="card"><div class="stat">{{ cards|selectattr("asset_type", "equalto", "video")|list|length }}</div><div>С видео</div></div>
+  <div class="card"><div class="stat">{{ cards|selectattr("code_value")|list|length }}</div><div>С кодом доступа</div></div>
 </div>
 
 {% if error %}<div class="error">{{ error }}</div>{% endif %}
@@ -32,8 +35,15 @@
     <div class="card">
       <div class="btn-row" style="justify-content:space-between; align-items:center; margin-bottom:12px;">
         <label style="display:flex; align-items:center; gap:8px; margin:0;"><input type="checkbox" name="selected_ids" value="{{ item.title_id }}" style="width:auto;">Выбрать</label>
-        <span class="chip">{{ 'Аниме' if item.genre == 'anime' else 'Сериал' if item.genre == 'series' else 'Фильм' if item.genre == 'movie' else item.genre }}</span>
+        <span class="pill">{{ 'Аниме' if item.genre == 'anime' else 'Сериал' if item.genre == 'series' else 'Фильм' if item.genre == 'movie' else item.genre }}</span>
       </div>
+
+      {% if item.external_url and item.asset_type in ['image','poster'] %}
+      <div style="margin-bottom:12px;">
+        <img src="{{ item.external_url }}" alt="preview" style="width:100%; max-height:220px; object-fit:cover; border-radius:12px; background:#f3f4f6;">
+      </div>
+      {% endif %}
+
       <h3 style="margin-bottom:10px;">{{ item.title }}</h3>
       <div class="grid" style="gap:6px;">
         <div><b>Статус карточки:</b> {{ item.status }}</div>
@@ -46,6 +56,7 @@
       <div class="btn-row" style="margin-top:12px;">
         <a class="btn secondary" href="/admin/media/{{ item.title_id }}/edit">Редактировать</a>
         {% if item.code_value %}<a class="btn secondary" href="/admin/lookup-test?code={{ item.code_value }}">Проверить код</a>{% endif %}
+        {% if item.external_url %}<a class="btn secondary" href="{{ item.external_url }}" target="_blank">Открыть медиа</a>{% endif %}
         <form method="post" action="/admin/media/{{ item.title_id }}/delete" class="inline" onsubmit="return confirm('Удалить карточку целиком?');"><button class="btn red" type="submit">Удалить</button></form>
       </div>
     </div>
