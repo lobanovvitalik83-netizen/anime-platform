@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>Настройки сайта+</h1>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  {% if success %}<div class="success">{{ success }}</div>{% endif %}
+  <form method="post" action="/admin/settings/advanced" class="grid">
+    <div class="form-grid">
+      <div>
+        <label>Название сайта</label>
+        <input name="site_title" value="{{ site_title or '' }}">
+      </div>
+      <div>
+        <label>Логотип URL</label>
+        <input name="logo_url" value="{{ logo_url or '' }}">
+      </div>
+      <div>
+        <label style="display:flex;gap:8px;align-items:center;font-weight:600;margin-top:30px;">
+          <input type="checkbox" name="messages_enabled" {% if messages_enabled %}checked{% endif %} style="width:auto;"> Включить сообщения
+        </label>
+      </div>
+      <div>
+        <label style="display:flex;gap:8px;align-items:center;font-weight:600;margin-top:30px;">
+          <input type="checkbox" name="reports_enabled" {% if reports_enabled %}checked{% endif %} style="width:auto;"> Включить репорты из Telegram
+        </label>
+      </div>
+      <div>
+        <label style="display:flex;gap:8px;align-items:center;font-weight:600;margin-top:30px;">
+          <input type="checkbox" name="maintenance_mode" {% if maintenance_mode %}checked{% endif %} style="width:auto;"> Режим обслуживания
+        </label>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn green" type="submit">Сохранить</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

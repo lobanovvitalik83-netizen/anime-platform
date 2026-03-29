@@ -18,6 +18,7 @@ from app.core.database import init_database
 from app.core.logging import configure_logging, get_logger
 from app.services.bootstrap_service import ensure_default_admin_exists
 from app.web.routes.admin import router as admin_web_router
+from app.web.routes.stage24 import router as stage24_web_router
 
 configure_logging()
 logger = get_logger(__name__)
@@ -49,4 +50,5 @@ def create_app() -> FastAPI:
     app.include_router(access_codes_router)
     app.include_router(public_lookup_router)
     app.include_router(admin_web_router)
+    app.include_router(stage24_web_router)
     return app

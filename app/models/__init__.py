@@ -11,3 +11,6 @@ from app.models.media_season import MediaSeason
 from app.models.media_title import MediaTitle
 from app.models.site_setting import SiteSetting
 from app.models.code_lookup_event import CodeLookupEvent
+
+from app.models.report_message import ReportMessage
+from app.models.report_ticket import ReportTicket

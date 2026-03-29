@@ -22,6 +22,7 @@ class Admin(TimestampMixin, Base):
     position: Mapped[str | None] = mapped_column(String(150), nullable=True)
     about: Mapped[str | None] = mapped_column(Text, nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    extra_permissions: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     access_codes = relationship("AccessCode", back_populates="created_by_admin")
     audit_logs = relationship("AuditLog", back_populates="admin")

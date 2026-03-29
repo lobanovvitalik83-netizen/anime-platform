@@ -1,28 +1,21 @@
-# Stage 23 - Yandex Disk media backend
+# Stage 24 - Live chats, Telegram reports, permissions
 
-В архиве:
-- весь stage 22
-- backend `yandex_disk`
-- upload файла из карточки сразу на Яндекс Диск
-- import по прямому URL с копированием на Яндекс Диск
-- хранение только metadata в BotHost
-- удаление файла с Яндекс Диска при удалении карточки, если файл был загружен системой
-- публичный proxy/redirect route для показа картинки/видео из Яндекс Диска
-- авто-создание рабочих папок приложения на Диске
+Архив включает:
+- live-чаты без перезагрузки страницы
+- Telegram-like layout для внутренних сообщений
+- Telegram reports: сообщения пользователей из бота попадают в админку
+- reply в report из админки отправляется именно этому пользователю в Telegram
+- новая роль `support`
+- дополнительные разрешения на пользователя
+- расширенные страницы:
+  - /admin/chats-live
+  - /admin/reports
+  - /admin/team/{id}/permissions
+  - /admin/settings/advanced
+  - /admin/analytics/advanced
+  - /admin/import-export/advanced
+  - /admin/editor-tools
 
-ENV:
-- MEDIA_STORAGE_BACKEND=yandex_disk
-- PUBLIC_BASE_URL=https://твой-домен
-- YANDEX_DISK_OAUTH_TOKEN=...
-- YANDEX_DISK_BASE_PATH=app:/media-bridge
-
-Что создаётся автоматически:
-- `app:/media-bridge`
-- `app:/media-bridge/image`
-- `app:/media-bridge/video`
-
-Как это работает:
-- файл грузится на Яндекс Диск
-- в БД хранится только путь файла на Диске + metadata
-- для просмотра система отдаёт ссылку на свой публичный route
-- этот route на лету получает download href из Yandex Disk API и делает redirect к файлу
+Важно:
+- live реализован через периодический fetch/polling без refresh страницы
+- это не websocket, но сообщения обновляются в реальном времени для оператора

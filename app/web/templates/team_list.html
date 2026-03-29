@@ -34,6 +34,7 @@
         <div class="btn-row">
           {% if item.id in manageable_ids %}
           <a class="btn secondary" href="/admin/team/{{ item.id }}/edit">Редактировать</a>
+          {% if current_admin.role == "superadmin" %}<a class="btn secondary" href="/admin/team/{{ item.id }}/permissions">Права</a>{% endif %}
           <form method="post" action="/admin/team/{{ item.id }}/reset-password" class="inline">
             <button class="btn secondary" type="submit">Сбросить пароль</button>
           </form>

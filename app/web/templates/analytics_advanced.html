@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Аналитика+</h1>
+<div class="grid cards">
+  {% for key, value in summary.items() %}
+  <div class="card"><div class="stat">{{ value }}</div><div>{{ key }}</div></div>
+  {% endfor %}
+</div>
+<div class="card" style="margin-top:18px;">
+  <h3>Активность сотрудников</h3>
+  <table>
+    <thead><tr><th>ID</th><th>Логин</th><th>Роль</th><th>Действий</th></tr></thead>
+    <tbody>
+      {% for row in staff_activity %}
+      <tr><td>{{ row.admin_id }}</td><td>{{ row.username }}</td><td>{{ row.role }}</td><td>{{ row.actions_count }}</td></tr>
+      {% else %}
+      <tr><td colspan="4"><span class="muted">Нет данных</span></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

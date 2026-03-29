@@ -1,10 +1,12 @@
 from sqlalchemy.orm import Session
-
 from app.repositories.site_setting_repository import SiteSettingRepository
-
 
 class SiteSettingService:
     MESSAGES_ENABLED_KEY = "messages_enabled"
+    REPORTS_ENABLED_KEY = "reports_enabled"
+    MAINTENANCE_MODE_KEY = "maintenance_mode"
+    SITE_TITLE_KEY = "site_title"
+    LOGO_URL_KEY = "logo_url"
 
     def __init__(self, session: Session):
         self.session = session
@@ -16,17 +18,37 @@ class SiteSettingService:
             return default
         return item.value.strip().lower() in {"1", "true", "yes", "on"}
 
-    def set_bool(self, key: str, value: bool) -> None:
+    def get_str(self, key: str, default: str = "") -> str:
         item = self.settings.get_by_key(key)
-        raw_value = "true" if value else "false"
+        if not item or item.value is None:
+            return default
+        return item.value
+
+    def set_str(self, key: str, value: str | None):
+        item = self.settings.get_by_key(key)
         if item:
-            self.settings.update(item, raw_value)
+            self.settings.update(item, value)
         else:
-            self.settings.create(key, raw_value)
+            self.settings.create(key, value)
         self.session.commit()
 
-    def is_messages_enabled(self) -> bool:
-        return self.get_bool(self.MESSAGES_ENABLED_KEY, default=True)
+    def set_bool(self, key: str, value: bool):
+        self.set_str(key, "true" if value else "false")
 
-    def set_messages_enabled(self, value: bool) -> None:
+    def is_messages_enabled(self) -> bool:
+        return self.get_bool(self.MESSAGES_ENABLED_KEY, True)
+
+    def is_reports_enabled(self) -> bool:
+        return self.get_bool(self.REPORTS_ENABLED_KEY, True)
+
+    def is_maintenance_mode(self) -> bool:
+        return self.get_bool(self.MAINTENANCE_MODE_KEY, False)
+
+    def set_messages_enabled(self, value: bool):
         self.set_bool(self.MESSAGES_ENABLED_KEY, value)
+
+    def set_reports_enabled(self, value: bool):
+        self.set_bool(self.REPORTS_ENABLED_KEY, value)
+
+    def set_maintenance_mode(self, value: bool):
+        self.set_bool(self.MAINTENANCE_MODE_KEY, value)

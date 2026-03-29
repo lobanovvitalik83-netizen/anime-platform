@@ -6,6 +6,7 @@ from aiogram.client.default import DefaultBotProperties
 
 from app.bot.handlers.code_lookup import router as code_lookup_router
 from app.bot.handlers.fallback import router as fallback_router
+from app.bot.handlers.report_support import router as report_support_router
 from app.bot.handlers.start import router as start_router
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -22,6 +23,7 @@ def build_dispatcher() -> Dispatcher:
     dispatcher.include_router(start_router)
     dispatcher.include_router(code_lookup_router)
     dispatcher.include_router(fallback_router)
+    dispatcher.include_router(report_support_router)
     return dispatcher
 
 

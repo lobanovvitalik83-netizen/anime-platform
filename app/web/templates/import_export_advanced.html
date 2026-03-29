@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Импорт / экспорт+</h1>
+<div class="grid cards">
+  <div class="card">
+    <h3>Экспорт</h3>
+    <div class="btn-row">
+      <a class="btn secondary" href="/admin/export/users.csv">Пользователи</a>
+      <a class="btn secondary" href="/admin/export/reports.csv">Репорты</a>
+      <a class="btn secondary" href="/admin/export/analytics.csv">Аналитика</a>
+      <a class="btn secondary" href="/admin/templates/titles.csv">Шаблон titles</a>
+      <a class="btn secondary" href="/admin/templates/codes.csv">Шаблон codes</a>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Быстрые переходы</h3>
+    <div class="btn-row">
+      <a class="btn secondary" href="/admin/import-export">Базовый импорт/экспорт</a>
+      <a class="btn secondary" href="/admin/import-jobs">История импортов</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

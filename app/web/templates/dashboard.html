@@ -9,25 +9,16 @@
 </div>
 
 <div class="card" style="margin-bottom:20px;">
-  <h2>Права роли</h2>
+  <h2>Stage 24</h2>
   <div class="muted">
-    editor — карточки, профиль, смена своего пароля, сотрудники, сообщения<br>
-    admin — всё editor + пользователи editor + импорт/экспорт + удаление<br>
-    superadmin / owner — всё admin + управление admin и editor + удаление учёток + глобальный тумблер сообщений
+    Live-чаты без refresh, репорты из Telegram, granular permissions, новые инструменты editor, advanced settings, advanced analytics и advanced import/export.
   </div>
 </div>
 
-<div class="card">
-  <h2>Быстрый доступ</h2>
-  <div class="btn-row">
-    <a class="btn green" href="/admin/card-builder">Создать карточку</a>
-    <a class="btn secondary" href="/admin/media">Открыть медиа</a>
-    <a class="btn secondary" href="/admin/people">Сотрудники</a>
-    <a class="btn secondary" href="/admin/chats">Сообщения</a>
-    <a class="btn secondary" href="/admin/profile">Мой профиль</a>
-    <a class="btn secondary" href="/admin/analytics">Аналитика</a>
-    {% if current_admin.role in ["admin", "superadmin"] %}<a class="btn secondary" href="/admin/team">Пользователи</a>{% endif %}
-    {% if current_admin.role == "superadmin" %}<a class="btn secondary" href="/admin/settings/general">Настройки</a>{% endif %}
-  </div>
+<div class="grid cards">
+  <div class="card"><h3>Сообщения</h3><div class="btn-row"><a class="btn secondary" href="/admin/chats-live">Открыть</a></div></div>
+  <div class="card"><h3>Репорты</h3><div class="btn-row"><a class="btn secondary" href="/admin/reports">Открыть</a></div></div>
+  <div class="card"><h3>Настройки+</h3><div class="btn-row"><a class="btn secondary" href="/admin/settings/advanced">Открыть</a></div></div>
+  <div class="card"><h3>Аналитика+</h3><div class="btn-row"><a class="btn secondary" href="/admin/analytics/advanced">Открыть</a></div></div>
 </div>
 {% endblock %}

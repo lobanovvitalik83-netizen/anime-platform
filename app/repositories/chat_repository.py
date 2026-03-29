@@ -41,3 +41,10 @@ class ChatRepository:
         self.session.add(entity)
         self.session.flush()
         return entity
+
+    def list_messages_after(self, chat_id: int, after_id: int = 0) -> list[ChatMessage]:
+        statement = select(ChatMessage).where(
+            ChatMessage.chat_id == chat_id,
+            ChatMessage.id > after_id,
+        ).options(selectinload(ChatMessage.admin)).order_by(ChatMessage.id.asc())
+        return list(self.session.scalars(statement))

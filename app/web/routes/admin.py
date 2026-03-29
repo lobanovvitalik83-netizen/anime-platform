@@ -61,9 +61,9 @@ def _render_media_cards(request: Request, current_admin, db: Session, q: str = "
 
 def _team_manageable_ids(current_admin, admins):
     if current_admin.role == "superadmin":
-        return {item.id for item in admins if item.id != current_admin.id and item.role in {"admin", "editor"}}
+        return {item.id for item in admins if item.id != current_admin.id and item.role in {"admin", "editor", "support"}}
     if current_admin.role == "admin":
-        return {item.id for item in admins if item.role == "editor"}
+        return {item.id for item in admins if item.role in {"editor", "support"}}
     return set()
 
 
