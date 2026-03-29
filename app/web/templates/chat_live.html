@@ -1,60 +1,52 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="page-header">
-  <div>
-    <h1 class="page-title">Сообщения</h1>
-    <div class="page-subtitle">Живой внутренний мессенджер команды в стиле современных социальных сервисов.</div>
-  </div>
-  <div class="btn-row">
-    {% if messages_enabled %}<a class="btn green" href="/admin/chats/new">Новый чат</a>{% endif %}
-  </div>
-</div>
-
 {% if error %}<div class="error">{{ error }}</div>{% endif %}
-
-<div class="messenger">
-  <div class="chat-list">
-    <div class="chat-list-head">
-      <div class="section-title" style="margin-bottom:10px;">Чаты</div>
-      <form method="get" action="/admin/chats-live">
+<div class="tg-shell">
+  <div class="tg-list">
+    <div class="tg-list-head">
+      <div class="btn-row" style="justify-content:space-between; align-items:center;">
+        <b>Диалоги</b>
+        {% if messages_enabled %}<a class="btn green" href="/admin/chats/new">Новый</a>{% endif %}
+      </div>
+      <form method="get" action="/admin/chats-live" style="margin-top:10px;">
         <input name="q" value="{{ q or '' }}" placeholder="Поиск по диалогам">
       </form>
     </div>
-    <div class="chat-list-body">
+    <div class="tg-list-body">
       {% for item in chats %}
-      <a class="chat-item {% if selected_chat and item.id == selected_chat.id %}active{% endif %}" href="/admin/chats-live/{{ item.id }}">
-        <div class="avatar" style="width:54px;height:54px;">
+      <a class="tg-chat-item {% if selected_chat and item.id == selected_chat.id %}active{% endif %}" href="/admin/chats-live/{{ item.id }}">
+        <div class="avatar">
           <span>{{ item.title[0:1] }}</span>
         </div>
-        <div class="chat-main">
-          <div class="btn-row" style="justify-content:space-between;gap:8px;">
+        <div class="tg-chat-main">
+          <div class="tg-chat-title">
             <b>{{ item.title }}</b>
-            <span class="muted" style="font-size:12px;">{% if item.messages %}{{ item.messages[-1].created_at }}{% endif %}</span>
+            <span class="muted">{% if item.messages %}{{ item.messages[-1].created_at }}{% endif %}</span>
           </div>
-          <span class="muted chat-preview">{% if item.messages %}{{ item.messages[-1].content }}{% else %}Нет сообщений{% endif %}</span>
+          <span class="tg-preview muted">{% if item.messages %}{{ item.messages[-1].content }}{% else %}Нет сообщений{% endif %}</span>
         </div>
       </a>
       {% else %}
-      <div class="card" style="margin:14px;"><div class="muted">Чатов пока нет.</div></div>
+      <div class="card" style="margin:16px;"><div class="muted">Чатов пока нет.</div></div>
       {% endfor %}
     </div>
   </div>
 
-  <div class="chat-panel">
+  <div class="tg-panel">
     {% if selected_chat %}
-    <div class="chat-panel-head">
+    <div class="tg-panel-head">
       <div>
-        <div style="font-weight:800;font-size:18px;">{{ selected_chat.title }}</div>
+        <div><b>{{ selected_chat.title }}</b></div>
         <div class="muted">
           {% for p in selected_chat.participants if p.admin and p.admin.is_active %}
           {{ p.admin.full_name or p.admin.username }}{% if not loop.last %}, {% endif %}
           {% endfor %}
         </div>
       </div>
-      {% if not messages_enabled %}<span class="chip orange">Сообщения отключены</span>{% endif %}
+      {% if not messages_enabled %}<span class="pill">Сообщения отключены</span>{% endif %}
     </div>
-    <div class="chat-messages" id="tgMessages"></div>
-    <div class="chat-compose">
+    <div class="tg-messages" id="tgMessages"></div>
+    <div class="tg-compose">
       <form id="chatSendForm">
         <textarea id="chatBody" name="content" placeholder="Сообщение" {% if not messages_enabled %}disabled{% endif %}></textarea>
         <div class="btn-row" style="margin-top:10px;">
@@ -73,10 +65,11 @@
   const chatId = {{ selected_chat.id }};
   let lastMessageId = 0;
   const currentAdminId = {{ current_admin.id }};
+  function escapeHtml(s){return s.replace(/[&<>"']/g, function(m){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]);});}
   function renderMessage(item) {
     const row = document.createElement('div');
     row.className = 'bubble-row ' + (item.admin_id === currentAdminId ? 'me' : '');
-    row.innerHTML = `<div class="bubble"><div>${item.content}</div><div class="bubble-meta">${item.author_name || 'Система'} · ${item.created_at}</div></div>`;
+    row.innerHTML = '<div class="bubble"><div>' + escapeHtml(item.content) + '</div><div class="bubble-meta">' + escapeHtml(item.author_name || 'Система') + ' · ' + item.created_at + '</div></div>';
     return row;
   }
   async function loadMessages(initial=false) {
@@ -95,11 +88,7 @@
     const textarea = document.getElementById('chatBody');
     const value = textarea.value.trim();
     if (!value) return;
-    await fetch(`/admin/chats-live/${chatId}/send.json`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({content: value})
-    });
+    await fetch(`/admin/chats-live/${chatId}/send.json`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({content:value})});
     textarea.value = '';
     await loadMessages(false);
   });

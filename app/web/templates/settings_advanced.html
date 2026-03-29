@@ -1,28 +1,19 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="page-header">
-  <div>
-    <h1 class="page-title">Настройки</h1>
-    <div class="page-subtitle">Системные параметры проекта, бот, репорты, сообщения и сервисные тексты.</div>
-  </div>
-</div>
 <div class="card">
+  <h1>Настройки сайта</h1>
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
   {% if success %}<div class="success">{{ success }}</div>{% endif %}
   <form method="post" action="/admin/settings/advanced" class="grid">
     <div class="form-grid">
       <div><label>Название сайта</label><input name="site_title" value="{{ site_title or '' }}"></div>
       <div><label>Логотип URL</label><input name="logo_url" value="{{ logo_url or '' }}"></div>
-      <div><label>Контакт помощи в боте</label><input name="help_contact" value="{{ help_contact or '' }}" placeholder="@support_contact"></div>
+      <div><label>Контакт в помощи бота</label><input name="help_contact" value="{{ help_contact or '' }}" placeholder="@your_contact"></div>
+      <div><label style="display:flex; gap:8px; align-items:center; margin-top:30px;"><input type="checkbox" name="messages_enabled" style="width:auto;" {% if messages_enabled %}checked{% endif %}>Включить сообщения</label></div>
+      <div><label style="display:flex; gap:8px; align-items:center; margin-top:30px;"><input type="checkbox" name="reports_enabled" style="width:auto;" {% if reports_enabled %}checked{% endif %}>Включить репорты из Telegram</label></div>
+      <div><label style="display:flex; gap:8px; align-items:center; margin-top:30px;"><input type="checkbox" name="maintenance_mode" style="width:auto;" {% if maintenance_mode %}checked{% endif %}>Режим обслуживания</label></div>
     </div>
-    <div class="form-grid">
-      <label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" style="width:auto;" name="messages_enabled" {% if messages_enabled %}checked{% endif %}>Включить сообщения</label>
-      <label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" style="width:auto;" name="reports_enabled" {% if reports_enabled %}checked{% endif %}>Включить репорты из Telegram</label>
-      <label style="display:flex;gap:8px;align-items:center;"><input type="checkbox" style="width:auto;" name="maintenance_mode" {% if maintenance_mode %}checked{% endif %}>Режим обслуживания</label>
-    </div>
-    <div class="btn-row">
-      <button class="btn green" type="submit">Сохранить</button>
-    </div>
+    <div class="btn-row"><button class="btn green" type="submit">Сохранить</button><a class="btn secondary" href="/admin">Назад</a></div>
   </form>
 </div>
 {% endblock %}

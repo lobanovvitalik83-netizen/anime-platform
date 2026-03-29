@@ -7,7 +7,6 @@ from app.core.database import get_db_session
 from app.core.exceptions import AuthenticationError
 from app.services.analytics_service import AnalyticsService
 from app.services.achievement_service import AchievementService
-from app.services.notification_service import NotificationService
 from app.services.asset_service import AssetService
 from app.services.auth_service import AuthService
 from app.services.chat_service import ChatService
@@ -65,9 +64,7 @@ def _render_media_cards(request: Request, current_admin, db: Session, q: str = "
 
 def _team_manageable_ids(current_admin, admins):
     if current_admin.role == "superadmin":
-        return {item.id for item in admins if item.id != current_admin.id and item.role in {"assistant", "admin", "editor", "support"}}
-    if current_admin.role == "assistant":
-        return {item.id for item in admins if item.role in {"admin", "editor", "support"}}
+        return {item.id for item in admins if item.id != current_admin.id and item.role in {"admin", "editor", "support"}}
     if current_admin.role == "admin":
         return {item.id for item in admins if item.role in {"editor", "support"}}
     return set()
@@ -99,46 +96,11 @@ async def admin_login_submit(request: Request, db: Session = Depends(get_db_sess
     try:
         admin = AuthService(db).authenticate(username=username, password=password)
     except AuthenticationError as exc:
-        return render_template("login.html", request, page_title="Вход", current_admin=None, error=str(exc))
+        return render_template("login.html", request, page_title="Вход", error=str(exc))
 
     response = redirect_to("/admin")
     set_auth_cookie(response, admin.id)
     return response
-
-
-@router.get("/admin/forgot-password")
-def admin_forgot_password_page(request: Request):
-    return render_template("forgot_password.html", request, page_title="Забыл пароль", current_admin=None, error=None, success=None)
-
-
-@router.post("/admin/forgot-password")
-async def admin_forgot_password_submit(request: Request, db: Session = Depends(get_db_session)):
-    form = await request.form()
-    username = str(form.get("username", "")).strip()
-    if not username:
-        return render_template("forgot_password.html", request, page_title="Забыл пароль", current_admin=None, error="Укажи логин.", success=None)
-
-    target = AuthService(db).admins.get_by_username(username)
-    if target:
-        for admin in AuthService(db).admins.list_active():
-            if admin.role == "superadmin":
-                NotificationService(db).notify_admin(
-                    admin.id,
-                    kind="password_reset_request",
-                    title=f"Запрос на сброс пароля: {username}",
-                    body=f"Пользователь @{username} запросил восстановление доступа.",
-                    link_url=f"/admin/team/{target.id}/edit",
-                )
-        db.commit()
-
-    return render_template(
-        "forgot_password.html",
-        request,
-        page_title="Забыл пароль",
-        current_admin=None,
-        error=None,
-        success="Запрос принят. Если такой логин существует, superadmin увидит внутреннее уведомление.",
-    )
 
 
 @router.get("/admin/logout")
@@ -724,13 +686,11 @@ async def admin_profile_submit(request: Request, db: Session = Depends(get_db_se
             content = await avatar_file.read()
             service.upload_profile_avatar(current_admin.id, file_bytes=content, file_name=avatar_file.filename, content_type=getattr(avatar_file, "content_type", None))
         refreshed = AuthService(db).get_admin(current_admin.id)
-        achievements = AchievementService(db).list_for_admin(refreshed.id)
-        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, achievements=achievements, error=None, success="Профиль обновлён.", password_error=None, password_success=None)
+        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, achievements=AchievementService(db).list_for_admin(refreshed.id), error=None, success="Профиль обновлён.", password_error=None, password_success=None)
     except Exception as exc:
         db.rollback()
         refreshed = AuthService(db).get_admin(current_admin.id)
-        achievements = AchievementService(db).list_for_admin(refreshed.id)
-        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, achievements=achievements, error=str(exc), success=None, password_error=None, password_success=None)
+        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, achievements=AchievementService(db).list_for_admin(refreshed.id), error=str(exc), success=None, password_error=None, password_success=None)
 
 
 @router.post("/admin/profile/password")
@@ -744,13 +704,11 @@ async def admin_profile_password_submit(request: Request, db: Session = Depends(
     try:
         AuthService(db).change_own_password(current_admin.id, current_password, new_password)
         refreshed = AuthService(db).get_admin(current_admin.id)
-        achievements = AchievementService(db).list_for_admin(refreshed.id)
-        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, achievements=achievements, error=None, success=None, password_error=None, password_success="Пароль изменён.")
+        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, achievements=AchievementService(db).list_for_admin(refreshed.id), error=None, success=None, password_error=None, password_success="Пароль изменён.")
     except Exception as exc:
         db.rollback()
         refreshed = AuthService(db).get_admin(current_admin.id)
-        achievements = AchievementService(db).list_for_admin(refreshed.id)
-        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, achievements=achievements, error=None, success=None, password_error=str(exc), password_success=None)
+        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, achievements=AchievementService(db).list_for_admin(refreshed.id), error=None, success=None, password_error=str(exc), password_success=None)
 
 
 @router.get("/admin/people")
@@ -785,8 +743,7 @@ def admin_person_profile(admin_id: int, request: Request, db: Session = Depends(
     person = AuthService(db).get_admin(admin_id)
     if not person.is_active:
         return render_template("forbidden.html", request, page_title="Профиль скрыт", current_admin=current_admin, error="Этот профиль недоступен.")
-    person_achievements = AchievementService(db).list_for_admin(person.id)
-    return render_template("person_profile.html", request, page_title=person.full_name or person.username, current_admin=current_admin, person=person, person_achievements=person_achievements, messages_enabled=_messages_enabled(db))
+    return render_template("person_profile.html", request, page_title=person.full_name or person.username, current_admin=current_admin, person=person, achievements=AchievementService(db).list_for_admin(person.id), messages_enabled=_messages_enabled(db))
 
 
 @router.post("/admin/people/{admin_id}/message")
@@ -796,11 +753,11 @@ def admin_person_message(admin_id: int, request: Request, db: Session = Depends(
         return redirect
     try:
         chat = ChatService(db).get_or_create_direct_chat(current_admin, admin_id)
-        return redirect_to(f"/admin/chats-live/{chat.id}")
+        return redirect_to(f"/admin/chats/{chat.id}")
     except Exception as exc:
         db.rollback()
         person = AuthService(db).get_admin(admin_id)
-        return render_template("person_profile.html", request, page_title=person.full_name or person.username, current_admin=current_admin, person=person, person_achievements=AchievementService(db).list_for_admin(person.id), messages_enabled=_messages_enabled(db), error=str(exc))
+        return render_template("person_profile.html", request, page_title=person.full_name or person.username, current_admin=current_admin, person=person, messages_enabled=_messages_enabled(db), error=str(exc))
 
 
 @router.get("/admin/team")
@@ -962,7 +919,7 @@ async def admin_chat_new_submit(request: Request, db: Session = Depends(get_db_s
     admins = [item for item in service.list_active_admins() if item.id != current_admin.id]
     try:
         chat = service.create_chat(current_admin, title=title, participant_ids=selected_ids)
-        return redirect_to(f"/admin/chats-live/{chat.id}")
+        return redirect_to(f"/admin/chats/{chat.id}")
     except Exception as exc:
         db.rollback()
         return render_template("chat_new.html", request, page_title="Создать чат", current_admin=current_admin, admins=admins, error=str(exc), values={"title": title}, selected_ids=selected_ids, messages_enabled=service.messages_enabled())
@@ -1068,110 +1025,3 @@ def admin_analytics_code_detail(
         current_admin=current_admin,
         detail=detail,
     )
-
-
-
-@router.get("/admin/achievements")
-def admin_achievements_page(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-    return render_template("achievements_list.html", request, page_title="Ачивки", current_admin=current_admin, achievements=AchievementService(db).list_achievements(), error=None)
-
-
-@router.get("/admin/achievements/new")
-def admin_achievement_new_page(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-    return render_template("achievement_form.html", request, page_title="Создать ачивку", current_admin=current_admin, error=None, success=None, values={"icon": "🏆", "color": "#4f7cff", "is_active": True}, action_url="/admin/achievements/new", submit_label="Создать ачивку")
-
-
-@router.post("/admin/achievements/new")
-async def admin_achievement_new_submit(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-    form = await request.form()
-    values = {"title": str(form.get("title", "")).strip(), "description": str(form.get("description", "")).strip(), "icon": str(form.get("icon", "🏆")).strip(), "color": str(form.get("color", "#4f7cff")).strip(), "is_active": form.get("is_active") == "on"}
-    try:
-        AchievementService(db).create_achievement(current_admin, **values)
-        return redirect_to("/admin/achievements")
-    except Exception as exc:
-        db.rollback()
-        return render_template("achievement_form.html", request, page_title="Создать ачивку", current_admin=current_admin, error=str(exc), success=None, values=values, action_url="/admin/achievements/new", submit_label="Создать ачивку")
-
-
-@router.get("/admin/achievements/{achievement_id}/edit")
-def admin_achievement_edit_page(achievement_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-    item = AchievementService(db).get_achievement(achievement_id)
-    values = {"title": item.title, "description": item.description or "", "icon": item.icon or "🏆", "color": item.color or "#4f7cff", "is_active": item.is_active}
-    return render_template("achievement_form.html", request, page_title=f"Редактировать ачивку #{achievement_id}", current_admin=current_admin, error=None, success=None, values=values, action_url=f"/admin/achievements/{achievement_id}/edit", submit_label="Сохранить ачивку")
-
-
-@router.post("/admin/achievements/{achievement_id}/edit")
-async def admin_achievement_edit_submit(achievement_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-    form = await request.form()
-    values = {"title": str(form.get("title", "")).strip(), "description": str(form.get("description", "")).strip(), "icon": str(form.get("icon", "🏆")).strip(), "color": str(form.get("color", "#4f7cff")).strip(), "is_active": form.get("is_active") == "on"}
-    try:
-        AchievementService(db).update_achievement(current_admin, achievement_id, **values)
-        return redirect_to("/admin/achievements")
-    except Exception as exc:
-        db.rollback()
-        return render_template("achievement_form.html", request, page_title=f"Редактировать ачивку #{achievement_id}", current_admin=current_admin, error=str(exc), success=None, values=values, action_url=f"/admin/achievements/{achievement_id}/edit", submit_label="Сохранить ачивку")
-
-
-@router.post("/admin/achievements/{achievement_id}/delete")
-def admin_achievement_delete(achievement_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-    try:
-        AchievementService(db).delete_achievement(current_admin, achievement_id)
-    except Exception:
-        db.rollback()
-    return redirect_to("/admin/achievements")
-
-
-@router.get("/admin/people/{admin_id}/achievements/grant")
-def admin_grant_achievement_page(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-    person = AuthService(db).get_admin(admin_id)
-    return render_template("grant_achievement.html", request, page_title="Выдать ачивку", current_admin=current_admin, person=person, achievements=AchievementService(db).list_active_achievements(), grants=AchievementService(db).list_for_admin(person.id), error=None, success=None)
-
-
-@router.post("/admin/people/{admin_id}/achievements/grant")
-async def admin_grant_achievement_submit(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-    person = AuthService(db).get_admin(admin_id)
-    form = await request.form()
-    achievement_id = int(str(form.get("achievement_id", "0")).strip() or "0")
-    note = str(form.get("note", "")).strip()
-    try:
-        AchievementService(db).grant_to_admin(current_admin, target_admin=person, achievement_id=achievement_id, note=note)
-        return render_template("grant_achievement.html", request, page_title="Выдать ачивку", current_admin=current_admin, person=person, achievements=AchievementService(db).list_active_achievements(), grants=AchievementService(db).list_for_admin(person.id), error=None, success="Ачивка выдана.")
-    except Exception as exc:
-        db.rollback()
-        return render_template("grant_achievement.html", request, page_title="Выдать ачивку", current_admin=current_admin, person=person, achievements=AchievementService(db).list_active_achievements(), grants=AchievementService(db).list_for_admin(person.id), error=str(exc), success=None)
-
-
-@router.post("/admin/people/{admin_id}/achievements/{grant_id}/revoke")
-def admin_revoke_achievement(admin_id: int, grant_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect:
-        return redirect
-    try:
-        AchievementService(db).revoke_grant(current_admin, grant_id)
-    except Exception:
-        db.rollback()
-    return redirect_to(f"/admin/people/{admin_id}/achievements/grant")

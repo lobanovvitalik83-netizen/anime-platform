@@ -1,4 +1,3 @@
-
 from collections.abc import Generator
 
 from sqlalchemy import MetaData, create_engine, inspect, text
@@ -80,6 +79,8 @@ def _ensure_runtime_schema() -> None:
         if "tg_user_id" in existing_columns:
             with engine.begin() as connection:
                 connection.execute(text("ALTER TABLE report_messages ALTER COLUMN tg_user_id TYPE BIGINT"))
+
+    # achievements tables are created by metadata.create_all(); nothing else required here.
 
 
 def init_database() -> None:

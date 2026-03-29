@@ -1,87 +1,41 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="page-header">
-  <div>
-    <h1 class="page-title">Главная</h1>
-    <div class="page-subtitle">
-      Быстрый срез проекта: контент, коды, обращения пользователей и рабочая коммуникация команды.
-    </div>
-  </div>
-  <div class="btn-row">
-    <a class="btn green" href="/admin/card-builder">Создать карточку</a>
-    <a class="btn secondary" href="/admin/chats-live">Открыть сообщения</a>
-  </div>
+<div class="hero">
+  <h2>Добро пожаловать в продуктовую панель</h2>
+  <p>Здесь собраны все рабочие блоки проекта: контент, репорты из Telegram, live-сообщения, аналитика, импорт/экспорт, управление персоналом и достижения команды.</p>
 </div>
 
-<div class="grid cards" style="margin-bottom:18px;">
+<div class="grid cards" style="margin-bottom:20px;">
   <div class="card"><div class="stat">{{ counts.titles }}</div><div class="stat-label">Карточек</div></div>
-  <div class="card"><div class="stat">{{ counts.assets }}</div><div class="stat-label">Медиа-файлов</div></div>
+  <div class="card"><div class="stat">{{ counts.assets }}</div><div class="stat-label">Медиа-ассетов</div></div>
   <div class="card"><div class="stat">{{ counts.codes }}</div><div class="stat-label">Кодов доступа</div></div>
   <div class="card"><div class="stat">{{ counts.reports or 0 }}</div><div class="stat-label">Репортов</div></div>
 </div>
 
 <div class="grid two">
-  <div class="stack">
-    <div class="card">
-      <div class="section-title">Обзор системы</div>
-      <div class="section-subtitle">Простой визуальный срез по ключевым зонам работы.</div>
-      {% set max_count = [counts.titles, counts.assets, counts.codes, counts.reports or 0]|max %}
-      <div class="grid" style="gap:12px;">
-        <div class="soft-card">
-          <div class="btn-row" style="justify-content:space-between;"><b>Карточки</b><span class="code">{{ counts.titles }}</span></div>
-          <div style="height:10px;background:#e9eef6;border-radius:999px;margin-top:10px;overflow:hidden;">
-            <div style="width:{{ (counts.titles / (max_count or 1) * 100)|round(0,'floor') }}%;height:100%;background:#4f7cff;"></div>
-          </div>
-        </div>
-        <div class="soft-card">
-          <div class="btn-row" style="justify-content:space-between;"><b>Медиа</b><span class="code">{{ counts.assets }}</span></div>
-          <div style="height:10px;background:#e9eef6;border-radius:999px;margin-top:10px;overflow:hidden;">
-            <div style="width:{{ (counts.assets / (max_count or 1) * 100)|round(0,'floor') }}%;height:100%;background:#67b8ff;"></div>
-          </div>
-        </div>
-        <div class="soft-card">
-          <div class="btn-row" style="justify-content:space-between;"><b>Коды</b><span class="code">{{ counts.codes }}</span></div>
-          <div style="height:10px;background:#e9eef6;border-radius:999px;margin-top:10px;overflow:hidden;">
-            <div style="width:{{ (counts.codes / (max_count or 1) * 100)|round(0,'floor') }}%;height:100%;background:#8d6fff;"></div>
-          </div>
-        </div>
-        <div class="soft-card">
-          <div class="btn-row" style="justify-content:space-between;"><b>Репорты</b><span class="code">{{ counts.reports or 0 }}</span></div>
-          <div style="height:10px;background:#e9eef6;border-radius:999px;margin-top:10px;overflow:hidden;">
-            <div style="width:{{ (((counts.reports or 0)) / (max_count or 1) * 100)|round(0,'floor') }}%;height:100%;background:#ff7e77;"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="section-title">Быстрые переходы</div>
-      <div class="grid cards">
-        <a class="soft-card" href="/admin/media"><b>Медиа</b><div class="muted" style="margin-top:6px;">Карточки, превью, фильтры и массовые действия.</div></a>
-        <a class="soft-card" href="/admin/codes"><b>Коды</b><div class="muted" style="margin-top:6px;">Статусы, lookup и топ найденных/ненайденных кодов.</div></a>
-        <a class="soft-card" href="/admin/reports"><b>Репорты</b><div class="muted" style="margin-top:6px;">Диалог с пользователями из Telegram.</div></a>
-        <a class="soft-card" href="/admin/team"><b>Персонал</b><div class="muted" style="margin-top:6px;">Роли, доступы, профили и ачивки.</div></a>
-      </div>
+  <div class="card">
+    <h2 class="section-title">Быстрые действия</h2>
+    <div class="section-subtitle">Главные рабочие переходы без лишних экранов.</div>
+    <div class="btn-row">
+      <a class="btn" href="/admin/card-builder">Создать карточку</a>
+      <a class="btn secondary" href="/admin/chats-live">Открыть сообщения</a>
+      <a class="btn secondary" href="/admin/reports">Открыть репорты</a>
+      <a class="btn secondary" href="/admin/achievements">Управлять ачивками</a>
     </div>
   </div>
 
-  <div class="stack">
-    <div class="card">
-      <div class="section-title">Коммуникации</div>
-      <div class="btn-row" style="margin-bottom:12px;">
-        <a class="btn secondary" href="/admin/chats-live">Сообщения</a>
-        <a class="btn secondary" href="/admin/reports">Репорты</a>
+  <div class="card">
+    <h2 class="section-title">Состояние системы</h2>
+    <div class="section-subtitle">Текущее состояние основных модулей.</div>
+    <div class="grid cards">
+      <div class="card">
+        <div class="chip {% if messages_enabled %}green{% else %}gray{% endif %}">{{ "Включены" if messages_enabled else "Выключены" }}</div>
+        <div style="margin-top:10px;font-weight:800;">Сообщения</div>
       </div>
-      <div class="muted">Здесь находятся все рабочие диалоги команды и обращения пользователей через Telegram-бота.</div>
-    </div>
-    <div class="card">
-      <div class="section-title">Управление</div>
-      <div class="btn-row" style="margin-bottom:12px;">
-        <a class="btn secondary" href="/admin/analytics">Аналитика</a>
-        <a class="btn secondary" href="/admin/admin-actions">Журнал</a>
-        <a class="btn secondary" href="/admin/import-export">Импорт/экспорт</a>
+      <div class="card">
+        <div class="chip {% if reports_enabled %}green{% else %}gray{% endif %}">{{ "Включены" if reports_enabled else "Выключены" }}</div>
+        <div style="margin-top:10px;font-weight:800;">Репорты</div>
       </div>
-      <div class="muted">Контроль активности, выгрузки, отчёты и поддержка процессов команды.</div>
     </div>
   </div>
 </div>

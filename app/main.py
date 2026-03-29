@@ -21,6 +21,7 @@ from app.web.routes.admin import router as admin_web_router
 from app.web.routes.private_docs import router as private_docs_router
 from app.web.routes.stage24 import router as stage24_web_router
 from app.web.routes.stage26 import router as stage26_web_router
+from app.web.routes.stage31 import router as stage31_web_router
 
 configure_logging()
 logger = get_logger(__name__)
@@ -58,6 +59,7 @@ def create_app() -> FastAPI:
     app.include_router(admin_web_router)
     app.include_router(stage24_web_router)
     app.include_router(stage26_web_router)
+    app.include_router(stage31_web_router)
     app.include_router(private_docs_router)
     return app
 

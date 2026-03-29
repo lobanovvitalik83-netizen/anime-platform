@@ -1,4 +1,3 @@
-
 from aiogram import F, Router
 from aiogram.types import Message
 
@@ -23,6 +22,8 @@ router = Router()
 async def report_support_handler(message: Message) -> None:
     text = (message.text or "").strip()
     if not text:
+        return
+    if text.isdigit():
         return
     if get_user_mode(message.from_user.id) != USER_MODE_REPORT:
         return

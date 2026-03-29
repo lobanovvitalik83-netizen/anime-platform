@@ -1,176 +1,187 @@
-
 <!doctype html>
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <title>{{ page_title }} · Media Bridge</title>
+  <title>{{ page_title }} - Media Bridge</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    :root{--bg:#edeef0;--panel:#fff;--panel-soft:#f7f8fa;--line:#e6e8eb;--text:#23242a;--muted:#7a8190;--blue:#4f7cff;--blue-dark:#3c6df7;--green:#38b26b;--red:#d95156;--shadow:0 2px 12px rgba(18,23,38,.05);--radius:16px;--sidebar:270px;--topbar:60px}
+    :root{
+      --bg:#eff3f8; --panel:#ffffff; --panel-2:#f7f9fc; --line:#dce5f0; --text:#1f2937; --muted:#64748b;
+      --primary:#3b82f6; --primary-dark:#2563eb; --sidebar:#ffffff; --success:#16a34a; --danger:#dc2626; --shadow:0 10px 30px rgba(15,23,42,.08);
+      --radius:20px;
+    }
     *{box-sizing:border-box}
     body{margin:0;font-family:Inter,Arial,sans-serif;background:var(--bg);color:var(--text)}
     a{text-decoration:none;color:inherit}
-    .app-shell{display:grid;grid-template-columns:var(--sidebar) 1fr;min-height:100vh}
-    .sidebar{position:sticky;top:0;height:100vh;overflow:auto;padding:18px 18px 28px;background:transparent}
-    .sidebar-card{background:var(--panel);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:18px;margin-bottom:14px}
-    .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:23px;letter-spacing:-.02em}
-    .brand-logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#4f7cff,#80b1ff);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900}
-    .brand-sub{font-size:12px;color:var(--muted);margin-top:4px}
-    .nav-group{margin-top:14px}
-    .nav-title{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:12px 10px 8px;font-weight:700}
-    .nav-link{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;border-radius:14px;color:#2a2d33;transition:.16s ease;background:transparent;font-size:15px}
-    .nav-link:hover{background:#f2f6ff;color:#3059d8}
-    .nav-meta{font-size:12px;padding:3px 8px;border-radius:999px;background:#edf2ff;color:#3059d8;font-weight:700}
-    .main-zone{min-width:0}
-    .headerbar{position:sticky;top:0;z-index:15;height:var(--topbar);background:rgba(237,238,240,.88);backdrop-filter:blur(12px);border-bottom:1px solid rgba(230,232,235,.85);display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 24px}
-    .search-shell{flex:1;max-width:520px;background:#fff;border:1px solid var(--line);border-radius:14px;padding:0 14px;display:flex;align-items:center;gap:10px;height:42px;box-shadow:var(--shadow)}
-    .search-shell input{border:0;outline:none;width:100%;font-size:14px;background:transparent}
-    .top-actions{display:flex;align-items:center;gap:12px}
-    .circle-btn{width:40px;height:40px;border-radius:50%;background:#fff;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow);color:#596273;font-weight:700}
-    .user-chip{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 10px 6px 6px;box-shadow:var(--shadow)}
-    .user-chip .avatar-sm{width:32px;height:32px;border-radius:50%;overflow:hidden;background:#dfe7fb;display:flex;align-items:center;justify-content:center;font-weight:700;color:#325bd7}
-    .user-chip img{width:100%;height:100%;object-fit:cover}
-    .content{padding:22px 24px 32px}
-    .page-header{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;flex-wrap:wrap;margin-bottom:18px}
-    .page-title{margin:0;font-size:32px;font-weight:800;letter-spacing:-.03em}
-    .page-subtitle{margin-top:8px;color:var(--muted);font-size:15px;max-width:760px;line-height:1.45}
-    .card,.surface{background:var(--panel);border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);padding:18px}
-    .soft-card{background:var(--panel-soft);border:1px solid var(--line);border-radius:18px;padding:16px}
-    .grid{display:grid;gap:16px}.stack{display:grid;gap:16px}
+    .app-shell{display:flex;min-height:100vh}
+    .sidebar{width:270px;background:linear-gradient(180deg,#fff,#f7f9fc);border-right:1px solid var(--line);padding:22px 16px;position:sticky;top:0;height:100vh;overflow:auto}
+    .brand{display:flex;align-items:center;gap:12px;margin-bottom:18px;padding:8px 10px}
+    .brand-logo{width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,#4c8bf5,#7c3aed);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900}
+    .brand-title{font-size:20px;font-weight:800}
+    .brand-sub{font-size:12px;color:var(--muted)}
+    .nav-group{margin:16px 0}
+    .nav-label{padding:0 12px 8px;color:var(--muted);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+    .nav-link{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;color:#334155;font-weight:700;margin:4px 0}
+    .nav-link:hover{background:#edf4ff;color:#1d4ed8}
+    .main-area{flex:1;min-width:0}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 26px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.9);backdrop-filter:blur(10px);position:sticky;top:0;z-index:8}
+    .topbar h1{margin:0;font-size:26px;font-weight:800}
+    .topbar .meta{color:var(--muted);font-size:14px;margin-top:6px}
+    .topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .top-pill{padding:8px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);font-size:13px;color:#475569}
+    .wrap{padding:26px;max-width:1400px}
+    .hero{background:linear-gradient(135deg,rgba(76,139,245,.14),rgba(124,58,237,.08)),#fff;border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow);padding:24px;margin-bottom:20px}
+    .hero h2{margin:0 0 8px;font-size:30px}
+    .hero p{margin:0;color:var(--muted);max-width:900px;line-height:1.6}
+    .grid{display:grid;gap:18px}
     .grid.cards{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
-    .grid.two{grid-template-columns:1.2fr .8fr}.grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:20px}
+    .section-title{margin:0 0 12px;font-size:22px;font-weight:800}
+    .section-subtitle{margin:-4px 0 16px;color:var(--muted);font-size:14px}
+    .stat{font-size:34px;font-weight:900;line-height:1;margin-bottom:8px}
+    .stat-label{color:var(--muted);font-size:14px}
     .btn-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 15px;border-radius:12px;border:1px solid transparent;cursor:pointer;background:var(--blue);color:#fff;font-weight:700;transition:.16s ease}
-    .btn:hover{background:var(--blue-dark)}.btn.secondary{background:#fff;color:#2e3440;border-color:var(--line)}.btn.secondary:hover{background:#f7f8fa}.btn.green{background:var(--green)}.btn.red{background:var(--red)}.btn.ghost{background:transparent;border-color:var(--line);color:#2e3440}
-    .muted{color:var(--muted);font-size:14px}.inline{display:inline}
-    .chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#eef3ff;color:#3059d8;font-size:12px;font-weight:700}
-    .chip.gray{background:#f1f3f5;color:#5d6470}.chip.green{background:#eaf8f0;color:#1d8d54}.chip.red{background:#fdeff0;color:#c43845}.chip.orange{background:#fff4e6;color:#c9790a}
-    .code{font-family:ui-monospace,Consolas,monospace;background:#f4f6f8;border-radius:8px;padding:2px 8px;font-size:13px}
-    .error,.success,.info{border-radius:14px;padding:12px 14px;margin-bottom:14px;border:1px solid transparent}
-    .error{background:#fff1f2;color:#9f1239;border-color:#fecdd3}.success{background:#ecfdf5;color:#047857;border-color:#bbf7d0}.info{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
-    label{display:block;font-size:14px;font-weight:700;margin-bottom:7px;color:#49515d}
-    input,select,textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:11px 12px;background:#fff;color:var(--text);font-size:14px}
-    input:focus,select:focus,textarea:focus{outline:none;border-color:#b7cafb;box-shadow:0 0 0 4px rgba(79,124,255,.12)}
-    textarea{resize:vertical;min-height:120px}
-    .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+    .btn{display:inline-flex;align-items:center;justify-content:center;padding:11px 16px;border-radius:14px;background:var(--primary);color:#fff;border:0;cursor:pointer;font-weight:800}
+    .btn:hover{background:var(--primary-dark)}
+    .btn.secondary{background:#475569}
+    .btn.secondary:hover{background:#334155}
+    .btn.ghost{background:#fff;color:#334155;border:1px solid var(--line)}
+    .btn.green{background:var(--success)}
+    .btn.red{background:var(--danger)}
+    table{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden}
+    th,td{padding:13px 14px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;font-size:14px}
+    th{background:#f8fafc;color:#475569;font-weight:800}
+    tr:last-child td{border-bottom:0}
     .table-wrap{overflow:auto}
-    table{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:var(--shadow)}
-    th,td{padding:13px 14px;border-bottom:1px solid var(--line);vertical-align:top;text-align:left;font-size:14px}
-    th{background:#f8f9fb;color:#5b6472;font-weight:800}tr:last-child td{border-bottom:0}tr:hover td{background:#fafcff}
-    .avatar{width:88px;height:88px;border-radius:50%;overflow:hidden;background:#dfe7fb;display:flex;align-items:center;justify-content:center;color:#325bd7;font-size:26px;font-weight:800}
-    .avatar img{width:100%;height:100%;object-fit:cover}.avatar-lg{width:120px;height:120px}
-    .cover{min-height:180px;border-radius:18px;background:linear-gradient(135deg,#5b8fff,#9fd5ff 58%,#ffffff);position:relative;overflow:hidden}
-    .cover::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at right top,rgba(255,255,255,.42),transparent 28%),radial-gradient(circle at left bottom,rgba(255,255,255,.18),transparent 24%)}
-    .profile-hero{background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);overflow:hidden}
-    .profile-head{padding:0 22px 22px;display:flex;gap:18px;align-items:flex-end;flex-wrap:wrap;position:relative;margin-top:-56px}
-    .profile-main{flex:1;min-width:260px}.profile-name{font-size:30px;font-weight:800;letter-spacing:-.03em;margin:0 0 6px}.profile-actions{display:flex;gap:10px;flex-wrap:wrap}
-    .achievements{display:flex;flex-wrap:wrap;gap:10px}
-    .badge{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:#f4f7ff;border:1px solid #dfe7fb;font-size:13px;font-weight:700;color:#284cb5}
-    .badge-icon{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff}
-    .layout-vk{display:grid;grid-template-columns:minmax(0,1.1fr) 320px;gap:18px}
-    .messenger{display:grid;grid-template-columns:320px minmax(0,1fr);gap:18px;min-height:74vh}
-    .chat-list{background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
-    .chat-list-head{padding:16px;border-bottom:1px solid var(--line)}.chat-list-body{overflow:auto;max-height:72vh}
-    .chat-item{display:flex;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line);transition:.16s ease}.chat-item:hover,.chat-item.active{background:#f7faff}
-    .chat-main{min-width:0;flex:1}.chat-main b,.chat-preview{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .chat-panel{background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
-    .chat-panel-head{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px}
-    .chat-messages{padding:18px;overflow:auto;flex:1;display:flex;flex-direction:column;gap:12px;background:#f5f7fb}
-    .bubble-row{display:flex}.bubble-row.me{justify-content:flex-end}
-    .bubble{max-width:72%;background:#fff;border-radius:18px;padding:10px 14px;border:1px solid #e6eaf2;box-shadow:0 2px 8px rgba(24,29,40,.04)}
-    .bubble-row.me .bubble{background:#dfe9ff;border-color:#cad8ff}.bubble-meta{font-size:12px;color:var(--muted);margin-top:6px}.chat-compose{padding:14px 16px;border-top:1px solid var(--line);background:#fff}
-    .login-shell{min-height:100vh;display:grid;place-items:center;padding:28px;background:radial-gradient(circle at top left, rgba(79,124,255,.16), transparent 28%),radial-gradient(circle at bottom right, rgba(76,180,120,.12), transparent 24%),var(--bg)}
-    .login-card{width:min(980px,100%);display:grid;grid-template-columns:1fr 420px;gap:18px;align-items:stretch}
-    .login-showcase,.login-panel{background:#fff;border:1px solid var(--line);border-radius:26px;box-shadow:var(--shadow)}
-    .login-showcase{padding:28px;background:linear-gradient(145deg,#ffffff,#f3f6fc)}.login-panel{padding:28px}
-    .showcase-title{font-size:36px;line-height:1.02;font-weight:900;letter-spacing:-.04em;margin:0 0 12px}.showcase-subtitle{max-width:520px;color:var(--muted);line-height:1.6}
-    .feature-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:20px}.feature-tile{background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px}.feature-title{font-weight:800;margin-bottom:6px}.feature-text{font-size:13px;color:var(--muted);line-height:1.45}
-    .media-thumb{width:100%;max-height:220px;object-fit:cover;border-radius:14px;background:#f3f4f6;border:1px solid var(--line)}
-    @media (max-width:1200px){.app-shell{grid-template-columns:1fr}.sidebar{position:relative;height:auto;padding-bottom:0}.layout-vk,.grid.two,.grid.three,.messenger{grid-template-columns:1fr}.content{padding-top:18px}}
-    @media (max-width:900px){.login-card{grid-template-columns:1fr}.headerbar{padding:10px 14px}.content{padding:18px 14px 28px}.page-title{font-size:28px}.profile-head{margin-top:-42px;padding:0 16px 16px}.profile-name{font-size:24px}}
+    .muted{color:var(--muted);font-size:14px}
+    .error,.success,.info{padding:14px 16px;border-radius:14px;margin-bottom:16px}
+    .error{background:#fff1f2;color:#9f1239}
+    .success{background:#ecfdf5;color:#166534}
+    .info{background:#eff6ff;color:#1d4ed8}
+    .code{font-family:ui-monospace,monospace;background:#f1f5f9;padding:2px 8px;border-radius:8px;font-size:13px}
+    .chip{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;background:#edf4ff;color:#1d4ed8;font-weight:800;font-size:12px;border:1px solid #dbeafe}
+    .chip.gray{background:#f3f4f6;color:#374151;border-color:#e5e7eb}
+    .chip.green{background:#ecfdf5;color:#166534;border-color:#bbf7d0}
+    .chip.yellow{background:#fffbeb;color:#92400e;border-color:#fde68a}
+    label{display:block;font-weight:700;margin-bottom:7px}
+    input,select,textarea{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:14px;background:#fff}
+    textarea{min-height:120px;resize:vertical}
+    .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+    .avatar{width:76px;height:76px;border-radius:22px;background:linear-gradient(135deg,#dbeafe,#e5e7eb);overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:900;color:#1d4ed8}
+    .avatar img{width:100%;height:100%;object-fit:cover}
+    .login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:30px;background:radial-gradient(circle at top left, rgba(59,130,246,.12), transparent 30%), radial-gradient(circle at bottom right, rgba(124,58,237,.12), transparent 30%), var(--bg)}
+    .auth-card{width:min(100%,460px);background:#fff;border:1px solid var(--line);border-radius:28px;box-shadow:var(--shadow);padding:28px}
+    .auth-brand{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+    .auth-brand .brand-logo{width:48px;height:48px;border-radius:16px}
+    .auth-title{margin:0;font-size:30px;font-weight:900}
+    .auth-subtitle{margin:8px 0 0;color:var(--muted);line-height:1.5}
+    .profile-head{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+    .achievements-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+    .achievement-card{border:1px solid var(--line);border-radius:18px;padding:16px;background:#fff}
+    .achievement-icon{width:50px;height:50px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;color:#fff;font-weight:900;margin-bottom:12px}
+    .sidebar-footer{margin-top:18px;padding:12px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+    @media (max-width: 1020px){
+      .app-shell{display:block}
+      .sidebar{position:relative;height:auto;width:100%;border-right:0;border-bottom:1px solid var(--line)}
+      .main-area{width:100%}
+    }
+    @media (max-width: 760px){
+      .wrap{padding:16px}
+      .topbar{padding:16px}
+      .topbar h1{font-size:22px}
+      .hero h2{font-size:24px}
+      .grid.two{grid-template-columns:1fr}
+      .btn{width:100%}
+      .btn-row{align-items:stretch}
+    }
   </style>
 </head>
 <body>
-{% if current_admin %}
-<div class="app-shell">
-  <aside class="sidebar">
-    <div class="sidebar-card">
-      <a href="/admin" class="brand"><span class="brand-logo">M</span><span>Media Bridge</span></a>
-      <div class="brand-sub">панель управления проектом</div>
-    </div>
-    <div class="sidebar-card">
+
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="/admin">
+        <div class="brand-logo">MB</div>
+        <div>
+          <div class="brand-title">Media Bridge</div>
+          <div class="brand-sub">продуктовая панель</div>
+        </div>
+      </a>
+
       <div class="nav-group">
-        <div class="nav-title">Контент</div>
-        <a class="nav-link" href="/admin"><span>Главная</span></a>
-        <a class="nav-link" href="/admin/media"><span>Медиа</span></a>
-        <a class="nav-link" href="/admin/card-builder"><span>Создать карточку</span></a>
-        <a class="nav-link" href="/admin/codes"><span>Коды</span></a>
-        {% if current_admin.role in ["admin","assistant","superadmin"] %}<a class="nav-link" href="/admin/achievements"><span>Ачивки</span><span class="nav-meta">new</span></a>{% endif %}
+        <div class="nav-label">Контент</div>
+        <a class="nav-link" href="/admin">Дашборд</a>
+        <a class="nav-link" href="/admin/media">Медиа</a>
+        <a class="nav-link" href="/admin/card-builder">Создать карточку</a>
+        <a class="nav-link" href="/admin/codes">Коды</a>
+        <a class="nav-link" href="/admin/lookup-test">Lookup test</a>
       </div>
+
       <div class="nav-group">
-        <div class="nav-title">Коммуникации</div>
-        <a class="nav-link" href="/admin/chats-live"><span>Сообщения</span></a>
-        <a class="nav-link" href="/admin/reports"><span>Репорты</span></a>
-        <a class="nav-link" href="/admin/notifications"><span>Уведомления</span></a>
+        <div class="nav-label">Коммуникации</div>
+        <a class="nav-link" href="/admin/chats-live">Сообщения</a>
+        <a class="nav-link" href="/admin/reports">Репорты</a>
+        <a class="nav-link" href="/admin/notifications">Уведомления</a>
       </div>
+
       <div class="nav-group">
-        <div class="nav-title">Аналитика</div>
-        <a class="nav-link" href="/admin/analytics"><span>Обзор</span></a>
-        <a class="nav-link" href="/admin/analytics/advanced"><span>Расширенная</span></a>
-        <a class="nav-link" href="/admin/admin-actions"><span>Действия админов</span></a>
+        <div class="nav-label">Команда</div>
+        <a class="nav-link" href="/admin/people">Сотрудники</a>
+        <a class="nav-link" href="/admin/team">Персонал</a>
+        <a class="nav-link" href="/admin/achievements">Ачивки</a>
       </div>
+
       <div class="nav-group">
-        <div class="nav-title">Управление</div>
-        <a class="nav-link" href="/admin/people"><span>Команда</span></a>
-        {% if current_admin.role in ["admin","assistant","superadmin"] %}<a class="nav-link" href="/admin/team"><span>Персонал</span></a>{% endif %}
-        {% if current_admin.role in ["assistant","superadmin"] %}<a class="nav-link" href="/admin/settings/advanced"><span>Настройки</span></a>{% endif %}
-        {% if current_admin.role in ["admin","assistant","superadmin"] %}<a class="nav-link" href="/admin/import-export"><span>Импорт / экспорт</span></a>{% endif %}
+        <div class="nav-label">Контроль</div>
+        <a class="nav-link" href="/admin/analytics">Аналитика</a>
+        <a class="nav-link" href="/admin/analytics/advanced">Расширенная аналитика</a>
+        <a class="nav-link" href="/admin/admin-actions">Действия админов</a>
+        <a class="nav-link" href="/admin/import-export">Импорт/экспорт</a>
+        <a class="nav-link" href="/admin/import-export/advanced">Импорт/экспорт+</a>
       </div>
+
       <div class="nav-group">
-        <div class="nav-title">Личное</div>
-        <a class="nav-link" href="/admin/profile"><span>Профиль</span></a>
-        {% if current_admin.role == "superadmin" %}<a class="nav-link" href="/admin/api-docs"><span>API docs</span></a>{% endif %}
-        <a class="nav-link" href="/admin/logout"><span>Выход</span></a>
+        <div class="nav-label">Личное</div>
+        <a class="nav-link" href="/admin/profile">Профиль</a>
+        <a class="nav-link" href="/admin/editor-tools">Инструменты редактора</a>
+        <a class="nav-link" href="/admin/settings/advanced">Настройки</a>
+        {% if current_admin.role == "superadmin" %}<a class="nav-link" href="/admin/api-docs">API docs</a>{% endif %}
+        <a class="nav-link" href="/admin/logout">Выход</a>
       </div>
-    </div>
-  </aside>
-  <div class="main-zone">
-    <header class="headerbar">
-      <div class="search-shell"><span style="color:#8a90a0;">🔎</span><input value="" placeholder="Поиск по панели, карточкам, кодам и людям" readonly></div>
-      <div class="top-actions">
-        <a class="circle-btn" href="/admin/notifications">🔔</a>
-        <a class="circle-btn" href="/admin/reports">✉️</a>
-        <a class="user-chip" href="/admin/profile">
-          <span class="avatar-sm">{% if current_admin.avatar_url %}<img src="{{ current_admin.avatar_url }}" alt="avatar">{% else %}{{ (current_admin.full_name or current_admin.username)[0:1]|upper }}{% endif %}</span>
-          <span>{{ current_admin.full_name or current_admin.username }}</span>
-        </a>
+
+      <div class="sidebar-footer">
+        {{ current_admin.username }} · {{ current_admin.role }}
       </div>
-    </header>
-    <main class="content">
-{% else %}
-<div class="login-shell">
-{% endif %}
-{% block content %}{% endblock %}
-{% if current_admin %}
+    </aside>
+
+    <main class="main-area">
+      <div class="topbar">
+        <div>
+          <h1>{{ page_title }}</h1>
+          <div class="meta">Рабочая панель проекта, сообщения, репорты, аналитика и управление персоналом.</div>
+        </div>
+        <div class="topbar-right">
+          <a class="top-pill" href="/admin/profile">Профиль</a>
+          <a class="top-pill" href="/admin/notifications">Уведомления</a>
+        </div>
+      </div>
+      <div class="wrap">{% block content %}{% endblock %}</div>
     </main>
   </div>
-</div>
-{% else %}
-</div>
-{% endif %}
-<script>
-function toggleGroup(source, groupName) {
-  document.querySelectorAll('input[name="' + groupName + '"]').forEach(function(cb) { cb.checked = source.checked; });
-}
-function getSelectedIds(groupName) {
-  return Array.from(document.querySelectorAll('input[name="' + groupName + '"]:checked')).map(function(cb) { return cb.value; });
-}
-function openSelectedEdit(basePath, groupName) {
-  const ids = getSelectedIds(groupName);
-  if (!ids.length) { alert('Сначала выбери записи.'); return false; }
-  ids.forEach(function(id) { window.open(basePath + '/' + id + '/edit', '_blank'); });
-  return false;
-}
-</script>
+  <script>
+    function toggleGroup(source, groupName) {
+      document.querySelectorAll('input[name="' + groupName + '"]').forEach(function(cb) { cb.checked = source.checked; });
+    }
+    function getSelectedIds(groupName) {
+      return Array.from(document.querySelectorAll('input[name="' + groupName + '"]:checked')).map(function(cb) { return cb.value; });
+    }
+    function openSelectedEdit(basePath, groupName) {
+      const ids = getSelectedIds(groupName);
+      if (!ids.length) { alert('Сначала выбери записи.'); return false; }
+      ids.forEach(function(id) { window.open(basePath + '/' + id + '/edit', '_blank'); });
+      return false;
+    }
+  </script>
 </body>
 </html>

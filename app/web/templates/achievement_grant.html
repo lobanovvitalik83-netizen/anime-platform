@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2 class="section-title">Выдать ачивку</h2>
+  <div class="section-subtitle">Сотрудник: {{ person.full_name or person.username }}</div>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="post" action="/admin/people/{{ person.id }}/achievements/grant" class="grid">
+    <div>
+      <label>Ачивка</label>
+      <select name="achievement_id" required>
+        <option value="">Выбери ачивку</option>
+        {% for item in rows %}
+        <option value="{{ item.id }}">{{ item.icon or '🏆' }} {{ item.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Примечание</label>
+      <textarea name="note" placeholder="За что выдана ачивка"></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn green" type="submit">Выдать</button>
+      <a class="btn ghost" href="/admin/people/{{ person.id }}">Назад в профиль</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

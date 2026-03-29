@@ -1,4 +1,3 @@
-
 from sqlalchemy import BigInteger, ForeignKey, Index, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
