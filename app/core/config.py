@@ -246,4 +246,8 @@ def get_settings() -> Settings:
     return Settings()
 
 
+def get_runtime_settings() -> Settings:
+    return Settings()
+
+
 settings = get_settings()
