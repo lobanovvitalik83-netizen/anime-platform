@@ -1,20 +1,22 @@
 from aiogram import F, Router
 from aiogram.enums import ChatAction
-from aiogram.types import BufferedInputFile, Message
+from aiogram.types import Message
 
 from app.bot.keyboards.main_menu import build_main_menu
 from app.bot.state.session_state import USER_MODE_LOOKUP, clear_user_mode, get_user_mode
 from app.bot.utils.formatter import build_lookup_caption, build_lookup_text
 from app.core.database import SessionLocal
-from app.services.media_delivery_service import MediaDeliveryService
+from app.repositories.media_asset_repository import MediaAssetRepository
 from app.services.public_lookup_service import PublicLookupService
+from app.services.telegram_media_service import TelegramMediaService
 
 router = Router()
+telegram_media_service = TelegramMediaService()
 
 
-@router.message(F.text.regexp(r'^\d+$'))
+@router.message(F.text.regexp(r"^\d+$"))
 async def code_lookup_handler(message: Message) -> None:
-    code = (message.text or '').strip()
+    code = (message.text or "").strip()
     mode = get_user_mode(message.from_user.id)
     if mode not in {None, USER_MODE_LOOKUP}:
         return
@@ -24,42 +26,41 @@ async def code_lookup_handler(message: Message) -> None:
 
     with SessionLocal() as session:
         try:
-            result = PublicLookupService(session).lookup(code, source='telegram_bot')
+            result = PublicLookupService(session).lookup(code, source="telegram_bot")
         except Exception:
-            await message.answer('Код не найден или неактивен.', reply_markup=build_main_menu())
+            await message.answer("Код не найден или неактивен.", reply_markup=build_main_menu())
             return
 
-        media_delivery = MediaDeliveryService(session)
-        caption = build_lookup_caption(result)
-        text_fallback = build_lookup_text(result)
-        media_payload = media_delivery.resolve_media_payload(result)
-        media_url = media_delivery.resolve_media_url(result)
+    caption = build_lookup_caption(result)
+    text_fallback = build_lookup_text(result)
 
     try:
-        if result.storage_kind == 'telegram_file_id' and result.telegram_file_id:
-            if result.asset_type == 'video':
-                await message.answer_video(video=result.telegram_file_id, caption=caption, reply_markup=build_main_menu())
+        media = await telegram_media_service.resolve(result)
+        if media:
+            if media.kind == "video":
+                sent = await message.answer_video(video=media.payload, caption=caption, reply_markup=build_main_menu())
+                _persist_telegram_file_id(result.asset_id, getattr(sent.video, "file_id", None))
                 return
-            if result.asset_type in {'image', 'poster'}:
-                await message.answer_photo(photo=result.telegram_file_id, caption=caption, reply_markup=build_main_menu())
-                return
-
-        if result.asset_type in {'image', 'poster'} and media_payload is not None:
-            await message.answer_photo(
-                photo=BufferedInputFile(media_payload.file_bytes, filename=media_payload.file_name),
-                caption=caption,
-                reply_markup=build_main_menu(),
-            )
-            return
-
-        if result.storage_kind == 'external_url' and media_url:
-            if result.asset_type == 'video':
-                await message.answer_video(video=media_url, caption=caption, reply_markup=build_main_menu())
-                return
-            if result.asset_type in {'image', 'poster'}:
-                await message.answer_photo(photo=media_url, caption=caption, reply_markup=build_main_menu())
+            if media.kind in {"image", "poster"}:
+                sent = await message.answer_photo(photo=media.payload, caption=caption, reply_markup=build_main_menu())
+                if sent.photo:
+                    _persist_telegram_file_id(result.asset_id, sent.photo[-1].file_id)
                 return
 
         await message.answer(text_fallback, disable_web_page_preview=True, reply_markup=build_main_menu())
     except Exception:
         await message.answer(text_fallback, disable_web_page_preview=True, reply_markup=build_main_menu())
+
+
+def _persist_telegram_file_id(asset_id: int | None, file_id: str | None) -> None:
+    if not asset_id or not file_id:
+        return
+    with SessionLocal() as session:
+        repo = MediaAssetRepository(session)
+        asset = repo.get_by_id(asset_id)
+        if not asset:
+            return
+        if asset.telegram_file_id == file_id:
+            return
+        repo.update(asset, telegram_file_id=file_id)
+        session.commit()
