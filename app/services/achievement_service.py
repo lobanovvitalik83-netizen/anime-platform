@@ -1,12 +1,11 @@
-import secrets
-from pathlib import Path
+import re
 
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
-from app.core.exceptions import NotFoundError, ValidationError
-from app.repositories.achievement_repository import AchievementRepository
+from app.core.exceptions import ConflictError, NotFoundError, ValidationError
 from app.repositories.admin_achievement_repository import AdminAchievementRepository
+from app.repositories.achievement_repository import AchievementRepository
+from app.repositories.admin_repository import AdminRepository
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
 
@@ -16,11 +15,12 @@ class AchievementService:
         self.session = session
         self.achievements = AchievementRepository(session)
         self.grants = AdminAchievementRepository(session)
+        self.admins = AdminRepository(session)
         self.audit = AuditService(session)
         self.notifications = NotificationService(session)
 
-    def list_achievements(self):
-        return self.achievements.list_all()
+    def list_achievements(self, *, active_only: bool = False):
+        return self.achievements.list_all(active_only=active_only)
 
     def get_achievement(self, achievement_id: int):
         item = self.achievements.get_by_id(achievement_id)
@@ -31,31 +31,46 @@ class AchievementService:
     def list_admin_achievements(self, admin_id: int):
         return self.grants.list_for_admin(admin_id)
 
-    def create_achievement(self, actor_id: int, *, title: str, description: str | None, image_url: str | None):
-        title = (title or "").strip()
+    def create_achievement(self, actor_id: int, payload: dict):
+        title = (payload.get("title") or "").strip()
         if not title:
             raise ValidationError("Название ачивки обязательно.")
+        slug = (payload.get("slug") or "").strip().lower()
+        if not slug:
+            slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-") or f"achievement-{title[:16].lower()}"
+        if self.achievements.get_by_slug(slug):
+            raise ConflictError("Slug ачивки уже существует.")
         item = self.achievements.create(
+            slug=slug,
             title=title,
-            description=(description or "").strip() or None,
-            image_url=(image_url or "").strip() or None,
+            description=(payload.get("description") or "").strip() or None,
+            icon_url=(payload.get("icon_url") or "").strip() or None,
+            is_active=bool(payload.get("is_active", True)),
         )
-        self.audit.log(actor_id, "create_achievement", "achievement", str(item.id), {"title": item.title})
+        self.audit.log(actor_id, "create_achievement", "achievement", str(item.id), {"title": item.title, "slug": item.slug})
         self.session.commit()
         return item
 
-    def update_achievement(self, actor_id: int, achievement_id: int, *, title: str, description: str | None, image_url: str | None):
+    def update_achievement(self, actor_id: int, achievement_id: int, payload: dict):
         item = self.get_achievement(achievement_id)
-        title = (title or "").strip()
+        title = (payload.get("title") or "").strip()
         if not title:
             raise ValidationError("Название ачивки обязательно.")
+        slug = (payload.get("slug") or "").strip().lower()
+        if not slug:
+            slug = item.slug
+        existing = self.achievements.get_by_slug(slug)
+        if existing and existing.id != item.id:
+            raise ConflictError("Slug ачивки уже существует.")
         item = self.achievements.update(
             item,
+            slug=slug,
             title=title,
-            description=(description or "").strip() or None,
-            image_url=(image_url or "").strip() or None,
+            description=(payload.get("description") or "").strip() or None,
+            icon_url=(payload.get("icon_url") or "").strip() or None,
+            is_active=bool(payload.get("is_active", True)),
         )
-        self.audit.log(actor_id, "update_achievement", "achievement", str(item.id), {"title": item.title})
+        self.audit.log(actor_id, "update_achievement", "achievement", str(item.id), {"title": item.title, "slug": item.slug})
         self.session.commit()
         return item
 
@@ -65,26 +80,22 @@ class AchievementService:
         self.achievements.delete(item)
         self.session.commit()
 
-    def grant_achievement(self, actor, *, admin_id: int, achievement_id: int, note: str | None):
+    def grant_achievement(self, actor_id: int, admin_id: int, achievement_id: int, reason: str | None = None):
+        admin = self.admins.get_by_id(admin_id)
+        if not admin:
+            raise NotFoundError("Сотрудник не найден.")
         achievement = self.get_achievement(achievement_id)
-        existing = self.grants.get_for_admin_and_achievement(admin_id, achievement_id)
-        if existing:
-            raise ValidationError("Эта ачивка уже выдана сотруднику.")
+        if self.grants.find_existing(admin.id, achievement.id):
+            raise ConflictError("Эта ачивка уже выдана сотруднику.")
         grant = self.grants.create(
-            admin_id=admin_id,
-            achievement_id=achievement_id,
-            note=(note or "").strip() or None,
-            awarded_by_admin_id=actor.id,
-            awarded_by_name=actor.full_name or actor.username,
+            admin_id=admin.id,
+            achievement_id=achievement.id,
+            granted_by_admin_id=actor_id,
+            grant_reason=(reason or "").strip() or None,
+            display_order=0,
         )
-        self.audit.log(actor.id, "grant_achievement", "admin_achievement", str(grant.id), {"admin_id": admin_id, "achievement": achievement.title})
-        self.notifications.notify_admin(
-            admin_id,
-            kind="achievement",
-            title=f"Новая ачивка: {achievement.title}",
-            body=(note or "").strip() or f"Вам выдали ачивку «{achievement.title}».",
-            link_url=f"/admin/profile",
-        )
+        self.audit.log(actor_id, "grant_achievement", "admin_achievement", str(grant.id), {"admin_id": admin.id, "achievement_id": achievement.id})
+        self.notifications.notify_admin(admin.id, kind="achievement", title=f"Новая ачивка: {achievement.title}", body=reason or "Тебе выдали новую ачивку.", link_url=f"/admin/profile")
         self.session.commit()
         return grant
 
@@ -95,14 +106,3 @@ class AchievementService:
         self.audit.log(actor_id, "revoke_achievement", "admin_achievement", str(grant.id), {"admin_id": grant.admin_id, "achievement_id": grant.achievement_id})
         self.grants.delete(grant)
         self.session.commit()
-
-    def save_achievement_image(self, *, file_bytes: bytes, file_name: str) -> str:
-        ext = Path(file_name).suffix.lower() or ".png"
-        if ext not in {".png", ".jpg", ".jpeg", ".webp", ".gif"}:
-            raise ValidationError("Поддерживаются PNG, JPG, WEBP, GIF.")
-        folder = settings.public_upload_dir / "achievements"
-        folder.mkdir(parents=True, exist_ok=True)
-        name = f"{secrets.token_hex(12)}{ext}"
-        path = folder / name
-        path.write_bytes(file_bytes)
-        return f"/uploads/achievements/{name}"

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1 class="section-title">Настройки сайта</h1>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  {% if success %}<div class="success">{{ success }}</div>{% endif %}
+
+  <form method="post" action="/admin/settings/site" class="grid">
+    <div class="form-grid">
+      <div>
+        <label>Название сайта</label>
+        <input name="site_title" value="{{ site_title }}">
+      </div>
+      <div>
+        <label>Контакт для помощи в Telegram</label>
+        <input name="help_contact" value="{{ help_contact }}" placeholder="@username или ссылка">
+      </div>
+      <div>
+        <label>Storage backend</label>
+        <input value="{{ upload_backend_label }}" readonly disabled>
+      </div>
+      <div>
+        <label>Yandex Disk base path</label>
+        <input value="{{ yandex_disk_base_path }}" readonly disabled>
+      </div>
+    </div>
+
+    <div class="form-grid">
+      <label style="display:flex; gap:8px; align-items:center; font-weight:600;">
+        <input type="checkbox" name="messages_enabled" {% if messages_enabled %}checked{% endif %} style="width:auto;">
+        Включить сообщения
+      </label>
+      <label style="display:flex; gap:8px; align-items:center; font-weight:600;">
+        <input type="checkbox" name="reports_enabled" {% if reports_enabled %}checked{% endif %} style="width:auto;">
+        Включить репорты из Telegram
+      </label>
+    </div>
+
+    <div class="success">
+      Медиа хранится только во внешнем storage. BotHost держит только metadata, пути и публичные URL.
+    </div>
+
+    <div class="btn-row">
+      <button class="btn green" type="submit">Сохранить настройки</button>
+      <a class="btn secondary" href="/admin">Назад</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

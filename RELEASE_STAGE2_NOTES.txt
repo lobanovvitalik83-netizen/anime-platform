@@ -1,0 +1,21 @@
+
+Этап 2 — функциональная добивка поверх foundation.
+
+Что добавлено:
+- achievements / admin_achievements
+- выдача ачивок сотрудникам
+- отображение ачивок в профиле и профиле сотрудника
+- настройки сайта: site title, help contact, reports/messages toggles, Yandex info
+- import/export cards.csv
+- шаблон cards.csv
+- export everything.zip
+- media flow через import_url / external_url без хранения файлов в БД
+- обновлённые страницы:
+  - /admin/people
+  - /admin/people/{id}
+  - /admin/profile
+  - /admin/import-export
+  - /admin/achievements
+  - /admin/people/{id}/achievements/grant
+  - /admin/settings/site
+- убрана кнопка "Сгенерировать коды" с основной страницы кодов

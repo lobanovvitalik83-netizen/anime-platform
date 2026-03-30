@@ -9,7 +9,7 @@
           {% if person.avatar_url %}
           <img src="{{ person.avatar_url }}" alt="avatar">
           {% else %}
-          <span class="muted">avatar</span>
+          <span>{{ (person.full_name or person.username)[0:1] }}</span>
           {% endif %}
         </div>
 
@@ -18,13 +18,28 @@
         <div class="muted" style="margin-bottom:10px;">{{ person.position or "Без должности" }}</div>
         <span class="chip">{{ person.role }}</span>
 
+        <div class="achievement-list" style="margin-top:16px;">
+          {% for grant in achievements %}
+            {% if grant.achievement.icon_url %}
+              <img class="achievement-badge" src="{{ grant.achievement.icon_url }}" title="{{ grant.achievement.title }} — {{ grant.grant_reason or grant.achievement.description or 'Награда сотрудника' }}">
+            {% else %}
+              <span class="achievement-badge" title="{{ grant.achievement.title }} — {{ grant.grant_reason or grant.achievement.description or 'Награда сотрудника' }}">🏆</span>
+            {% endif %}
+          {% else %}
+            <span class="muted">Ачивок пока нет.</span>
+          {% endfor %}
+        </div>
+
         <div class="btn-row" style="margin-top:16px;">
           {% if messages_enabled and person.id != current_admin.id %}
           <form method="post" action="/admin/people/{{ person.id }}/message" class="inline">
             <button class="btn green" type="submit">Написать сообщение</button>
           </form>
           {% endif %}
-          <a class="btn secondary" href="/admin/people">Назад к сотрудникам</a>
+          {% if current_admin.role == 'superadmin' or 'achievement_manage' in current_permissions %}
+          <a class="btn secondary" href="/admin/people/{{ person.id }}/achievements/grant">Выдать ачивку</a>
+          {% endif %}
+          <a class="btn ghost" href="/admin/people">Назад к сотрудникам</a>
         </div>
       </div>
     </div>
@@ -32,7 +47,7 @@
 
   <div class="grid">
     <div class="card">
-      <h2>О сотруднике</h2>
+      <h2 class="section-title">О сотруднике</h2>
       {% if person.about %}
         <div>{{ person.about }}</div>
       {% else %}
@@ -41,7 +56,7 @@
     </div>
 
     <div class="card">
-      <h2>Данные</h2>
+      <h2 class="section-title">Данные</h2>
       <div class="grid">
         <div><b>Логин:</b> @{{ person.username }}</div>
         <div><b>Имя:</b> {{ person.full_name or "—" }}</div>
@@ -49,6 +64,16 @@
         <div><b>Роль:</b> {{ person.role }}</div>
       </div>
     </div>
+
+    {% if current_admin.role == 'superadmin' or 'achievement_manage' in current_permissions %}
+    <div class="card">
+      <h2 class="section-title">Награды</h2>
+      <div class="muted">Управляй наградами сотрудника и поддерживай внутреннюю мотивацию команды.</div>
+      <div class="btn-row" style="margin-top:12px;">
+        <a class="btn secondary" href="/admin/people/{{ person.id }}/achievements/grant">Открыть выдачу ачивок</a>
+      </div>
+    </div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

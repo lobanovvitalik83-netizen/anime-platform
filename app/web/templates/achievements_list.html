@@ -1,28 +1,32 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="page-head">
+<div class="btn-row" style="justify-content:space-between; margin-bottom:16px;">
   <div>
-    <h1>Ачивки</h1>
-    <div class="page-sub">Создание, редактирование и выдача достижений сотрудникам. Иконка будет маленькой в профилях и при наведении покажет описание.</div>
+    <h1 class="section-title" style="margin-bottom:6px;">Ачивки</h1>
+    <div class="muted">Создавай награды, поддерживай мотивацию команды и выдавай достижения сотрудникам.</div>
   </div>
-  <div class="btn-row">
-    <a class="btn green" href="/admin/achievements/new">Создать ачивку</a>
-  </div>
+  <a class="btn green" href="/admin/achievements/new">Создать ачивку</a>
 </div>
-{% if error %}<div class="error">{{ error }}</div>{% endif %}
-<div class="grid cards">
-  {% for item in rows %}
+
+<div class="people-grid">
+  {% for item in achievements %}
   <div class="card">
-    <div style="display:flex; gap:14px; align-items:center; margin-bottom:14px;">
-      <div class="achievement-badge" style="width:56px;height:56px;">
-        {% if item.image_url %}<img src="{{ item.image_url }}" alt="{{ item.title }}">{% else %}<span>{{ item.title[:2] }}</span>{% endif %}
+    <div class="btn-row" style="justify-content:space-between;">
+      <div class="achievement-list">
+        {% if item.icon_url %}
+        <img class="achievement-badge" src="{{ item.icon_url }}" alt="icon">
+        {% else %}
+        <span class="achievement-badge">🏆</span>
+        {% endif %}
+        <div>
+          <div style="font-weight:700;">{{ item.title }}</div>
+          <div class="muted">{{ item.slug }}</div>
+        </div>
       </div>
-      <div>
-        <div style="font-size:20px;font-weight:800;">{{ item.title }}</div>
-        <div class="muted">{{ item.description or "Без описания" }}</div>
-      </div>
+      <span class="chip {% if item.is_active %}green{% else %}gray{% endif %}">{{ 'active' if item.is_active else 'inactive' }}</span>
     </div>
-    <div class="btn-row">
+    <div style="margin-top:12px;">{{ item.description or "Без описания" }}</div>
+    <div class="btn-row" style="margin-top:16px;">
       <a class="btn secondary" href="/admin/achievements/{{ item.id }}/edit">Редактировать</a>
       <form method="post" action="/admin/achievements/{{ item.id }}/delete" class="inline" onsubmit="return confirm('Удалить ачивку?');">
         <button class="btn red" type="submit">Удалить</button>

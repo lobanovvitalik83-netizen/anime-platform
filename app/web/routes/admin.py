@@ -17,6 +17,7 @@ from app.services.media_service import MediaService
 from app.services.notification_service import NotificationService
 from app.services.public_lookup_service import PublicLookupService
 from app.services.site_setting_service import SiteSettingService
+from app.services.achievement_service import AchievementService
 from app.services.report_service import ReportService
 from app.services.permission_service import PERMISSION_LABELS, PermissionService
 from app.web.auth import clear_auth_cookie, get_current_admin_from_request, has_required_role, redirect_to, redirect_to_login, set_auth_cookie
@@ -466,7 +467,8 @@ def admin_lookup_test(request: Request, db: Session = Depends(get_db_session), c
 def admin_profile_page(request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db)
     if redirect: return redirect
-    return render_template("profile.html", request, page_title="Мой профиль", current_admin=current_admin, db=db, error=None, success=None, password_error=None, password_success=None)
+    achievements = AchievementService(db).list_admin_achievements(current_admin.id)
+    return render_template("profile.html", request, page_title="Мой профиль", current_admin=current_admin, db=db, error=None, success=None, password_error=None, password_success=None, achievements=achievements)
 
 @router.post("/admin/profile")
 async def admin_profile_submit(request: Request, db: Session = Depends(get_db_session)):
@@ -481,11 +483,13 @@ async def admin_profile_submit(request: Request, db: Session = Depends(get_db_se
             content = await avatar_file.read()
             service.upload_profile_avatar(current_admin.id, file_bytes=content, file_name=avatar_file.filename, content_type=getattr(avatar_file, "content_type", None))
         refreshed = AuthService(db).get_admin(current_admin.id)
-        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, db=db, error=None, success="Профиль обновлён.", password_error=None, password_success=None)
+        achievements = AchievementService(db).list_admin_achievements(refreshed.id)
+        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, db=db, error=None, success="Профиль обновлён.", password_error=None, password_success=None, achievements=achievements)
     except Exception as exc:
         db.rollback()
         refreshed = AuthService(db).get_admin(current_admin.id)
-        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, db=db, error=str(exc), success=None, password_error=None, password_success=None)
+        achievements = AchievementService(db).list_admin_achievements(refreshed.id)
+        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, db=db, error=str(exc), success=None, password_error=None, password_success=None, achievements=achievements)
 
 @router.post("/admin/profile/password")
 async def admin_profile_password_submit(request: Request, db: Session = Depends(get_db_session)):
@@ -497,11 +501,13 @@ async def admin_profile_password_submit(request: Request, db: Session = Depends(
     try:
         AuthService(db).change_own_password(current_admin.id, current_password, new_password)
         refreshed = AuthService(db).get_admin(current_admin.id)
-        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, db=db, error=None, success=None, password_error=None, password_success="Пароль изменён.")
+        achievements = AchievementService(db).list_admin_achievements(refreshed.id)
+        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, db=db, error=None, success=None, password_error=None, password_success="Пароль изменён.", achievements=achievements)
     except Exception as exc:
         db.rollback()
         refreshed = AuthService(db).get_admin(current_admin.id)
-        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, db=db, error=None, success=None, password_error=str(exc), password_success=None)
+        achievements = AchievementService(db).list_admin_achievements(refreshed.id)
+        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, db=db, error=None, success=None, password_error=str(exc), password_success=None, achievements=achievements)
 
 @router.get("/admin/people")
 def admin_people_page(request: Request, db: Session = Depends(get_db_session), q: str = ""):
@@ -511,7 +517,9 @@ def admin_people_page(request: Request, db: Session = Depends(get_db_session), q
     search = (q or "").strip().lower()
     if search:
         people = [item for item in people if search in " ".join([item.username or "", item.full_name or "", item.position or "", item.about or ""]).lower()]
-    return render_template("people_list.html", request, page_title="Сотрудники", current_admin=current_admin, db=db, people=people, q=q, messages_enabled=_messages_enabled(db))
+    achievement_service = AchievementService(db)
+    achievements_map = {item.id: achievement_service.list_admin_achievements(item.id) for item in people}
+    return render_template("people_list.html", request, page_title="Сотрудники", current_admin=current_admin, db=db, people=people, q=q, messages_enabled=_messages_enabled(db), achievements_map=achievements_map)
 
 @router.get("/admin/people/{admin_id}")
 def admin_person_profile(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
@@ -520,7 +528,8 @@ def admin_person_profile(admin_id: int, request: Request, db: Session = Depends(
     person = AuthService(db).get_admin(admin_id)
     if not person.is_active:
         return render_template("forbidden.html", request, page_title="Профиль скрыт", current_admin=current_admin, db=db, error="Этот профиль недоступен.")
-    return render_template("person_profile.html", request, page_title=person.full_name or person.username, current_admin=current_admin, db=db, person=person, messages_enabled=_messages_enabled(db))
+    achievements = AchievementService(db).list_admin_achievements(person.id)
+    return render_template("person_profile.html", request, page_title=person.full_name or person.username, current_admin=current_admin, db=db, person=person, messages_enabled=_messages_enabled(db), achievements=achievements)
 
 @router.post("/admin/people/{admin_id}/message")
 def admin_person_message(admin_id: int, request: Request, db: Session = Depends(get_db_session)):

@@ -13,6 +13,7 @@ PERMISSION_DEFINITIONS = [
     ("media_manage", "Управление медиа"),
     ("codes_manage", "Управление кодами"),
     ("admin_actions_view", "Просмотр действий админов"),
+    ("achievement_manage", "Ачивки и награды"),
 ]
 
 ALL_PERMISSIONS = [code for code, _label in PERMISSION_DEFINITIONS]
@@ -20,8 +21,8 @@ PERMISSION_LABELS = {code: label for code, label in PERMISSION_DEFINITIONS}
 
 DEFAULT_ROLE_PERMISSIONS = {
     "superadmin": set(ALL_PERMISSIONS),
-    "assistant": set(ALL_PERMISSIONS) - {"team_manage"},  # helper role, close to owner but not full control over personnel
-    "admin": {"reports_view", "reports_reply", "analytics_view", "analytics_export", "import_export", "editor_tools", "team_manage", "messages_manage", "media_manage", "codes_manage", "admin_actions_view"},
+    "assistant": set(ALL_PERMISSIONS) - {"team_manage"},
+    "admin": {"reports_view", "reports_reply", "analytics_view", "analytics_export", "import_export", "editor_tools", "team_manage", "messages_manage", "media_manage", "codes_manage", "admin_actions_view", "achievement_manage"},
     "support": {"reports_view", "reports_reply", "messages_manage"},
     "editor": {"editor_tools", "messages_manage", "media_manage", "codes_manage"},
 }

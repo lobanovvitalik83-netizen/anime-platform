@@ -1,8 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="btn-row" style="margin-bottom:16px;">
-  <h1 style="margin:0; flex:1;">Сотрудники</h1>
+<div class="btn-row" style="justify-content:space-between; margin-bottom:16px;">
+  <div>
+    <h1 class="section-title" style="margin-bottom:6px;">Сотрудники</h1>
+    <div class="muted">Команда проекта, профили, должности, награды и быстрый переход к диалогу.</div>
+  </div>
+  {% if messages_enabled %}
   <a class="btn secondary" href="/admin/chats">Мои сообщения</a>
+  {% endif %}
 </div>
 
 <div class="card" style="margin-bottom:16px;">
@@ -23,20 +28,31 @@
   <div class="person-card">
     <div class="profile-cover"></div>
     <div class="profile-head">
-      <div class="btn-row" style="align-items:center; justify-content:space-between;">
+      <div class="btn-row" style="justify-content:space-between; align-items:flex-start;">
         <div class="avatar">
           {% if item.avatar_url %}
           <img src="{{ item.avatar_url }}" alt="avatar">
           {% else %}
-          <span class="muted">avatar</span>
+          <span>{{ (item.full_name or item.username)[0:1] }}</span>
           {% endif %}
         </div>
         <span class="chip">{{ item.role }}</span>
       </div>
 
       <h3 style="margin:14px 0 6px;">{{ item.full_name or item.username }}</h3>
-      <div class="muted" style="margin-bottom:8px;">@{{ item.username }}</div>
+      <div class="muted" style="margin-bottom:6px;">@{{ item.username }}</div>
       <div class="muted" style="margin-bottom:10px;">{{ item.position or "Без должности" }}</div>
+
+      <div class="achievement-list" style="margin-bottom:12px;">
+        {% for grant in achievements_map.get(item.id, [])[:6] %}
+          {% if grant.achievement.icon_url %}
+            <img class="achievement-badge" src="{{ grant.achievement.icon_url }}" title="{{ grant.achievement.title }} — {{ grant.grant_reason or grant.achievement.description or 'Награда сотрудника' }}">
+          {% else %}
+            <span class="achievement-badge" title="{{ grant.achievement.title }} — {{ grant.grant_reason or grant.achievement.description or 'Награда сотрудника' }}">🏆</span>
+          {% endif %}
+        {% endfor %}
+      </div>
+
       {% if item.about %}
       <div style="margin-bottom:14px;">{{ item.about }}</div>
       {% endif %}

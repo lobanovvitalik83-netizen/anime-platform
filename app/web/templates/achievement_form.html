@@ -1,36 +1,37 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="page-head">
-  <div>
-    <h1>{{ page_title }}</h1>
-    <div class="page-sub">Загрузи картинку или укажи ссылку. Она будет показываться маленьким бейджем в профилях и списках.</div>
-  </div>
-</div>
 <div class="card">
+  <h1 class="section-title">{{ page_title }}</h1>
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
   {% if success %}<div class="success">{{ success }}</div>{% endif %}
-  <form method="post" action="{{ action_url }}" enctype="multipart/form-data" class="grid">
+  <form method="post" action="{{ action_url }}" class="grid">
     <div class="form-grid">
       <div>
-        <label>Название ачивки</label>
-        <input name="title" value="{{ values.get('title','') }}" required>
+        <label>Название</label>
+        <input name="title" value="{{ values.get('title', '') }}" required>
       </div>
       <div>
-        <label>Ссылка на картинку</label>
-        <input name="image_url" value="{{ values.get('image_url','') }}" placeholder="https://... или /uploads/achievements/...">
+        <label>Slug</label>
+        <input name="slug" value="{{ values.get('slug', '') }}" placeholder="Можно оставить пустым">
       </div>
       <div>
-        <label>Или загрузить картинку</label>
-        <input type="file" name="image_file" accept="image/*">
+        <label>Иконка URL</label>
+        <input name="icon_url" value="{{ values.get('icon_url', '') }}" placeholder="https://...">
+      </div>
+      <div>
+        <label style="display:flex; gap:8px; align-items:center; font-weight:600; margin-top:30px;">
+          <input type="checkbox" name="is_active" {% if values.get('is_active', True) %}checked{% endif %} style="width:auto;">
+          Активна
+        </label>
       </div>
     </div>
     <div>
       <label>Описание</label>
-      <textarea name="description">{{ values.get('description','') }}</textarea>
+      <textarea name="description">{{ values.get('description', '') }}</textarea>
     </div>
     <div class="btn-row">
       <button class="btn green" type="submit">{{ submit_label }}</button>
-      <a class="btn ghost" href="/admin/achievements">Назад</a>
+      <a class="btn secondary" href="/admin/achievements">Назад</a>
     </div>
   </form>
 </div>

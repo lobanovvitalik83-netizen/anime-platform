@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="grid" style="grid-template-columns: minmax(320px, 1fr) minmax(360px, 480px); align-items:start;">
+<div class="layout-two">
   <div class="card">
-    <h1>Мой профиль</h1>
+    <h1 class="section-title">Мой профиль</h1>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
     {% if success %}<div class="success">{{ success }}</div>{% endif %}
 
@@ -11,13 +11,25 @@
         {% if current_admin.avatar_url %}
           <img src="{{ current_admin.avatar_url }}" alt="avatar">
         {% else %}
-          <span class="muted">avatar</span>
+          <span>{{ current_admin.username[0:1] }}</span>
         {% endif %}
       </div>
       <div>
-        <div><b>{{ current_admin.username }}</b></div>
-        <div class="muted">{{ current_admin.role }}</div>
+        <div><b>{{ current_admin.full_name or current_admin.username }}</b></div>
+        <div class="muted">@{{ current_admin.username }} · {{ current_admin.role }}</div>
       </div>
+    </div>
+
+    <div class="achievement-list" style="margin-bottom:16px;">
+      {% for grant in achievements %}
+        {% if grant.achievement.icon_url %}
+          <img class="achievement-badge" src="{{ grant.achievement.icon_url }}" title="{{ grant.achievement.title }} — {{ grant.grant_reason or grant.achievement.description or 'Награда сотрудника' }}">
+        {% else %}
+          <span class="achievement-badge" title="{{ grant.achievement.title }} — {{ grant.grant_reason or grant.achievement.description or 'Награда сотрудника' }}">🏆</span>
+        {% endif %}
+      {% else %}
+        <span class="muted">У тебя пока нет ачивок.</span>
+      {% endfor %}
     </div>
 
     <form method="post" action="/admin/profile" enctype="multipart/form-data" class="grid">
@@ -45,7 +57,7 @@
       </div>
 
       <div>
-        <label>About</label>
+        <label>О себе</label>
         <textarea name="about">{{ current_admin.about or '' }}</textarea>
       </div>
 
@@ -66,24 +78,25 @@
     </form>
   </div>
 
-  <div class="card">
-    <h2>Смена пароля</h2>
-    {% if password_error %}<div class="error">{{ password_error }}</div>{% endif %}
-    {% if password_success %}<div class="success">{{ password_success }}</div>{% endif %}
-
-    <form method="post" action="/admin/profile/password" class="grid">
-      <div>
-        <label>Текущий пароль</label>
-        <input type="password" name="current_password" required>
-      </div>
-      <div>
-        <label>Новый пароль</label>
-        <input type="password" name="new_password" required>
-      </div>
-      <div class="btn-row">
-        <button class="btn green" type="submit">Изменить пароль</button>
-      </div>
-    </form>
+  <div class="grid">
+    <div class="card">
+      <h2 class="section-title">Смена пароля</h2>
+      {% if password_error %}<div class="error">{{ password_error }}</div>{% endif %}
+      {% if password_success %}<div class="success">{{ password_success }}</div>{% endif %}
+      <form method="post" action="/admin/profile/password" class="grid">
+        <div>
+          <label>Текущий пароль</label>
+          <input type="password" name="current_password" required>
+        </div>
+        <div>
+          <label>Новый пароль</label>
+          <input type="password" name="new_password" required>
+        </div>
+        <div class="btn-row">
+          <button class="btn green" type="submit">Изменить пароль</button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
 {% endblock %}
