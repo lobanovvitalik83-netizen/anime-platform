@@ -13,6 +13,7 @@ from app.api.routes.media_proxy import router as media_proxy_router
 from app.api.routes.media_seasons import router as media_seasons_router
 from app.api.routes.media_titles import router as media_titles_router
 from app.api.routes.public_lookup import router as public_lookup_router
+from app.api.routes.vk_bot import router as vk_bot_router
 from app.bot.dispatcher import start_bot_polling, stop_bot_polling
 from app.core.config import settings
 from app.core.database import SessionLocal, init_database
@@ -96,6 +97,7 @@ def create_app() -> FastAPI:
     app.include_router(media_assets_router)
     app.include_router(access_codes_router)
     app.include_router(public_lookup_router)
+    app.include_router(vk_bot_router)
     app.include_router(admin_web_router)
     app.include_router(stage24_web_router)
     app.include_router(stage26_web_router)

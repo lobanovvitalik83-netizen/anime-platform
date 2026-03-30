@@ -1019,7 +1019,7 @@ def admin_settings_general_page(request: Request, db: Session = Depends(get_db_s
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="superadmin")
     if redirect: return redirect
     service = SiteSettingService(db)
-    return render_template("settings_general.html", request, page_title="Общие настройки", current_admin=current_admin, db=db, messages_enabled=service.is_messages_enabled(), reports_enabled=service.is_reports_enabled(), maintenance_mode=service.is_maintenance_mode(), site_title=service.get_str("site_title", "Media Bridge"), logo_url=service.get_str("logo_url", ""), telegram_help_contact=service.get_str("telegram_help_contact", ""), error=None, success=None)
+    return render_template("settings_general.html", request, page_title="Общие настройки", current_admin=current_admin, db=db, messages_enabled=service.is_messages_enabled(), reports_enabled=service.is_reports_enabled(), maintenance_mode=service.is_maintenance_mode(), site_title=service.get_str("site_title", "Media Bridge"), logo_url=service.get_str("logo_url", ""), telegram_help_contact=service.get_str("telegram_help_contact", ""), vk_configured=settings.vk_configured, vk_callback_url=settings.vk_callback_url, vk_group_id=settings.resolved_vk_group_id, error=None, success=None)
 
 
 @router.post("/admin/settings/general")
@@ -1034,7 +1034,7 @@ async def admin_settings_general_submit(request: Request, db: Session = Depends(
     service.set_str("site_title", str(form.get("site_title", "")).strip() or "Media Bridge")
     service.set_str("logo_url", str(form.get("logo_url", "")).strip())
     service.set_str("telegram_help_contact", str(form.get("telegram_help_contact", "")).strip())
-    return render_template("settings_general.html", request, page_title="Общие настройки", current_admin=current_admin, db=db, messages_enabled=service.is_messages_enabled(), reports_enabled=service.is_reports_enabled(), maintenance_mode=service.is_maintenance_mode(), site_title=service.get_str("site_title", "Media Bridge"), logo_url=service.get_str("logo_url", ""), telegram_help_contact=service.get_str("telegram_help_contact", ""), error=None, success="Настройки обновлены.")
+    return render_template("settings_general.html", request, page_title="Общие настройки", current_admin=current_admin, db=db, messages_enabled=service.is_messages_enabled(), reports_enabled=service.is_reports_enabled(), maintenance_mode=service.is_maintenance_mode(), site_title=service.get_str("site_title", "Media Bridge"), logo_url=service.get_str("logo_url", ""), telegram_help_contact=service.get_str("telegram_help_contact", ""), vk_configured=settings.vk_configured, vk_callback_url=settings.vk_callback_url, vk_group_id=settings.resolved_vk_group_id, error=None, success="Настройки обновлены.")
 
 
 # ANALYTICS / ACTIONS

@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     telegram_media_upload_chat_id: str = Field(default='', alias='TELEGRAM_MEDIA_UPLOAD_CHAT_ID')
     telegram_help_contact_text: str = Field(default='', alias='TELEGRAM_HELP_CONTACT')
 
+    vk_group_id_raw: str = Field(default='', alias='VK_GROUP_ID')
+    vk_bot_token: str = Field(default='', alias='VK_BOT_TOKEN')
+    vk_callback_confirmation_token: str = Field(default='', alias='VK_CALLBACK_CONFIRMATION_TOKEN')
+    vk_callback_secret: str = Field(default='', alias='VK_CALLBACK_SECRET')
+    vk_api_version: str = Field(default='5.199', alias='VK_API_VERSION')
+    vk_help_contact_text: str = Field(default='', alias='VK_HELP_CONTACT')
+
     media_storage_backend_raw: str = Field(default='auto', alias='MEDIA_STORAGE_BACKEND')
     public_base_url_raw: str = Field(default='', alias='PUBLIC_BASE_URL')
 
@@ -122,6 +129,23 @@ class Settings(BaseSettings):
         if re.fullmatch(r'-?\d+', value):
             return int(value)
         return value
+
+    @property
+    def resolved_vk_group_id(self) -> int | None:
+        value = self.vk_group_id_raw.strip()
+        if not value:
+            return None
+        return int(value)
+
+    @property
+    def vk_configured(self) -> bool:
+        return bool(self.vk_bot_token.strip() and self.vk_callback_confirmation_token.strip())
+
+    @property
+    def vk_callback_url(self) -> str:
+        if not self.public_base_url:
+            return ''
+        return f'{self.public_base_url}/api/vk/callback'
 
     @property
     def media_storage_backend(self) -> str:

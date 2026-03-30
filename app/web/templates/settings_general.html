@@ -24,4 +24,12 @@
     </div>
   </form>
 </div>
+
+    <div class="card" style="margin-top:18px;">
+      <h3>VK bot</h3>
+      <div class="muted">Статус: {% if vk_configured %}настроен{% else %}не настроен{% endif %}</div>
+      <div class="muted">Callback URL: {{ vk_callback_url or 'PUBLIC_BASE_URL не задан' }}</div>
+      <div class="muted">Group ID: {{ vk_group_id or 'не задан' }}</div>
+    </div>
+
 {% endblock %}

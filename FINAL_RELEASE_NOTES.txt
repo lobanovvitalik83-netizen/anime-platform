@@ -12,3 +12,5 @@ Included in this build:
 - team reset-password by one-time link
 - reset password page
 - dashboard, people, team, chats, reports, notifications, admin-actions, import-export, settings, achievements pages verified statically and via smoke test
+
+VK bot added: /api/vk/callback with lookup, reports and help.

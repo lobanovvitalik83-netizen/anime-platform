@@ -99,3 +99,5 @@
 /health
 /media/yandex-disk/{asset_id}
 /uploads
+
+/api/vk/callback

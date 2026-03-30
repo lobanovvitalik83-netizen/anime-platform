@@ -8,3 +8,11 @@
 8. Open /admin/login
 9. Login as owner
 10. Run smoke test on core pages
+
+VK bot env to fill:
+- VK_GROUP_ID
+- VK_BOT_TOKEN
+- VK_CALLBACK_CONFIRMATION_TOKEN
+- VK_CALLBACK_SECRET
+- VK_API_VERSION
+- VK_HELP_CONTACT

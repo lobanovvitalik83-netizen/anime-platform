@@ -25,3 +25,10 @@ Critical flows:
 - grant achievement
 - create password reset link
 - consume password reset link
+
+VK bot smoke test:
+- POST /api/vk/callback with type=confirmation returns confirmation string
+- send "Поиск по коду" in VK
+- send code in VK
+- send "Репорт" in VK
+- reply from /admin/reports goes back to VK

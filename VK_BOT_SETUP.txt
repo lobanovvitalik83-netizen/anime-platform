@@ -1,0 +1,26 @@
+VK bot added to project.
+
+What is included:
+- Callback API endpoint: /api/vk/callback
+- VK bot supports:
+  - code lookup
+  - reports
+  - help
+- admin replies from /admin/reports go back to VK if ticket source is vk
+- settings page shows VK callback URL and config status
+
+Required env:
+VK_GROUP_ID=
+VK_BOT_TOKEN=
+VK_CALLBACK_CONFIRMATION_TOKEN=
+VK_CALLBACK_SECRET=
+VK_API_VERSION=5.199
+VK_HELP_CONTACT=
+
+How to connect in VK community:
+1. Create / open community bot access token.
+2. Set callback URL to: PUBLIC_BASE_URL + /api/vk/callback
+3. Put confirmation string into VK_CALLBACK_CONFIRMATION_TOKEN.
+4. Put callback secret into VK_CALLBACK_SECRET.
+5. Enable message_new event.
+6. After save, VK should receive confirmation string from endpoint.
