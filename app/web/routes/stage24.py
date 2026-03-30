@@ -24,9 +24,6 @@ from app.web.templates import templates
 router = APIRouter(include_in_schema=False)
 
 def render_template(name: str, request: Request, **context):
-    current_admin = context.get("current_admin")
-    if current_admin:
-        context.setdefault("current_permissions", sorted(PermissionService().get_permissions(current_admin)))
     return templates.TemplateResponse(name, {"request": request, **context})
 
 def require_auth(request: Request, db: Session, permission: str | None = None):

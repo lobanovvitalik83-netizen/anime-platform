@@ -1,26 +1,25 @@
-FIX PATCH: кнопки Telegram и режим репортов
+UI stabilize patch for current anime-platform-main.
 
-Причина:
-- report handler был слишком широким
-- он перехватывал вообще любой текст раньше кнопок
-- из-за этого:
-  - кнопки "Репорт", "Поиск по коду", "Помощь" могли не срабатывать
-  - обычный текст не доходил до правильного режима
-
-Что исправлено:
-- report handler теперь не ловит:
-  - /команды
-  - "Поиск по коду"
-  - "Репорт"
-  - "Помощь"
-- репорт обрабатывается только когда пользователь уже находится в режиме репорта
+Что исправляет:
+- убирает ссылки на несуществующие вкладки из левой панели
+- показывает разделы по ролям и правам
+- чинит /admin за счёт безопасного дашборда
+- добавляет работающие /admin/notifications и /admin/admin-actions
+- приводит сообщения к нормальному рабочему виду
+- делает журнал действий компактнее
 
 Что заменить:
-- app/bot/handlers/report_support.py
+- app/web/routes/admin.py
+- app/web/templates/base.html
+- app/web/templates/dashboard.html
+- app/web/templates/chat_list.html
+- app/web/templates/chat_room.html
+- app/web/templates/admin_actions.html
 
 После замены:
 1. redeploy
-2. в боте нажать "Репорт"
-3. отправить обычный текст
-4. должен прийти ответ "Обращение отправлено в поддержку"
-5. проверить /admin/reports
+2. проверить /admin
+3. проверить /admin/profile
+4. проверить /admin/chats
+5. проверить /admin/notifications
+6. проверить /admin/admin-actions

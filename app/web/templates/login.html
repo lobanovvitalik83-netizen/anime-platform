@@ -1,22 +1,23 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="auth-card">
-  <h1 style="margin-top:0;">Вход в Media Bridge</h1>
-  <div class="muted" style="margin-bottom:16px;">Авторизация в рабочую панель проекта.</div>
-  {% if error %}<div class="error">{{ error }}</div>{% endif %}
-  <form method="post" action="/admin/login" class="grid">
-    <div>
-      <label>Логин</label>
-      <input name="username" required>
-    </div>
-    <div>
-      <label>Пароль</label>
-      <input type="password" name="password" required>
-    </div>
-    <div class="btn-row">
-      <button class="btn green" type="submit">Войти</button>
-      <a class="btn ghost" href="/admin/forgot-password">Забыл пароль</a>
-    </div>
-  </form>
+<div class="login-box">
+  <div class="card">
+    <h1>Вход в админку</h1>
+    <p class="muted">Войди логином и паролем администратора.</p>
+    {% if error %}
+      <div class="error">{{ error }}</div>
+    {% endif %}
+    <form method="post" action="/admin/login" class="grid">
+      <div>
+        <label for="username">Логин</label>
+        <input id="username" name="username" required>
+      </div>
+      <div>
+        <label for="password">Пароль</label>
+        <input id="password" name="password" type="password" required>
+      </div>
+      <button class="btn" type="submit">Войти</button>
+    </form>
+  </div>
 </div>
 {% endblock %}

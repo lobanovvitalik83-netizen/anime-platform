@@ -13,6 +13,7 @@ from app.services.report_service import ReportService
 
 router = Router()
 
+
 @router.message(
     F.text,
     ~F.text.startswith("/"),
@@ -20,13 +21,17 @@ router = Router()
 )
 async def report_support_handler(message: Message) -> None:
     text = (message.text or "").strip()
-    if not text or text.isdigit():
+    if not text:
+        return
+    if text.isdigit():
         return
     if get_user_mode(message.from_user.id) != USER_MODE_REPORT:
         return
+
     full_name = " ".join(
         [part for part in [message.from_user.first_name, message.from_user.last_name] if part]
     ).strip() or None
+
     with SessionLocal() as session:
         try:
             ticket = ReportService(session).create_or_append_from_telegram(
@@ -42,6 +47,7 @@ async def report_support_handler(message: Message) -> None:
                 reply_markup=build_main_menu(),
             )
             return
+
     await message.answer(
         f"Обращение отправлено в поддержку. Номер обращения: #{ticket.id}",
         reply_markup=build_main_menu(),
