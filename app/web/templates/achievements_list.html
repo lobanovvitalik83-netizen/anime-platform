@@ -1,40 +1,34 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card" style="margin-bottom:18px;">
-  <div class="btn-row" style="justify-content:space-between;">
-    <div>
-      <h1 class="page-title">Ачивки</h1>
-      <div class="page-subtitle">Создание, редактирование и выдача достижений сотрудникам.</div>
-    </div>
-    <a class="btn green" href="/admin/achievements/new">Создать ачивку</a>
-  </div>
+<div class="hero">
+  <h2>Ачивки</h2>
+  <p>Создавай достижения проекта и выдавай их сотрудникам. Выданные ачивки автоматически появляются в профиле человека.</p>
 </div>
 
+<div class="btn-row" style="margin-bottom:18px;">
+  <a class="btn green" href="/admin/achievements/new">Создать ачивку</a>
+</div>
+
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+
 <div class="grid cards">
-  {% for item in achievements %}
+  {% for item in rows %}
   <div class="card">
-    <div class="btn-row" style="align-items:center; justify-content:space-between;">
-      <div class="btn-row" style="align-items:center;">
-        <div class="ach-badge" style="width:56px;height:56px;">
-          {% if item.icon_url %}<img src="{{ item.icon_url }}" alt="{{ item.title }}">{% else %}<span>★</span>{% endif %}
-        </div>
-        <div>
-          <div style="font-weight:800; font-size:20px;">{{ item.title }}</div>
-          <div class="muted">{{ item.slug }}</div>
-        </div>
-      </div>
-      <span class="chip {% if item.is_active %}green{% else %}gray{% endif %}">{{ "Активна" if item.is_active else "Выключена" }}</span>
+    <div class="achievement-icon" style="background: {{ item.color or '#4c8bf5' }};">{{ item.icon or '🏆' }}</div>
+    <div style="font-size:20px;font-weight:900;">{{ item.name }}</div>
+    <div class="muted" style="margin-top:8px; min-height:42px;">{{ item.description or "Описание не заполнено." }}</div>
+    <div class="btn-row" style="margin-top:14px;">
+      <span class="chip {% if item.is_active %}green{% else %}gray{% endif %}">{{ "Активна" if item.is_active else "Отключена" }}</span>
     </div>
-    <div style="margin-top:12px;">{{ item.description or "Без описания" }}</div>
-    <div class="btn-row" style="margin-top:16px;">
+    <div class="btn-row" style="margin-top:14px;">
       <a class="btn secondary" href="/admin/achievements/{{ item.id }}/edit">Редактировать</a>
-      <form method="post" action="/admin/achievements/{{ item.id }}/delete" class="inline" onsubmit="return confirm('Удалить ачивку?');">
+      <form method="post" action="/admin/achievements/{{ item.id }}/delete" class="inline">
         <button class="btn red" type="submit">Удалить</button>
       </form>
     </div>
   </div>
   {% else %}
-  <div class="card"><span class="muted">Ачивок пока нет.</span></div>
+  <div class="card"><div class="muted">Ачивок пока нет.</div></div>
   {% endfor %}
 </div>
 {% endblock %}

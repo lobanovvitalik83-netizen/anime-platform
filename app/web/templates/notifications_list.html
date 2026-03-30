@@ -1,39 +1,44 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card">
-  <div class="btn-row" style="justify-content:space-between; margin-bottom:16px;">
-    <div>
-      <h1 class="page-title">Уведомления</h1>
-      <div class="page-subtitle">Новые сообщения, репорты, системные события и действия в панели.</div>
-    </div>
-    <div class="btn-row">
-      <a class="btn ghost" href="/admin/notifications">Все</a>
-      <a class="btn ghost" href="/admin/notifications?only_unread=true">Непрочитанные</a>
-    </div>
-  </div>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Когда</th><th>Тип</th><th>Заголовок</th><th>Описание</th><th>Статус</th><th></th></tr></thead>
-      <tbody>
-      {% for item in rows %}
-      <tr>
-        <td>{{ item.created_at }}</td>
-        <td><span class="chip gray">{{ item.kind }}</span></td>
-        <td>{{ item.title }}</td>
-        <td>{{ item.body or "—" }}</td>
-        <td>{% if item.is_read %}<span class="chip gray">Прочитано</span>{% else %}<span class="chip green">Новое</span>{% endif %}</td>
-        <td>
-          <div class="btn-row">
-            {% if item.link_url %}<a class="btn secondary" href="{{ item.link_url }}">Открыть</a>{% endif %}
-            {% if not item.is_read %}<form method="post" action="/admin/notifications/{{ item.id }}/read" class="inline"><button class="btn green" type="submit">Прочитано</button></form>{% endif %}
-          </div>
-        </td>
-      </tr>
-      {% else %}
-      <tr><td colspan="6"><span class="muted">Уведомлений пока нет.</span></td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
+<div class="btn-row" style="margin-bottom:16px;">
+  <h1 style="margin:0; flex:1;">Уведомления</h1>
+  <a class="btn secondary" href="/admin/notifications">Все</a>
+  <a class="btn secondary" href="/admin/notifications?only_unread=true">Только непрочитанные</a>
 </div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Когда</th>
+      <th>Тип</th>
+      <th>Заголовок</th>
+      <th>Описание</th>
+      <th>Статус</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in rows %}
+    <tr>
+      <td>{{ item.created_at }}</td>
+      <td>{{ item.kind }}</td>
+      <td>{{ item.title }}</td>
+      <td>{{ item.body or "—" }}</td>
+      <td>{{ "Прочитано" if item.is_read else "Новое" }}</td>
+      <td>
+        <div class="btn-row">
+          {% if item.link_url %}<a class="btn secondary" href="{{ item.link_url }}">Открыть</a>{% endif %}
+          {% if not item.is_read %}
+          <form method="post" action="/admin/notifications/{{ item.id }}/read" class="inline">
+            <button class="btn green" type="submit">Прочитано</button>
+          </form>
+          {% endif %}
+        </div>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6"><span class="muted">Уведомлений пока нет.</span></td></tr>
+    {% endfor %}
+  </tbody>
+</table>
 {% endblock %}

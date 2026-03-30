@@ -1,0 +1,33 @@
+Stage 23 - security and production stabilization
+
+Что реально добавлено:
+- rate limit на вход в админку
+- rate limit на Telegram-репорты
+- maintenance mode middleware
+- security headers:
+  - X-Frame-Options
+  - X-Content-Type-Options
+  - Referrer-Policy
+  - Cache-Control
+  - HSTS in production
+- централизованный cleanup старых:
+  - audit logs
+  - notifications
+  - import jobs
+- безопаснее dashboard:
+  - safe count
+  - recent notifications without fatal crash
+- ограничение на массовое удаление карточек
+- улучшен unread count для уведомлений
+
+Что сделать после замены:
+1. redeploy
+2. проверить /admin/login
+3. проверить /admin
+4. проверить maintenance mode
+5. проверить Telegram report flow
+6. проверить, что старые страницы не падают от одного сбоя в dashboard
+
+Важно:
+- это этап 23: безопасность и прод-стабилизация
+- это не финальная production-сборка и не финальная mobile-адаптация

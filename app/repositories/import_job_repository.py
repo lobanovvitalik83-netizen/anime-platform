@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -23,3 +25,11 @@ class ImportJobRepository:
             setattr(entity, key, value)
         self.session.flush()
         return entity
+
+    def purge_older_than(self, days: int) -> int:
+        if days <= 0:
+            return 0
+        threshold = datetime.utcnow() - timedelta(days=days)
+        rows = self.session.query(ImportJob).filter(ImportJob.created_at < threshold).delete(synchronize_session=False)
+        self.session.flush()
+        return int(rows or 0)

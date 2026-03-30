@@ -60,6 +60,16 @@ class Settings(BaseSettings):
     data_dir_raw: str = Field(default="/app/data", alias="DATA_DIR")
     max_avatar_size_bytes: int = Field(default=2_097_152, alias="MAX_AVATAR_SIZE_BYTES")
 
+    login_rate_limit_attempts: int = Field(default=7, alias="LOGIN_RATE_LIMIT_ATTEMPTS")
+    login_rate_limit_window_seconds: int = Field(default=300, alias="LOGIN_RATE_LIMIT_WINDOW_SECONDS")
+    report_rate_limit_attempts: int = Field(default=6, alias="REPORT_RATE_LIMIT_ATTEMPTS")
+    report_rate_limit_window_seconds: int = Field(default=120, alias="REPORT_RATE_LIMIT_WINDOW_SECONDS")
+    maintenance_allow_health: bool = Field(default=True, alias="MAINTENANCE_ALLOW_HEALTH")
+    audit_retention_days: int = Field(default=120, alias="AUDIT_RETENTION_DAYS")
+    notifications_retention_days: int = Field(default=45, alias="NOTIFICATIONS_RETENTION_DAYS")
+    import_jobs_retention_days: int = Field(default=30, alias="IMPORT_JOBS_RETENTION_DAYS")
+    max_bulk_delete_items: int = Field(default=50, alias="MAX_BULK_DELETE_ITEMS")
+
     @field_validator("app_env")
     @classmethod
     def validate_app_env(cls, value: str) -> str:
@@ -201,8 +211,10 @@ class Settings(BaseSettings):
             return "Auto mode выбрал S3-compatible storage."
         return "Внешний storage не настроен. Сохранять можно только прямые внешние ссылки."
 
+
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings()
+
 
 settings = get_settings()

@@ -1,17 +1,33 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="card">
-  <h1 class="page-title">{{ page_title }}</h1>
-  {% if error %}<div class="error" style="margin-top:16px;">{{ error }}</div>{% endif %}
-  {% if success %}<div class="success" style="margin-top:16px;">{{ success }}</div>{% endif %}
-  <form method="post" action="{{ action_url }}" class="grid" style="margin-top:16px;">
+  <h2 class="section-title">{{ page_title }}</h2>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="post" action="{{ action_url }}" class="grid">
     <div class="form-grid">
-      <div><label>Slug</label><input name="slug" value="{{ values.slug }}" required></div>
-      <div><label>Название</label><input name="title" value="{{ values.title }}" required></div>
-      <div><label>Icon URL</label><input name="icon_url" value="{{ values.icon_url }}"></div>
-      <div><label style="display:flex; gap:8px; align-items:center; margin-top:30px;"><input type="checkbox" name="is_active" style="width:auto;" {% if values.is_active %}checked{% endif %}>Активна</label></div>
+      <div>
+        <label>Название</label>
+        <input name="name" value="{{ values.name or '' }}" required>
+      </div>
+      <div>
+        <label>Иконка</label>
+        <input name="icon" value="{{ values.icon or '🏆' }}" placeholder="🏆">
+      </div>
+      <div>
+        <label>Цвет</label>
+        <input name="color" value="{{ values.color or '#4c8bf5' }}" placeholder="#4c8bf5">
+      </div>
+      <div>
+        <label style="display:flex;gap:8px;align-items:center;margin-top:30px;">
+          <input type="checkbox" name="is_active" style="width:auto;" {% if values.is_active %}checked{% endif %}>
+          Активна
+        </label>
+      </div>
     </div>
-    <div><label>Описание</label><textarea name="description">{{ values.description }}</textarea></div>
+    <div>
+      <label>Описание</label>
+      <textarea name="description">{{ values.description or '' }}</textarea>
+    </div>
     <div class="btn-row">
       <button class="btn green" type="submit">{{ submit_label }}</button>
       <a class="btn ghost" href="/admin/achievements">Назад</a>

@@ -4,8 +4,12 @@ import hmac
 import json
 import secrets
 import string
+import threading
 import time
+from collections import deque
 from typing import Any
+
+from fastapi import Request
 
 from app.core.config import settings
 
@@ -81,3 +85,32 @@ def verify_session_token(token: str) -> dict[str, Any] | None:
         return {"admin_id": admin_id, "issued_at": issued_at}
     except Exception:
         return None
+
+
+def get_client_identifier(request: Request) -> str:
+    forwarded_for = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    real_ip = request.headers.get("x-real-ip", "").strip()
+    host = forwarded_for or real_ip or (request.client.host if request.client else "unknown")
+    return host or "unknown"
+
+
+class SimpleRateLimiter:
+    def __init__(self) -> None:
+        self._store: dict[str, deque[float]] = {}
+        self._lock = threading.Lock()
+
+    def is_allowed(self, key: str, *, attempts: int, window_seconds: int) -> tuple[bool, int]:
+        now = time.time()
+        with self._lock:
+            queue = self._store.setdefault(key, deque())
+            while queue and queue[0] <= now - window_seconds:
+                queue.popleft()
+            if len(queue) >= attempts:
+                retry_after = int(window_seconds - (now - queue[0])) if queue else window_seconds
+                return False, max(retry_after, 1)
+            queue.append(now)
+            return True, 0
+
+
+login_rate_limiter = SimpleRateLimiter()
+report_rate_limiter = SimpleRateLimiter()

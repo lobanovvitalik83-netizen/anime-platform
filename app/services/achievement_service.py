@@ -1,10 +1,8 @@
-import re
-
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import ConflictError, NotFoundError, ValidationError
-from app.repositories.admin_achievement_repository import AdminAchievementRepository
-from app.repositories.achievement_repository import AchievementRepository
+from app.models.admin import Admin
+from app.repositories.achievement_repository import AchievementRepository, AdminAchievementRepository
 from app.repositories.admin_repository import AdminRepository
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
@@ -19,8 +17,11 @@ class AchievementService:
         self.audit = AuditService(session)
         self.notifications = NotificationService(session)
 
-    def list_achievements(self, *, active_only: bool = False):
-        return self.achievements.list_all(active_only=active_only)
+    def list_achievements(self):
+        return self.achievements.list_all()
+
+    def list_active_achievements(self):
+        return self.achievements.list_active()
 
     def get_achievement(self, achievement_id: int):
         item = self.achievements.get_by_id(achievement_id)
@@ -28,81 +29,84 @@ class AchievementService:
             raise NotFoundError("Ачивка не найдена.")
         return item
 
-    def list_admin_achievements(self, admin_id: int):
+    def list_for_admin(self, admin_id: int):
         return self.grants.list_for_admin(admin_id)
 
-    def create_achievement(self, actor_id: int, payload: dict):
-        title = (payload.get("title") or "").strip()
-        if not title:
+    def create_achievement(self, actor: Admin, payload: dict):
+        name = (payload.get("name") or "").strip()
+        if not name:
             raise ValidationError("Название ачивки обязательно.")
-        slug = (payload.get("slug") or "").strip().lower()
-        if not slug:
-            slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-") or f"achievement-{title[:16].lower()}"
-        if self.achievements.get_by_slug(slug):
-            raise ConflictError("Slug ачивки уже существует.")
+        if self.achievements.get_by_name(name):
+            raise ConflictError("Ачивка с таким названием уже существует.")
         item = self.achievements.create(
-            slug=slug,
-            title=title,
+            name=name,
             description=(payload.get("description") or "").strip() or None,
-            icon_url=(payload.get("icon_url") or "").strip() or None,
+            icon=(payload.get("icon") or "🏆").strip()[:16],
+            color=(payload.get("color") or "#4c8bf5").strip()[:30],
             is_active=bool(payload.get("is_active", True)),
         )
-        self.audit.log(actor_id, "create_achievement", "achievement", str(item.id), {"title": item.title, "slug": item.slug})
+        self.audit.log(actor.id, "create_achievement", "achievement", str(item.id), {"name": item.name})
         self.session.commit()
         return item
 
-    def update_achievement(self, actor_id: int, achievement_id: int, payload: dict):
+    def update_achievement(self, actor: Admin, achievement_id: int, payload: dict):
         item = self.get_achievement(achievement_id)
-        title = (payload.get("title") or "").strip()
-        if not title:
+        name = (payload.get("name") or "").strip()
+        if not name:
             raise ValidationError("Название ачивки обязательно.")
-        slug = (payload.get("slug") or "").strip().lower()
-        if not slug:
-            slug = item.slug
-        existing = self.achievements.get_by_slug(slug)
+        existing = self.achievements.get_by_name(name)
         if existing and existing.id != item.id:
-            raise ConflictError("Slug ачивки уже существует.")
+            raise ConflictError("Ачивка с таким названием уже существует.")
         item = self.achievements.update(
             item,
-            slug=slug,
-            title=title,
+            name=name,
             description=(payload.get("description") or "").strip() or None,
-            icon_url=(payload.get("icon_url") or "").strip() or None,
+            icon=(payload.get("icon") or "🏆").strip()[:16],
+            color=(payload.get("color") or "#4c8bf5").strip()[:30],
             is_active=bool(payload.get("is_active", True)),
         )
-        self.audit.log(actor_id, "update_achievement", "achievement", str(item.id), {"title": item.title, "slug": item.slug})
+        self.audit.log(actor.id, "update_achievement", "achievement", str(item.id), {"name": item.name})
         self.session.commit()
         return item
 
-    def delete_achievement(self, actor_id: int, achievement_id: int):
+    def delete_achievement(self, actor: Admin, achievement_id: int):
         item = self.get_achievement(achievement_id)
-        self.audit.log(actor_id, "delete_achievement", "achievement", str(item.id), {"title": item.title})
+        self.audit.log(actor.id, "delete_achievement", "achievement", str(item.id), {"name": item.name})
         self.achievements.delete(item)
         self.session.commit()
 
-    def grant_achievement(self, actor_id: int, admin_id: int, achievement_id: int, reason: str | None = None):
-        admin = self.admins.get_by_id(admin_id)
-        if not admin:
+    def grant_to_admin(self, actor: Admin, admin_id: int, achievement_id: int, note: str | None = None):
+        recipient = self.admins.get_by_id(admin_id)
+        if not recipient:
             raise NotFoundError("Сотрудник не найден.")
         achievement = self.get_achievement(achievement_id)
-        if self.grants.find_existing(admin.id, achievement.id):
-            raise ConflictError("Эта ачивка уже выдана сотруднику.")
+        if not achievement.is_active:
+            raise ValidationError("Эта ачивка отключена.")
+        if self.grants.find_existing(admin_id, achievement_id):
+            raise ConflictError("Эта ачивка уже выдана этому сотруднику.")
         grant = self.grants.create(
-            admin_id=admin.id,
-            achievement_id=achievement.id,
-            granted_by_admin_id=actor_id,
-            grant_reason=(reason or "").strip() or None,
-            display_order=0,
+            admin_id=admin_id,
+            achievement_id=achievement_id,
+            granted_by_admin_id=actor.id,
+            note=(note or "").strip() or None,
         )
-        self.audit.log(actor_id, "grant_achievement", "admin_achievement", str(grant.id), {"admin_id": admin.id, "achievement_id": achievement.id})
-        self.notifications.notify_admin(admin.id, kind="achievement", title=f"Новая ачивка: {achievement.title}", body=reason or "Тебе выдали новую ачивку.", link_url=f"/admin/profile")
+        self.notifications.notify_admin(
+            admin_id=admin_id,
+            kind="achievement_granted",
+            title=f"Тебе выдана ачивка: {achievement.name}",
+            body=(note or "").strip() or "Открой профиль, чтобы посмотреть награду.",
+            link_url=f"/admin/people/{admin_id}",
+        )
+        self.audit.log(actor.id, "grant_achievement", "admin", str(admin_id), {"achievement_id": achievement_id})
         self.session.commit()
         return grant
 
-    def revoke_grant(self, actor_id: int, grant_id: int):
+    def revoke_grant(self, actor: Admin, grant_id: int):
         grant = self.grants.get_by_id(grant_id)
         if not grant:
             raise NotFoundError("Выдача ачивки не найдена.")
-        self.audit.log(actor_id, "revoke_achievement", "admin_achievement", str(grant.id), {"admin_id": grant.admin_id, "achievement_id": grant.achievement_id})
+        admin_id = grant.admin_id
+        achievement_name = grant.achievement.name if grant.achievement else None
         self.grants.delete(grant)
+        self.audit.log(actor.id, "revoke_achievement", "admin", str(admin_id), {"achievement": achievement_name})
         self.session.commit()

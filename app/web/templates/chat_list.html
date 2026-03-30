@@ -1,29 +1,36 @@
 {% extends "base.html" %}
 {% block content %}
+<div class="btn-row" style="margin-bottom:16px;">
+  <h1 style="margin:0; flex:1;">Сообщения</h1>
+  {% if messages_enabled %}
+  <a class="btn green" href="/admin/chats/new">Создать чат</a>
+  {% endif %}
+  <a class="btn secondary" href="/admin/people">Сотрудники</a>
+</div>
+
+{% if not messages_enabled %}
+<div class="error">Сообщения сейчас отключены superadmin.</div>
+{% endif %}
 {% if error %}<div class="error">{{ error }}</div>{% endif %}
-<div class="card">
-  <div class="btn-row" style="justify-content:space-between; margin-bottom:16px;">
-    <div>
-      <h1 class="page-title">Сообщения</h1>
-      <div class="page-subtitle">Командные диалоги и личные переписки внутри панели.</div>
-    </div>
-    {% if messages_enabled %}<a class="btn green" href="/admin/chats/new">Новый чат</a>{% endif %}
-  </div>
-  <div class="grid two">
-    <div class="card" style="background:#f8fafc;">
-      {% for item in chats %}
-      <a href="/admin/chats/{{ item.id }}" style="display:flex; gap:12px; text-decoration:none; padding:12px; border-radius:14px; background:#fff; border:1px solid #e5e7eb; margin-bottom:10px;">
-        <div class="avatar"><span>{{ item.title[0] if item.title else 'Ч' }}</span></div>
-        <div style="min-width:0;">
-          <div style="font-weight:700;">{{ item.title }}</div>
-          <div class="muted">{% if item.messages %}{{ item.messages[-1].content }}{% else %}Нет сообщений{% endif %}</div>
+
+<div class="grid">
+  {% for chat in chats %}
+  <div class="card">
+    <div class="btn-row" style="justify-content:space-between; align-items:center;">
+      <div>
+        <h3 style="margin-bottom:6px;">{{ chat.title }}</h3>
+        <div class="muted">
+          Участники:
+          {% for participant in chat.participants if participant.admin and participant.admin.is_active %}
+            {{ participant.admin.full_name or participant.admin.username }}{% if not loop.last %}, {% endif %}
+          {% endfor %}
         </div>
-      </a>
-      {% else %}
-      <div class="muted">Чатов пока нет.</div>
-      {% endfor %}
+      </div>
+      <a class="btn secondary" href="/admin/chats/{{ chat.id }}">Открыть</a>
     </div>
-    <div class="card"><div class="muted">Выбери чат слева.</div></div>
   </div>
+  {% else %}
+  <div class="card"><div class="muted">Пока нет чатов.</div></div>
+  {% endfor %}
 </div>
 {% endblock %}

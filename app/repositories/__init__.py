@@ -1,0 +1,2 @@
+from app.repositories.achievement_repository import AchievementRepository, AdminAchievementRepository
+from app.repositories.password_reset_repository import PasswordResetTokenRepository
