@@ -69,9 +69,22 @@ def _ensure_runtime_schema() -> None:
                 for statement in statements:
                     connection.execute(text(statement))
 
+    # Telegram IDs do not fit in 32-bit INTEGER.
+    if "report_tickets" in inspector.get_table_names():
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE report_tickets ALTER COLUMN tg_user_id TYPE BIGINT"))
+            connection.execute(text("ALTER TABLE report_tickets ALTER COLUMN tg_chat_id TYPE BIGINT"))
+
+    if "report_messages" in inspector.get_table_names():
+        existing_columns = {column["name"] for column in inspector.get_columns("report_messages")}
+        if "tg_user_id" in existing_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE report_messages ALTER COLUMN tg_user_id TYPE BIGINT"))
+
 
 def init_database() -> None:
     from app import models  # noqa: F401
+
     Base.metadata.create_all(bind=engine)
     settings.public_upload_dir.mkdir(parents=True, exist_ok=True)
     settings.avatar_upload_dir.mkdir(parents=True, exist_ok=True)
