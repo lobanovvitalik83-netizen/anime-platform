@@ -7,7 +7,9 @@ from app.models.mixins import TimestampMixin
 
 class ReportMessage(TimestampMixin, Base):
     __tablename__ = "report_messages"
-    __table_args__ = (Index("ix_report_messages_ticket_id", "ticket_id"),)
+    __table_args__ = (
+        Index("ix_report_messages_ticket_id", "ticket_id"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     ticket_id: Mapped[int] = mapped_column(ForeignKey("report_tickets.id", ondelete="CASCADE"), nullable=False)
