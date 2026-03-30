@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Инструменты редактора</h1>
+<div class="grid cards">
+  <div class="card"><h3>Быстрое создание карточки</h3><div class="btn-row"><a class="btn green" href="/admin/card-builder">Открыть</a></div></div>
+  <div class="card"><h3>Lookup test</h3><div class="btn-row"><a class="btn secondary" href="/admin/lookup-test">Открыть</a></div></div>
+  <div class="card"><h3>Live сообщения</h3><div class="btn-row"><a class="btn secondary" href="/admin/chats-live">Открыть</a></div></div>
+  <div class="card"><h3>Репорты из Telegram</h3><div class="btn-row"><a class="btn secondary" href="/admin/reports">Открыть</a></div></div>
+</div>
+<div class="card" style="margin-top:18px;">
+  <h3>Последние карточки</h3>
+  <table>
+    <thead><tr><th>ID</th><th>Название</th><th>Жанр</th><th>Статус</th></tr></thead>
+    <tbody>
+      {% for row in recent_cards %}
+      <tr><td>{{ row.title_id }}</td><td>{{ row.title }}</td><td>{{ row.genre }}</td><td>{{ row.status }}</td></tr>
+      {% else %}
+      <tr><td colspan="4"><span class="muted">Нет карточек.</span></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>Новый ассет</h1>
+  <p class="muted">Для удобного теста используй storage_kind = external_url.</p>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="post" action="/admin/assets/new" class="grid">
+    <div class="form-grid">
+      <div>
+        <label>Title ID</label>
+        <select name="title_id">
+          <option value="">Не указывать</option>
+          {% for title in titles %}
+          <option value="{{ title.id }}" {% if values.get('title_id') == title.id %}selected{% endif %}>{{ title.id }} - {{ title.title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Season ID</label>
+        <select name="season_id">
+          <option value="">Не указывать</option>
+          {% for season in seasons %}
+          <option value="{{ season.id }}" {% if values.get('season_id') == season.id %}selected{% endif %}>{{ season.id }} - S{{ season.season_number }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Episode ID</label>
+        <select name="episode_id">
+          <option value="">Не указывать</option>
+          {% for episode in episodes %}
+          <option value="{{ episode.id }}" {% if values.get('episode_id') == episode.id %}selected{% endif %}>{{ episode.id }} - E{{ episode.episode_number }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Тип ассета</label>
+        <input name="asset_type" value="{{ values.get('asset_type', 'image') }}" placeholder="image / poster / video" required>
+      </div>
+      <div>
+        <label>Storage kind</label>
+        <input name="storage_kind" value="{{ values.get('storage_kind', 'external_url') }}" placeholder="external_url / telegram_file_id" required>
+      </div>
+      <div>
+        <label>MIME type</label>
+        <input name="mime_type" value="{{ values.get('mime_type', 'image/jpeg') }}">
+      </div>
+      <div>
+        <label>external_url</label>
+        <input name="external_url" value="{{ values.get('external_url', '') }}" placeholder="https://...">
+      </div>
+      <div>
+        <label>telegram_file_id</label>
+        <input name="telegram_file_id" value="{{ values.get('telegram_file_id', '') }}">
+      </div>
+      <div>
+        <label style="display:flex; gap:8px; align-items:center; font-weight:600;">
+          <input type="checkbox" name="is_primary" {% if values.get('is_primary') %}checked{% endif %} style="width:auto;">
+          Сделать primary
+        </label>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn" type="submit">Сохранить</button>
+      <a class="btn secondary" href="/admin/assets">Назад</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

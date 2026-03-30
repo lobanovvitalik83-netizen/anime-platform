@@ -1,0 +1,14 @@
+Final production build from uploaded anime-platform-main.zip
+
+Included in this build:
+- Stage 23: security and production stabilization
+- Stage 24: final production build
+- Telegram report bigint fix
+- login rate limit
+- report rate limit
+- maintenance mode middleware
+- startup cleanup for audit / notifications / import jobs / password reset tokens
+- achievements with icon upload or URL
+- team reset-password by one-time link
+- reset password page
+- dashboard, people, team, chats, reports, notifications, admin-actions, import-export, settings, achievements pages verified statically and via smoke test

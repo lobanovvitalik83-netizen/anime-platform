@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>{{ page_title }}</h1>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="post" action="{{ action_url }}" class="grid">
+    <div class="form-grid">
+      <div>
+        <label>Тайтл</label>
+        <select name="title_id" required>
+          <option value="">Выбери тайтл</option>
+          {% for title in titles %}
+          <option value="{{ title.id }}" {% if values.get('title_id') == title.id %}selected{% endif %}>
+            {{ title.id }} - {{ title.title }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Сезон</label>
+        <select name="season_id">
+          <option value="">Без сезона</option>
+          {% for season in seasons %}
+          <option value="{{ season.id }}" {% if values.get('season_id') == season.id %}selected{% endif %}>
+            {{ season.id }} - T{{ season.title_id }} / S{{ season.season_number }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Номер эпизода</label>
+        <input name="episode_number" type="number" min="1" value="{{ values.get('episode_number', '') }}" required>
+      </div>
+      <div>
+        <label>Название</label>
+        <input name="name" value="{{ values.get('name', '') }}">
+      </div>
+      <div>
+        <label>Статус</label>
+        <input name="status" value="{{ values.get('status', 'draft') }}">
+      </div>
+    </div>
+    <div>
+      <label>Синопсис</label>
+      <textarea name="synopsis">{{ values.get('synopsis', '') }}</textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn" type="submit">{{ submit_label }}</button>
+      <a class="btn secondary" href="/admin/episodes">Назад</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>Тест public lookup</h1>
+  <form method="get" action="/admin/lookup-test" class="form-grid">
+    <div>
+      <label>Код</label>
+      <input name="code" value="{{ code }}" placeholder="Вставь код">
+    </div>
+    <div class="btn-row" style="align-items:end;">
+      <button class="btn" type="submit">Проверить</button>
+    </div>
+  </form>
+  {% if error %}
+    <div class="error" style="margin-top:16px;">{{ error }}</div>
+  {% endif %}
+  {% if result %}
+    <div class="card" style="margin-top:16px; background:#f9fafb;">
+      <h2>Результат</h2>
+      <p><b>Код:</b> <span class="code">{{ result.code }}</span></p>
+      <p><b>Жанр:</b> {{ 'Аниме' if result.genre == 'anime' else 'Сериал' if result.genre == 'series' else 'Фильм' if result.genre == 'movie' else (result.genre or '') }}</p>
+      <p><b>Название:</b> {{ result.title or "" }}</p>
+      <p><b>Сезон:</b> {{ result.season_number or "—" }}</p>
+      <p><b>Серия:</b> {{ result.episode_number or "—" }}</p>
+      <p><b>Media:</b> {{ result.asset_type or "" }}</p>
+      <p><b>Storage:</b> {{ result.storage_kind or "" }}</p>
+      <p><b>Telegram file id:</b> {{ result.telegram_file_id or "" }}</p>
+      <p><b>External URL:</b>
+        {% if result.external_url %}
+        <a href="{{ result.external_url }}" target="_blank">{{ result.external_url }}</a>
+        {% endif %}
+      </p>
+      <p><a class="btn secondary" href="/api/public/code-lookup/{{ result.code }}" target="_blank">Открыть raw JSON</a> <a class="btn secondary" href="/admin/analytics/codes/{{ result.code }}">Аналитика кода</a></p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

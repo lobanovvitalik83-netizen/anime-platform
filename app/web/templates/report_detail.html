@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="btn-row" style="margin-bottom:16px;">
+  <h1 style="margin:0; flex:1;">Репорт #{{ ticket.id }}</h1>
+  <a class="btn secondary" href="/admin/reports">Назад</a>
+  {% if ticket.status != "closed" %}
+  <form method="post" action="/admin/reports/{{ ticket.id }}/close" class="inline">
+    <button class="btn secondary" type="submit">Закрыть</button>
+  </form>
+  {% endif %}
+</div>
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+{% if success %}<div class="success">{{ success }}</div>{% endif %}
+
+<div class="grid" style="grid-template-columns: 360px minmax(0,1fr);">
+  <div class="card">
+    <h3>Данные</h3>
+    <div class="grid">
+      <div><b>Статус:</b> {{ ticket.status }}</div>
+      <div><b>Пользователь:</b> {{ ticket.tg_full_name or "—" }}</div>
+      <div><b>Username:</b> {% if ticket.tg_username %}<a href="https://t.me/{{ ticket.tg_username }}" target="_blank">@{{ ticket.tg_username }}</a>{% else %}—{% endif %}</div>
+      <div><b>TG user id:</b> {{ ticket.tg_user_id }}</div>
+      <div><b>Ссылка:</b> <a href="tg://user?id={{ ticket.tg_user_id }}">Открыть TG</a></div>
+    </div>
+  </div>
+
+  <div class="tg-panel">
+    <div class="tg-panel-head"><b>Диалог с пользователем</b></div>
+    <div class="tg-messages">
+      {% for item in ticket.messages %}
+      <div class="bubble-row {% if item.direction == 'admin' %}me{% endif %}">
+        <div class="bubble">
+          <div>{{ item.body }}</div>
+          <div class="bubble-meta">
+            {% if item.direction == 'admin' %}
+              {{ item.admin.full_name if item.admin and item.admin.full_name else (item.admin.username if item.admin else 'Admin') }}
+            {% else %}
+              Пользователь
+            {% endif %}
+            · {{ item.created_at }}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% if ticket.status != "closed" %}
+    <div class="tg-compose">
+      <form method="post" action="/admin/reports/{{ ticket.id }}/reply" class="grid">
+        <textarea name="body" placeholder="Ответ пользователю в Telegram" required></textarea>
+        <div class="btn-row">
+          <button class="btn green" type="submit">Отправить в Telegram</button>
+        </div>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

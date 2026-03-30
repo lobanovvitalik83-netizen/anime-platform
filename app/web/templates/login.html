@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1 class="page-title">Вход в админку</h1>
+  <div class="page-subtitle">Войди логином и паролем администратора.</div>
+  {% if error %}<div class="error" style="margin-top:16px;">{{ error }}</div>{% endif %}
+  <form method="post" action="/admin/login" class="grid" style="margin-top:16px;">
+    <div>
+      <label for="username">Логин</label>
+      <input id="username" name="username" required>
+    </div>
+    <div>
+      <label for="password">Пароль</label>
+      <input id="password" name="password" type="password" required>
+    </div>
+    <div class="btn-row">
+      <button class="btn" type="submit">Войти</button>
+      <a class="btn ghost" href="/admin/forgot-password">Забыл пароль</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

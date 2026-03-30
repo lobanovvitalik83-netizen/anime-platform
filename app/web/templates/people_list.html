@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="margin-bottom:18px;">
+  <div class="btn-row" style="justify-content:space-between;">
+    <div>
+      <h1 class="page-title">Сотрудники</h1>
+      <div class="page-subtitle">Профили участников команды, их роли, достижения и быстрый переход к диалогу.</div>
+    </div>
+    {% if messages_enabled %}
+    <a class="btn secondary" href="/admin/chats">Мои сообщения</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:18px;">
+  <form method="get" action="/admin/people" class="form-grid">
+    <div>
+      <label>Поиск</label>
+      <input name="q" value="{{ q }}" placeholder="Имя, логин, должность">
+    </div>
+    <div class="btn-row" style="align-items:end;">
+      <button class="btn" type="submit">Найти</button>
+      <a class="btn ghost" href="/admin/people">Сбросить</a>
+    </div>
+  </form>
+</div>
+
+<div class="grid cards">
+  {% for item in people %}
+  <div class="card">
+    <div class="btn-row" style="justify-content:space-between; align-items:flex-start;">
+      <div class="btn-row" style="align-items:center;">
+        <div class="avatar">
+          {% if item.avatar_url %}<img src="{{ item.avatar_url }}" alt="avatar">{% else %}<span>{{ (item.full_name or item.username)[0] }}</span>{% endif %}
+        </div>
+        <div>
+          <div style="font-size:24px; font-weight:800;">{{ item.full_name or item.username }}</div>
+          <div class="muted">@{{ item.username }}</div>
+          <div class="muted">{{ item.position or "Без должности" }}</div>
+        </div>
+      </div>
+      <span class="chip">{{ item.role }}</span>
+    </div>
+    {% if item.about %}
+    <div style="margin-top:12px;">{{ item.about }}</div>
+    {% endif %}
+    {% if item.achievements %}
+    <div style="margin-top:14px;">
+      <div class="muted" style="margin-bottom:8px;">Ачивки</div>
+      <div class="ach-badges">
+        {% for grant in item.achievements %}
+        <div class="ach-badge" title="{{ grant.achievement.title }}{% if grant.achievement.description %} — {{ grant.achievement.description }}{% endif %}{% if grant.reason %} | За что: {{ grant.reason }}{% endif %}">
+          {% if grant.achievement.icon_url %}<img src="{{ grant.achievement.icon_url }}" alt="{{ grant.achievement.title }}">{% else %}<span style="font-size:11px;">★</span>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    <div class="btn-row" style="margin-top:16px;">
+      <a class="btn secondary" href="/admin/people/{{ item.id }}">Открыть профиль</a>
+      {% if messages_enabled and item.id != current_admin.id %}
+      <form method="post" action="/admin/people/{{ item.id }}/message" class="inline">
+        <button class="btn ghost" type="submit">Написать</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <div class="card"><span class="muted">Сотрудников нет.</span></div>
+  {% endfor %}
+</div>
+{% endblock %}

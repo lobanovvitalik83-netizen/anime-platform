@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="btn-row" style="margin-bottom:16px;">
+  <h1 style="margin:0; flex:1;">Ассеты</h1>
+  <a class="btn" href="/admin/assets/new">Новый ассет</a>
+  <button class="btn secondary" type="button" onclick="return openSelectedEdit('/admin/assets', 'selected_ids')">Открыть выбранные в редактировании</button>
+</div>
+
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+<form method="post" action="/admin/assets/bulk-delete" onsubmit="return confirm('Удалить выбранные ассеты?');">
+<table>
+  <thead>
+    <tr>
+      <th><input type="checkbox" onclick="toggleGroup(this, 'selected_ids')"></th>
+      <th>ID</th>
+      <th>Title</th>
+      <th>Season</th>
+      <th>Episode</th>
+      <th>Тип</th>
+      <th>Хранилище</th>
+      <th>Primary</th>
+      <th>Источник</th>
+      <th>Действия</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in assets %}
+    <tr>
+      <td><input type="checkbox" name="selected_ids" value="{{ item.id }}"></td>
+      <td>{{ item.id }}</td>
+      <td>{{ item.title_id or "" }}</td>
+      <td>{{ item.season_id or "" }}</td>
+      <td>{{ item.episode_id or "" }}</td>
+      <td>{{ item.asset_type }}</td>
+      <td>{{ item.storage_kind }}</td>
+      <td>{{ "yes" if item.is_primary else "no" }}</td>
+      <td>
+        {% if item.telegram_file_id %}<span class="code">{{ item.telegram_file_id }}</span>{% endif %}
+        {% if item.external_url %}<a href="{{ item.external_url }}" target="_blank">{{ item.external_url }}</a>{% endif %}
+      </td>
+      <td>
+        <div class="btn-row">
+          <a class="btn secondary" href="/admin/assets/{{ item.id }}/edit">Редактировать</a>
+          <form method="post" action="/admin/assets/{{ item.id }}/delete" class="inline" onsubmit="return confirm('Удалить ассет?');">
+            <button class="btn" style="background:#dc2626;" type="submit">Удалить</button>
+          </form>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<div class="btn-row" style="margin-top:16px;">
+  <button class="btn" style="background:#dc2626;" type="submit">Удалить выбранные</button>
+</div>
+</form>
+{% endblock %}

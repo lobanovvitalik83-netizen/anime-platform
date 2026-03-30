@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="btn-row" style="margin-bottom:16px;">
+  <h1 style="margin:0; flex:1;">Import jobs</h1>
+  <a class="btn secondary" href="/admin/import-export">Назад к импорту/экспорту</a>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Тип</th>
+      <th>Файл</th>
+      <th>Статус</th>
+      <th>Total</th>
+      <th>Success</th>
+      <th>Failed</th>
+      <th>Создан</th>
+      <th>Отчёт</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in jobs %}
+    <tr>
+      <td>{{ item.id }}</td>
+      <td>{{ item.source_type }}</td>
+      <td>{{ item.file_name }}</td>
+      <td>{{ item.status }}</td>
+      <td>{{ item.total_rows }}</td>
+      <td>{{ item.success_rows }}</td>
+      <td>{{ item.failed_rows }}</td>
+      <td>{{ item.created_at }}</td>
+      <td>
+        {% if item.report_json %}
+          <details>
+            <summary>Показать</summary>
+            <pre class="code" style="display:block; white-space:pre-wrap; padding:12px;">{{ item.report_json }}</pre>
+          </details>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

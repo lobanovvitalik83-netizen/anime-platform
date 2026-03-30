@@ -1,0 +1,10 @@
+1. Fill .env
+2. Ensure DATABASE_URL points to production db
+3. Ensure APP_SECRET_KEY is long random secret
+4. Set TELEGRAM_BOT_TOKEN
+5. Configure Yandex Disk or external media storage
+6. Deploy app
+7. Open /health
+8. Open /admin/login
+9. Login as owner
+10. Run smoke test on core pages

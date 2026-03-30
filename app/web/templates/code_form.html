@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>{{ page_title }}</h1>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="post" action="{{ action_url }}" class="grid">
+    <div class="form-grid">
+      <div>
+        <label>Код</label>
+        <input name="code" value="{{ values.get('code', '') }}" required>
+      </div>
+      <div>
+        <label>Статус</label>
+        <select name="status">
+          <option value="active" {% if values.get('status') == 'active' %}selected{% endif %}>active</option>
+          <option value="inactive" {% if values.get('status') == 'inactive' %}selected{% endif %}>inactive</option>
+          <option value="archived" {% if values.get('status') == 'archived' %}selected{% endif %}>archived</option>
+        </select>
+      </div>
+      <div>
+        <label>Title</label>
+        <select name="title_id">
+          <option value="">Не указывать</option>
+          {% for item in titles %}
+          <option value="{{ item.id }}" {% if values.get('title_id') == item.id %}selected{% endif %}>{{ item.id }} - {{ item.title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Season</label>
+        <select name="season_id">
+          <option value="">Не указывать</option>
+          {% for item in seasons %}
+          <option value="{{ item.id }}" {% if values.get('season_id') == item.id %}selected{% endif %}>{{ item.id }} - S{{ item.season_number }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Episode</label>
+        <select name="episode_id">
+          <option value="">Не указывать</option>
+          {% for item in episodes %}
+          <option value="{{ item.id }}" {% if values.get('episode_id') == item.id %}selected{% endif %}>{{ item.id }} - E{{ item.episode_number }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn" type="submit">{{ submit_label }}</button>
+      <a class="btn secondary" href="/admin/codes">Назад</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
