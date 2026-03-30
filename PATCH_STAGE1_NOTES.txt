@@ -1,0 +1,18 @@
+PATCH STAGE 1
+
+Что исправлено:
+1. Telegram lookup теперь не пытается слать Yandex Disk URL как photo/video URL.
+   Вместо этого бот скачивает файл и загружает его в Telegram как бинарный файл.
+2. VK lookup больше не отправляет HTML-теги как обычный текст.
+   Добавлен plain-text форматтер для VK.
+3. VK lookup теперь пытается приложить изображение/медиа к сообщению через VK upload API.
+4. В PublicLookupResponse добавлены storage_provider и storage_object_key,
+   чтобы корректно доставать файл из Yandex Disk.
+5. Исправлен импорт AchievementService в active admin router.
+   Ошибка "name 'AchievementService' is not defined" устранена.
+6. В списке медиа-карточек превью изображений переведено на object-fit: contain,
+   чтобы картинки отображались аккуратнее без агрессивного обрезания.
+
+Ограничения:
+- Полный e2e тест Telegram/VK upload без реальных токенов и доступа к сети внутри патча не выполнен.
+- Синтаксис проекта проверен через python -m compileall.

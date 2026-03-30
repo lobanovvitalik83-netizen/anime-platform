@@ -4,11 +4,12 @@ from urllib import parse, request as urllib_request
 
 from sqlalchemy.orm import Session
 
-from app.bot.utils.formatter import build_lookup_text
+from app.bot.utils.formatter import build_lookup_plain_text
 from app.core.config import settings
 from app.core.exceptions import ValidationError
 from app.core.logging import get_logger
 from app.core.security import report_rate_limiter
+from app.services.media_delivery_service import MediaDeliveryService, VKMediaUploader
 from app.services.public_lookup_service import PublicLookupService
 
 logger = get_logger(__name__)
@@ -85,10 +86,15 @@ class VKBotService:
         except Exception:
             self.send_text(peer_id, 'Код не найден или неактивен.', keyboard=self.build_main_keyboard())
             return
-        text = build_lookup_text(result)
-        if result.external_url:
-            text += f'\n\nМедиа: {result.external_url}'
-        self.send_text(peer_id, text, keyboard=self.build_main_keyboard())
+        text = build_lookup_plain_text(result)
+        attachment = None
+        try:
+            delivered_media = MediaDeliveryService().fetch_lookup_media(result)
+            if delivered_media:
+                attachment = VKMediaUploader().upload_for_peer(peer_id=peer_id, media=delivered_media)
+        except Exception as exc:
+            logger.warning("VK media upload failed for code %s: %s", code, exc)
+        self.send_text(peer_id, text, keyboard=self.build_main_keyboard(), attachment=attachment)
 
     def _handle_report(self, vk_user_id: int, peer_id: int, body: str) -> None:
         if self.session is None:
@@ -116,7 +122,7 @@ class VKBotService:
             return
         self.send_text(peer_id, f'Обращение отправлено в поддержку. Номер обращения: #{ticket.id}', keyboard=self.build_main_keyboard())
 
-    def send_text(self, peer_id: int, text: str, *, keyboard: dict | None = None) -> None:
+    def send_text(self, peer_id: int, text: str, *, keyboard: dict | None = None, attachment: str | None = None) -> None:
         if not settings.vk_bot_token:
             raise ValidationError('VK_BOT_TOKEN не настроен.')
         payload = {
@@ -128,6 +134,8 @@ class VKBotService:
         }
         if keyboard:
             payload['keyboard'] = json.dumps(keyboard, ensure_ascii=False)
+        if attachment:
+            payload['attachment'] = attachment
         data = parse.urlencode(payload).encode('utf-8')
         req = urllib_request.Request(self.api_url, data=data)
         with urllib_request.urlopen(req, timeout=20) as response:

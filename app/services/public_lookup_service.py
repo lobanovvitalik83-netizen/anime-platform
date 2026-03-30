@@ -84,6 +84,8 @@ class PublicLookupService:
             telegram_file_id=selected_asset.telegram_file_id if selected_asset else None,
             external_url=selected_asset.external_url if selected_asset else None,
             mime_type=selected_asset.mime_type if selected_asset else None,
+            storage_provider=selected_asset.storage_provider if selected_asset else None,
+            storage_object_key=selected_asset.storage_object_key if selected_asset else None,
             has_media=has_media,
         )
 

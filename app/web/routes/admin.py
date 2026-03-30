@@ -15,6 +15,7 @@ from app.models.admin_achievement import AdminAchievement
 from app.models.admin import Admin
 from app.repositories.audit_log_repository import AuditLogRepository
 from app.services.analytics_service import AnalyticsService
+from app.services.achievement_service import AchievementService
 from app.services.asset_service import AssetService
 from app.services.auth_service import AuthService
 from app.services.chat_service import ChatService

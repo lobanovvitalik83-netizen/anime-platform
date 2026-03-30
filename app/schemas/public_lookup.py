@@ -24,4 +24,6 @@ class PublicLookupResponse(BaseModel):
     telegram_file_id: str | None
     external_url: str | None
     mime_type: str | None
+    storage_provider: str | None = None
+    storage_object_key: str | None = None
     has_media: bool
