@@ -17,8 +17,7 @@ class AdminAchievement(TimestampMixin, Base):
     achievement_id: Mapped[int] = mapped_column(ForeignKey("achievements.id", ondelete="CASCADE"), nullable=False)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     granted_by_admin_id: Mapped[int | None] = mapped_column(ForeignKey("admins.id", ondelete="SET NULL"), nullable=True)
-    source: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     admin = relationship("Admin", foreign_keys=[admin_id])
     granted_by_admin = relationship("Admin", foreign_keys=[granted_by_admin_id])
-    achievement = relationship("Achievement", back_populates="grants")
+    achievement = relationship("Achievement")

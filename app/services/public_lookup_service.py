@@ -109,9 +109,9 @@ class PublicLookupService:
             return 0 if asset.is_primary else 1
 
         def media_priority(asset: MediaAsset) -> int:
-            if asset.asset_type in {"image", "poster"}:
-                return 0
             if asset.asset_type == "video":
+                return 0
+            if asset.asset_type in {"image", "poster"}:
                 return 1
             return 2
 

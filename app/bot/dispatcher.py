@@ -21,9 +21,9 @@ _polling_task = None
 def build_dispatcher() -> Dispatcher:
     dispatcher = Dispatcher()
     dispatcher.include_router(start_router)
-    dispatcher.include_router(fallback_router)
     dispatcher.include_router(code_lookup_router)
     dispatcher.include_router(report_support_router)
+    dispatcher.include_router(fallback_router)
     return dispatcher
 
 
@@ -35,8 +35,12 @@ async def start_bot_polling() -> None:
     if _polling_task and not _polling_task.done():
         logger.info("Telegram bot polling already running")
         return
+
     _dispatcher = build_dispatcher()
-    _bot = Bot(token=settings.telegram_bot_token, default=DefaultBotProperties(parse_mode="HTML"))
+    _bot = Bot(
+        token=settings.telegram_bot_token,
+        default=DefaultBotProperties(parse_mode="HTML"),
+    )
     _polling_task = asyncio.create_task(_dispatcher.start_polling(_bot, handle_signals=False))
     logger.info("Telegram bot polling started")
 

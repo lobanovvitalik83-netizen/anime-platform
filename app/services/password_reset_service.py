@@ -1,12 +1,13 @@
 from datetime import datetime, timedelta
 import secrets
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.exceptions import NotFoundError, ValidationError
-from app.core.security import hash_password
-from app.models.password_reset_token import PasswordResetToken
+from app.core.security import hash_password, hash_token
+from app.models.admin import Admin
+from app.repositories.password_reset_token_repository import PasswordResetTokenRepository
 from app.services.audit_service import AuditService
 from app.services.auth_service import AuthService
 
@@ -14,44 +15,48 @@ from app.services.auth_service import AuthService
 class PasswordResetService:
     def __init__(self, session: Session):
         self.session = session
-        self.audit = AuditService(session)
+        self.tokens = PasswordResetTokenRepository(session)
         self.auth = AuthService(session)
+        self.audit = AuditService(session)
 
-    def create_reset_link(self, actor, admin_id: int, public_base_url: str) -> tuple[str, PasswordResetToken]:
-        target = self.auth.get_manageable_admin(actor, admin_id)
-        token = secrets.token_urlsafe(32)
-        entity = PasswordResetToken(
-            admin_id=target.id,
-            token=token,
+    def create_reset_link(self, actor: Admin, target_admin_id: int) -> tuple[str, str]:
+        target = self.auth.get_manageable_admin(actor, target_admin_id)
+        raw_token = secrets.token_urlsafe(32)
+        token_hash = hash_token(raw_token)
+        expires_at = datetime.utcnow() + timedelta(hours=settings.password_reset_token_ttl_hours)
+        self.tokens.create(
+            token_hash=token_hash,
+            target_admin_id=target.id,
             created_by_admin_id=actor.id,
-            expires_at=datetime.utcnow() + timedelta(hours=24),
-            is_used=False,
+            expires_at=expires_at,
+            used_at=None,
         )
-        self.session.add(entity)
-        self.session.flush()
-        self.audit.log(actor.id, "create_reset_link", "admin", str(target.id), {"token_id": entity.id})
+        self.audit.log(actor.id, 'create_password_reset_link', 'admin', str(target.id), {'username': target.username, 'expires_at': expires_at.isoformat()})
         self.session.commit()
-        base = public_base_url.rstrip("/")
-        return f"{base}/admin/reset-password/{token}", entity
+        relative_url = f'/admin/reset-password/{raw_token}'
+        full_url = f"{settings.public_base_url}{relative_url}" if settings.public_base_url else relative_url
+        return full_url, relative_url
 
-    def get_valid_token(self, token: str) -> PasswordResetToken:
-        entity = self.session.scalar(select(PasswordResetToken).where(PasswordResetToken.token == token))
+    def validate_token(self, raw_token: str):
+        entity = self.tokens.get_by_token_hash(hash_token(raw_token))
         if not entity:
-            raise NotFoundError("Ссылка сброса пароля не найдена.")
-        if entity.is_used:
-            raise ValidationError("Ссылка уже использована.")
-        if entity.expires_at < datetime.utcnow():
-            raise ValidationError("Срок действия ссылки истёк.")
+            raise ValidationError('Ссылка сброса недействительна.')
+        if entity.used_at is not None:
+            raise ValidationError('Эта ссылка уже использована.')
+        if entity.expires_at <= datetime.utcnow():
+            raise ValidationError('Срок действия ссылки истёк.')
         return entity
 
-    def consume(self, token: str, new_password: str) -> None:
-        entity = self.get_valid_token(token)
-        new_password = (new_password or "").strip()
-        if len(new_password) < 8:
-            raise ValidationError("Пароль должен быть не короче 8 символов.")
-        entity.admin.password_hash = hash_password(new_password)
-        entity.is_used = True
-        entity.used_at = datetime.utcnow()
-        self.session.flush()
-        self.audit.log(entity.admin_id, "reset_password_by_link", "admin", str(entity.admin_id), {"token_id": entity.id})
+    def consume_token(self, raw_token: str, new_password: str) -> Admin:
+        entity = self.validate_token(raw_token)
+        new_password = (new_password or '').strip()
+        if len(new_password) < 6:
+            raise ValidationError('Новый пароль должен быть не короче 6 символов.')
+        target = entity.target_admin
+        if target is None:
+            raise NotFoundError('Пользователь не найден.')
+        self.auth.admins.update(target, password_hash=hash_password(new_password))
+        self.tokens.mark_used(entity)
+        self.audit.log(entity.created_by_admin_id or target.id, 'consume_password_reset_link', 'admin', str(target.id), {'username': target.username})
         self.session.commit()
+        return target

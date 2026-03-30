@@ -1,4 +1,6 @@
-from sqlalchemy import select
+from datetime import datetime, timedelta
+
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.admin_notification import AdminNotification
@@ -25,13 +27,21 @@ class AdminNotificationRepository:
         return list(self.session.scalars(stmt))
 
     def unread_count(self, admin_id: int) -> int:
-        stmt = select(AdminNotification).where(
-            AdminNotification.admin_id == admin_id,
-            AdminNotification.is_read == False,  # noqa: E712
+        stmt = (
+            select(func.count(AdminNotification.id))
+            .where(AdminNotification.admin_id == admin_id, AdminNotification.is_read == False)  # noqa: E712
         )
-        return len(list(self.session.scalars(stmt)))
+        return int(self.session.scalar(stmt) or 0)
 
     def mark_read(self, entity: AdminNotification) -> AdminNotification:
         entity.is_read = True
         self.session.flush()
         return entity
+
+    def purge_older_than(self, days: int) -> int:
+        if days <= 0:
+            return 0
+        threshold = datetime.utcnow() - timedelta(days=days)
+        rows = self.session.query(AdminNotification).filter(AdminNotification.created_at < threshold).delete(synchronize_session=False)
+        self.session.flush()
+        return int(rows or 0)
