@@ -1,36 +1,32 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="layout-two">
+<div class="grid two">
   <div class="card">
-    <h1 class="section-title">Мой профиль</h1>
-    {% if error %}<div class="error">{{ error }}</div>{% endif %}
-    {% if success %}<div class="success">{{ success }}</div>{% endif %}
-
-    <div class="btn-row" style="align-items:center; margin-bottom:18px;">
+    <h1 class="page-title">Мой профиль</h1>
+    {% if error %}<div class="error" style="margin-top:16px;">{{ error }}</div>{% endif %}
+    {% if success %}<div class="success" style="margin-top:16px;">{{ success }}</div>{% endif %}
+    <div class="btn-row" style="align-items:center; margin:18px 0;">
       <div class="avatar">
-        {% if current_admin.avatar_url %}
-          <img src="{{ current_admin.avatar_url }}" alt="avatar">
-        {% else %}
-          <span>{{ current_admin.username[0:1] }}</span>
-        {% endif %}
+        {% if current_admin.avatar_url %}<img src="{{ current_admin.avatar_url }}" alt="avatar">{% else %}<span>{{ (current_admin.full_name or current_admin.username)[0] }}</span>{% endif %}
       </div>
       <div>
-        <div><b>{{ current_admin.full_name or current_admin.username }}</b></div>
+        <div style="font-size:26px; font-weight:800;">{{ current_admin.full_name or current_admin.username }}</div>
         <div class="muted">@{{ current_admin.username }} · {{ current_admin.role }}</div>
       </div>
     </div>
 
-    <div class="achievement-list" style="margin-bottom:16px;">
-      {% for grant in achievements %}
-        {% if grant.achievement.icon_url %}
-          <img class="achievement-badge" src="{{ grant.achievement.icon_url }}" title="{{ grant.achievement.title }} — {{ grant.grant_reason or grant.achievement.description or 'Награда сотрудника' }}">
-        {% else %}
-          <span class="achievement-badge" title="{{ grant.achievement.title }} — {{ grant.grant_reason or grant.achievement.description or 'Награда сотрудника' }}">🏆</span>
-        {% endif %}
-      {% else %}
-        <span class="muted">У тебя пока нет ачивок.</span>
-      {% endfor %}
+    {% if achievements %}
+    <div style="margin-bottom:16px;">
+      <div class="muted" style="margin-bottom:8px;">Мои ачивки</div>
+      <div class="ach-badges">
+        {% for grant in achievements %}
+        <div class="ach-badge" title="{{ grant.achievement.title }}{% if grant.achievement.description %} — {{ grant.achievement.description }}{% endif %}{% if grant.reason %} | За что: {{ grant.reason }}{% endif %}">
+          {% if grant.achievement.icon_url %}<img src="{{ grant.achievement.icon_url }}" alt="{{ grant.achievement.title }}">{% else %}<span style="font-size:11px;">★</span>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
     </div>
+    {% endif %}
 
     <form method="post" action="/admin/profile" enctype="multipart/form-data" class="grid">
       <div class="form-grid">
@@ -42,61 +38,26 @@
           <input value="{{ current_admin.username }}" readonly disabled>
           {% endif %}
         </div>
-        <div>
-          <label>Роль</label>
-          <input value="{{ current_admin.role }}" readonly disabled>
-        </div>
-        <div>
-          <label>Имя</label>
-          <input name="full_name" value="{{ current_admin.full_name or '' }}">
-        </div>
-        <div>
-          <label>Должность</label>
-          <input name="position" value="{{ current_admin.position or '' }}">
-        </div>
+        <div><label>Роль</label><input value="{{ current_admin.role }}" readonly disabled></div>
+        <div><label>Имя</label><input name="full_name" value="{{ current_admin.full_name or '' }}"></div>
+        <div><label>Должность</label><input name="position" value="{{ current_admin.position or '' }}"></div>
+        <div><label>Аватар URL</label><input name="avatar_url" value="{{ current_admin.avatar_url or '' }}"></div>
+        <div><label>Загрузить аватар</label><input type="file" name="avatar_file" accept="image/*"></div>
       </div>
-
-      <div>
-        <label>О себе</label>
-        <textarea name="about">{{ current_admin.about or '' }}</textarea>
-      </div>
-
-      <div class="form-grid">
-        <div>
-          <label>Аватар по ссылке</label>
-          <input name="avatar_url" value="{{ current_admin.avatar_url or '' }}" placeholder="https://... или /uploads/avatars/...">
-        </div>
-        <div>
-          <label>Или загрузить аватар</label>
-          <input type="file" name="avatar_file" accept="image/*">
-        </div>
-      </div>
-
-      <div class="btn-row">
-        <button class="btn green" type="submit">Сохранить профиль</button>
-      </div>
+      <div><label>О себе</label><textarea name="about">{{ current_admin.about or '' }}</textarea></div>
+      <div class="btn-row"><button class="btn green" type="submit">Сохранить профиль</button></div>
     </form>
   </div>
 
-  <div class="grid">
-    <div class="card">
-      <h2 class="section-title">Смена пароля</h2>
-      {% if password_error %}<div class="error">{{ password_error }}</div>{% endif %}
-      {% if password_success %}<div class="success">{{ password_success }}</div>{% endif %}
-      <form method="post" action="/admin/profile/password" class="grid">
-        <div>
-          <label>Текущий пароль</label>
-          <input type="password" name="current_password" required>
-        </div>
-        <div>
-          <label>Новый пароль</label>
-          <input type="password" name="new_password" required>
-        </div>
-        <div class="btn-row">
-          <button class="btn green" type="submit">Изменить пароль</button>
-        </div>
-      </form>
-    </div>
+  <div class="card">
+    <h2 style="margin-top:0;">Смена пароля</h2>
+    {% if password_error %}<div class="error">{{ password_error }}</div>{% endif %}
+    {% if password_success %}<div class="success">{{ password_success }}</div>{% endif %}
+    <form method="post" action="/admin/profile/password" class="grid">
+      <div><label>Текущий пароль</label><input type="password" name="current_password" required></div>
+      <div><label>Новый пароль</label><input type="password" name="new_password" required></div>
+      <div class="btn-row"><button class="btn secondary" type="submit">Изменить пароль</button></div>
+    </form>
   </div>
 </div>
 {% endblock %}

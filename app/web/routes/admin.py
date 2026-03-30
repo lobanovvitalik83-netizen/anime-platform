@@ -1,10 +1,17 @@
+import csv
+import io
+
 from fastapi import APIRouter, Depends, File, Request, Response, UploadFile
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.orm import Session, joinedload
 from starlette.responses import RedirectResponse
 
 from app.core.config import settings
 from app.core.database import get_db_session
 from app.core.exceptions import AuthenticationError
+from app.models.achievement import Achievement
+from app.models.admin_achievement import AdminAchievement
+from app.models.admin import Admin
 from app.repositories.audit_log_repository import AuditLogRepository
 from app.services.analytics_service import AnalyticsService
 from app.services.asset_service import AssetService
@@ -15,11 +22,10 @@ from app.services.import_export_service import ImportExportService
 from app.services.media_card_service import MediaCardService
 from app.services.media_service import MediaService
 from app.services.notification_service import NotificationService
+from app.services.permission_service import ALL_PERMISSIONS, PERMISSION_LABELS, PermissionService
 from app.services.public_lookup_service import PublicLookupService
-from app.services.site_setting_service import SiteSettingService
-from app.services.achievement_service import AchievementService
 from app.services.report_service import ReportService
-from app.services.permission_service import PERMISSION_LABELS, PermissionService
+from app.services.site_setting_service import SiteSettingService
 from app.web.auth import clear_auth_cookie, get_current_admin_from_request, has_required_role, redirect_to, redirect_to_login, set_auth_cookie
 from app.web.templates import templates
 
@@ -33,24 +39,44 @@ def to_int(value: str | None) -> int | None:
     return int(value)
 
 
+def _safe_count(callable_obj) -> int:
+    try:
+        return int(callable_obj())
+    except Exception:
+        return 0
+
+
+def _site_title(db: Session) -> str:
+    try:
+        return SiteSettingService(db).get_str("site_title", "Media Bridge")
+    except Exception:
+        return "Media Bridge"
+
+
+def _current_permissions(admin: Admin | None) -> list[str]:
+    if not admin:
+        return []
+    return sorted(permissions_service.get_permissions(admin))
+
+
 def render_template(name: str, request: Request, **context):
+    db = context.get("db") or getattr(request.state, "db", None)
     current_admin = context.get("current_admin")
-    current_permissions = []
-    unread_notifications = 0
-    if current_admin:
-        current_permissions = sorted(permissions_service.get_permissions(current_admin))
+    unread = 0
+    if db is not None and current_admin is not None:
         try:
-            unread_notifications = NotificationService(context.get("db") or request.state.db).unread_count(current_admin)
+            unread = NotificationService(db).unread_count(current_admin)
         except Exception:
-            unread_notifications = 0
-    merged = {
+            unread = 0
+    payload = {
         "request": request,
-        "current_permissions": current_permissions,
         "permission_labels": PERMISSION_LABELS,
-        "unread_notifications": unread_notifications,
+        "current_permissions": _current_permissions(current_admin),
+        "unread_notifications": unread,
+        "site_title": _site_title(db) if db is not None else "Media Bridge",
         **context,
     }
-    return templates.TemplateResponse(name, merged)
+    return templates.TemplateResponse(name, payload)
 
 
 def get_admin_or_redirect(request: Request, db: Session, min_role: str = "editor"):
@@ -68,17 +94,6 @@ def get_admin_or_redirect(request: Request, db: Session, min_role: str = "editor
             error="У вас недостаточно прав для этого раздела.",
         )
     return admin, None
-
-
-def _messages_enabled(db: Session) -> bool:
-    return SiteSettingService(db).is_messages_enabled()
-
-
-def _safe_count(fn) -> int:
-    try:
-        return int(fn())
-    except Exception:
-        return 0
 
 
 def _render_media_cards(request: Request, current_admin, db: Session, q: str = "", genre: str = "", status: str = "", error: str | None = None):
@@ -101,6 +116,37 @@ def _team_manageable_ids(current_admin, admins):
     if current_admin.role == "admin":
         return {item.id for item in admins if item.role in {"editor", "support"}}
     return set()
+
+
+def _messages_enabled(db: Session) -> bool:
+    return SiteSettingService(db).is_messages_enabled()
+
+
+def _achievement_grants_for_admin(db: Session, admin_id: int) -> list[AdminAchievement]:
+    stmt = (
+        select(AdminAchievement)
+        .where(AdminAchievement.admin_id == admin_id)
+        .options(joinedload(AdminAchievement.achievement), joinedload(AdminAchievement.granted_by_admin))
+        .order_by(AdminAchievement.id.desc())
+    )
+    return list(db.scalars(stmt).unique())
+
+
+def _attach_people_achievements(db: Session, people: list[Admin]) -> None:
+    ids = [item.id for item in people]
+    if not ids:
+        return
+    stmt = (
+        select(AdminAchievement)
+        .where(AdminAchievement.admin_id.in_(ids))
+        .options(joinedload(AdminAchievement.achievement), joinedload(AdminAchievement.granted_by_admin))
+        .order_by(AdminAchievement.id.desc())
+    )
+    bucket: dict[int, list[AdminAchievement]] = {}
+    for grant in db.scalars(stmt).unique():
+        bucket.setdefault(grant.admin_id, []).append(grant)
+    for person in people:
+        person.achievements = bucket.get(person.id, [])  # type: ignore[attr-defined]
 
 
 @router.get("/")
@@ -130,6 +176,25 @@ async def admin_login_submit(request: Request, db: Session = Depends(get_db_sess
     return response
 
 
+@router.get("/admin/forgot-password")
+def admin_forgot_password_page(request: Request, db: Session = Depends(get_db_session)):
+    return render_template("forgot_password.html", request, page_title="Восстановление доступа", db=db, error=None, success=None)
+
+
+@router.post("/admin/forgot-password")
+async def admin_forgot_password_submit(request: Request, db: Session = Depends(get_db_session)):
+    form = await request.form()
+    username = str(form.get("username", "")).strip()
+    target = AuthService(db).admins.get_by_username(username)
+    # always show success to avoid info leak
+    if target:
+        service = NotificationService(db)
+        for admin in AuthService(db).admins.list_by_roles(["superadmin"]):
+            service.notify_admin(admin.id, kind="forgot_password", title="Запрос на сброс пароля", body=f"Пользователь {target.username} запросил восстановление доступа.", link_url=f"/admin/team/{target.id}/edit")
+        db.commit()
+    return render_template("forgot_password.html", request, page_title="Восстановление доступа", db=db, error=None, success="Запрос отправлен администраторам. Если логин существует, с тобой свяжутся.")
+
+
 @router.get("/admin/logout")
 def admin_logout():
     response = redirect_to("/admin/login")
@@ -143,7 +208,6 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db_session)):
     if redirect:
         return redirect
 
-    notification_service = NotificationService(db)
     counts = {
         "titles": _safe_count(lambda: len(MediaService(db).list_titles())),
         "assets": _safe_count(lambda: len(AssetService(db).list_assets())),
@@ -151,7 +215,8 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db_session)):
         "reports": _safe_count(lambda: len(ReportService(db).list_tickets())),
         "chats": _safe_count(lambda: len(ChatService(db).list_chats_for_admin(current_admin))),
     }
-    recent_notifications = notification_service.list_for_admin(current_admin, limit=8)
+    recent_notifications = NotificationService(db).list_for_admin(current_admin, limit=8)
+    my_achievements = _achievement_grants_for_admin(db, current_admin.id)
 
     return render_template(
         "dashboard.html",
@@ -161,7 +226,220 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db_session)):
         db=db,
         counts=counts,
         recent_notifications=recent_notifications,
+        my_achievements=my_achievements,
     )
+
+
+# PROFILE / PEOPLE
+@router.get("/admin/profile")
+def admin_profile_page(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+    return render_template("profile.html", request, page_title="Мой профиль", current_admin=current_admin, db=db, error=None, success=None, password_error=None, password_success=None, achievements=_achievement_grants_for_admin(db, current_admin.id))
+
+
+@router.post("/admin/profile")
+async def admin_profile_submit(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+    form = await request.form()
+    avatar_file = form.get("avatar_file")
+    service = AuthService(db)
+    try:
+        service.update_profile(current_admin, username=str(form.get("username", "")).strip() or None, full_name=str(form.get("full_name", "")).strip() or None, position=str(form.get("position", "")).strip() or None, about=str(form.get("about", "")).strip() or None, avatar_url=str(form.get("avatar_url", "")).strip() or None)
+        if avatar_file and getattr(avatar_file, "filename", ""):
+            content = await avatar_file.read()
+            service.upload_profile_avatar(current_admin.id, file_bytes=content, file_name=avatar_file.filename, content_type=getattr(avatar_file, "content_type", None))
+        refreshed = AuthService(db).get_admin(current_admin.id)
+        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, db=db, error=None, success="Профиль обновлён.", password_error=None, password_success=None, achievements=_achievement_grants_for_admin(db, current_admin.id))
+    except Exception as exc:
+        db.rollback()
+        refreshed = AuthService(db).get_admin(current_admin.id)
+        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, db=db, error=str(exc), success=None, password_error=None, password_success=None, achievements=_achievement_grants_for_admin(db, current_admin.id))
+
+
+@router.post("/admin/profile/password")
+async def admin_profile_password_submit(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+    form = await request.form()
+    current_password = str(form.get("current_password", "")).strip()
+    new_password = str(form.get("new_password", "")).strip()
+    try:
+        AuthService(db).change_own_password(current_admin.id, current_password, new_password)
+        refreshed = AuthService(db).get_admin(current_admin.id)
+        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, db=db, error=None, success=None, password_error=None, password_success="Пароль изменён.", achievements=_achievement_grants_for_admin(db, current_admin.id))
+    except Exception as exc:
+        db.rollback()
+        refreshed = AuthService(db).get_admin(current_admin.id)
+        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, db=db, error=None, success=None, password_error=str(exc), password_success=None, achievements=_achievement_grants_for_admin(db, current_admin.id))
+
+
+@router.get("/admin/people")
+def admin_people_page(request: Request, db: Session = Depends(get_db_session), q: str = ""):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+    people = AuthService(db).list_active_admins()
+    search = (q or "").strip().lower()
+    if search:
+        people = [item for item in people if search in " ".join([item.username or "", item.full_name or "", item.position or "", item.about or ""]).lower()]
+    _attach_people_achievements(db, people)
+    return render_template("people_list.html", request, page_title="Сотрудники", current_admin=current_admin, db=db, people=people, q=q, messages_enabled=_messages_enabled(db))
+
+
+@router.get("/admin/people/{admin_id}")
+def admin_person_profile(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+    person = AuthService(db).get_admin(admin_id)
+    if not person.is_active:
+        return render_template("forbidden.html", request, page_title="Профиль скрыт", current_admin=current_admin, db=db, error="Этот профиль недоступен.")
+    achievements = _achievement_grants_for_admin(db, person.id)
+    return render_template("person_profile.html", request, page_title=person.full_name or person.username, current_admin=current_admin, db=db, person=person, achievements=achievements, messages_enabled=_messages_enabled(db))
+
+
+@router.post("/admin/people/{admin_id}/message")
+def admin_person_message(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+    try:
+        chat = ChatService(db).get_or_create_direct_chat(current_admin, admin_id)
+        return redirect_to(f"/admin/chats/{chat.id}")
+    except Exception as exc:
+        db.rollback()
+        person = AuthService(db).get_admin(admin_id)
+        return render_template("person_profile.html", request, page_title=person.full_name or person.username, current_admin=current_admin, db=db, person=person, achievements=_achievement_grants_for_admin(db, person.id), messages_enabled=_messages_enabled(db), error=str(exc))
+
+
+# ACHIEVEMENTS
+@router.get("/admin/achievements")
+def achievements_page(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+    achievements = list(db.scalars(select(Achievement).order_by(Achievement.id.desc())))
+    return render_template("achievements_list.html", request, page_title="Ачивки", current_admin=current_admin, db=db, achievements=achievements)
+
+
+@router.get("/admin/achievements/new")
+def achievements_new_page(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+    values = {"slug": "", "title": "", "description": "", "icon_url": "", "is_active": True}
+    return render_template("achievement_form.html", request, page_title="Создать ачивку", current_admin=current_admin, db=db, values=values, action_url="/admin/achievements/new", submit_label="Создать", error=None, success=None)
+
+
+@router.post("/admin/achievements/new")
+async def achievements_new_submit(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+    form = await request.form()
+    values = {"slug": str(form.get("slug", "")).strip(), "title": str(form.get("title", "")).strip(), "description": str(form.get("description", "")).strip() or None, "icon_url": str(form.get("icon_url", "")).strip() or None, "is_active": form.get("is_active") == "on"}
+    try:
+        achievement = Achievement(**values)
+        db.add(achievement)
+        db.commit()
+        return redirect_to("/admin/achievements")
+    except Exception as exc:
+        db.rollback()
+        return render_template("achievement_form.html", request, page_title="Создать ачивку", current_admin=current_admin, db=db, values={**values, "description": values["description"] or "", "icon_url": values["icon_url"] or ""}, action_url="/admin/achievements/new", submit_label="Создать", error=str(exc), success=None)
+
+
+@router.get("/admin/achievements/{achievement_id}/edit")
+def achievements_edit_page(achievement_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+    item = db.get(Achievement, achievement_id)
+    values = {"slug": item.slug, "title": item.title, "description": item.description or "", "icon_url": item.icon_url or "", "is_active": item.is_active}
+    return render_template("achievement_form.html", request, page_title=f"Редактировать ачивку #{achievement_id}", current_admin=current_admin, db=db, values=values, action_url=f"/admin/achievements/{achievement_id}/edit", submit_label="Сохранить", error=None, success=None)
+
+
+@router.post("/admin/achievements/{achievement_id}/edit")
+async def achievements_edit_submit(achievement_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+    item = db.get(Achievement, achievement_id)
+    form = await request.form()
+    values = {"slug": str(form.get("slug", "")).strip(), "title": str(form.get("title", "")).strip(), "description": str(form.get("description", "")).strip() or None, "icon_url": str(form.get("icon_url", "")).strip() or None, "is_active": form.get("is_active") == "on"}
+    try:
+        item.slug = values["slug"]
+        item.title = values["title"]
+        item.description = values["description"]
+        item.icon_url = values["icon_url"]
+        item.is_active = values["is_active"]
+        db.commit()
+        return redirect_to("/admin/achievements")
+    except Exception as exc:
+        db.rollback()
+        return render_template("achievement_form.html", request, page_title=f"Редактировать ачивку #{achievement_id}", current_admin=current_admin, db=db, values={**values, "description": values["description"] or "", "icon_url": values["icon_url"] or ""}, action_url=f"/admin/achievements/{achievement_id}/edit", submit_label="Сохранить", error=str(exc), success=None)
+
+
+@router.post("/admin/achievements/{achievement_id}/delete")
+def achievements_delete(achievement_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+    item = db.get(Achievement, achievement_id)
+    if item:
+        db.delete(item)
+        db.commit()
+    return redirect_to("/admin/achievements")
+
+
+@router.get("/admin/people/{admin_id}/achievements/grant")
+def person_grant_achievement_page(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+    person = AuthService(db).get_admin(admin_id)
+    achievements = list(db.scalars(select(Achievement).where(Achievement.is_active.is_(True)).order_by(Achievement.title.asc())))
+    grants = _achievement_grants_for_admin(db, admin_id)
+    return render_template("achievement_grant.html", request, page_title="Выдать ачивку", current_admin=current_admin, db=db, person=person, achievements=achievements, grants=grants, error=None, success=None)
+
+
+@router.post("/admin/people/{admin_id}/achievements/grant")
+async def person_grant_achievement_submit(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+    person = AuthService(db).get_admin(admin_id)
+    achievements = list(db.scalars(select(Achievement).where(Achievement.is_active.is_(True)).order_by(Achievement.title.asc())))
+    form = await request.form()
+    achievement_id = int(form.get("achievement_id"))
+    reason = str(form.get("reason", "")).strip() or None
+    grants = _achievement_grants_for_admin(db, admin_id)
+    existing = db.scalar(select(AdminAchievement).where(AdminAchievement.admin_id == admin_id, AdminAchievement.achievement_id == achievement_id))
+    if existing:
+        return render_template("achievement_grant.html", request, page_title="Выдать ачивку", current_admin=current_admin, db=db, person=person, achievements=achievements, grants=grants, error="Эта ачивка уже выдана сотруднику.", success=None)
+    grant = AdminAchievement(admin_id=admin_id, achievement_id=achievement_id, reason=reason, granted_by_admin_id=current_admin.id)
+    db.add(grant)
+    NotificationService(db).notify_admin(admin_id, kind="achievement", title="Тебе выдали ачивку", body=reason or "Новое достижение в профиле.", link_url=f"/admin/people/{admin_id}")
+    db.commit()
+    grants = _achievement_grants_for_admin(db, admin_id)
+    return render_template("achievement_grant.html", request, page_title="Выдать ачивку", current_admin=current_admin, db=db, person=person, achievements=achievements, grants=grants, error=None, success="Ачивка выдана.")
+
+
+@router.post("/admin/people/{admin_id}/achievements/{grant_id}/revoke")
+def person_revoke_achievement(admin_id: int, grant_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect:
+        return redirect
+    grant = db.get(AdminAchievement, grant_id)
+    if grant and grant.admin_id == admin_id:
+        db.delete(grant)
+        db.commit()
+    return redirect_to(f"/admin/people/{admin_id}/achievements/grant")
+
 
 # MEDIA
 @router.get("/admin/media")
@@ -170,6 +448,7 @@ def admin_media_cards(request: Request, db: Session = Depends(get_db_session), q
     if redirect:
         return redirect
     return _render_media_cards(request, current_admin, db, q=q, genre=genre, status=status)
+
 
 @router.post("/admin/media/bulk-delete")
 async def admin_media_bulk_delete(request: Request, db: Session = Depends(get_db_session)):
@@ -187,6 +466,7 @@ async def admin_media_bulk_delete(request: Request, db: Session = Depends(get_db
         db.rollback()
         return _render_media_cards(request, current_admin, db, error=str(exc))
 
+
 @router.post("/admin/media/{title_id}/delete")
 def admin_media_delete(title_id: int, request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
@@ -198,6 +478,7 @@ def admin_media_delete(title_id: int, request: Request, db: Session = Depends(ge
     except Exception as exc:
         db.rollback()
         return _render_media_cards(request, current_admin, db, error=str(exc))
+
 
 @router.get("/admin/media/{title_id}/edit")
 def admin_media_edit_page(title_id: int, request: Request, db: Session = Depends(get_db_session)):
@@ -221,6 +502,7 @@ def admin_media_edit_page(title_id: int, request: Request, db: Session = Depends
     }
     return render_template("card_builder.html", request, page_title=f"Редактирование карточки #{title_id}", current_admin=current_admin, db=db, error=None, success=None, values=values, result=None, action_url=f"/admin/media/{title_id}/edit", submit_label="Сохранить карточку", upload_ready=settings.media_upload_enabled, upload_help_text=settings.media_upload_help_text, upload_backend_label=settings.media_storage_backend_label)
 
+
 @router.post("/admin/media/{title_id}/edit")
 async def admin_media_edit_submit(title_id: int, request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db)
@@ -241,12 +523,14 @@ async def admin_media_edit_submit(title_id: int, request: Request, db: Session =
         db.rollback()
         return render_template("card_builder.html", request, page_title=f"Редактирование карточки #{title_id}", current_admin=current_admin, db=db, error=str(exc), success=None, values=values, result=None, action_url=f"/admin/media/{title_id}/edit", submit_label="Сохранить карточку", upload_ready=settings.media_upload_enabled, upload_help_text=settings.media_upload_help_text, upload_backend_label=settings.media_storage_backend_label)
 
+
 @router.get("/admin/card-builder")
 def admin_card_builder_page(request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db)
     if redirect:
         return redirect
     return render_template("card_builder.html", request, page_title="Создание карточки", current_admin=current_admin, db=db, error=None, success=None, values={"generate_code": True, "status": "active", "asset_type": "image", "genre": "anime", "external_url": "", "import_url": "", "source_label": ""}, result=None, action_url="/admin/card-builder", submit_label="Создать карточку", upload_ready=settings.media_upload_enabled, upload_help_text=settings.media_upload_help_text, upload_backend_label=settings.media_storage_backend_label)
+
 
 @router.post("/admin/card-builder")
 async def admin_card_builder_submit(request: Request, db: Session = Depends(get_db_session)):
@@ -268,6 +552,7 @@ async def admin_card_builder_submit(request: Request, db: Session = Depends(get_
         db.rollback()
         return render_template("card_builder.html", request, page_title="Создание карточки", current_admin=current_admin, db=db, error=str(exc), success=None, values=values, result=None, action_url="/admin/card-builder", submit_label="Создать карточку", upload_ready=settings.media_upload_enabled, upload_help_text=settings.media_upload_help_text, upload_backend_label=settings.media_storage_backend_label)
 
+
 # CODES
 @router.get("/admin/codes")
 def admin_codes_page(request: Request, db: Session = Depends(get_db_session)):
@@ -277,15 +562,17 @@ def admin_codes_page(request: Request, db: Session = Depends(get_db_session)):
     analytics = AnalyticsService(db)
     return render_template("codes_list.html", request, page_title="Коды", current_admin=current_admin, db=db, codes=CodeService(db).list_codes(), top_found=analytics.list_code_rows(outcome="found")[:8], top_not_found=analytics.list_code_rows(outcome="not_found")[:8], error=None)
 
+
 @router.get("/admin/codes/generate")
-def admin_codes_generate_page(request: Request, db: Session = Depends(get_db_session)):
+def admin_codes_generate_page(request: Request, db: Session = Depends(get_db_session), generated_codes=None, error=None, success=None):
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect:
         return redirect
     titles = MediaService(db).list_titles()
     seasons = MediaService(db).list_seasons()
     episodes = MediaService(db).list_episodes()
-    return render_template("code_generate.html", request, page_title="Генерация кодов", current_admin=current_admin, db=db, titles=titles, seasons=seasons, episodes=episodes, error=None, success=None)
+    return render_template("code_generate.html", request, page_title="Генерация кодов", current_admin=current_admin, db=db, titles=titles, seasons=seasons, episodes=episodes, values={"quantity": 10}, generated_codes=generated_codes or [], error=error, success=success)
+
 
 @router.post("/admin/codes/generate")
 async def admin_codes_generate_submit(request: Request, db: Session = Depends(get_db_session)):
@@ -294,15 +581,13 @@ async def admin_codes_generate_submit(request: Request, db: Session = Depends(ge
         return redirect
     form = await request.form()
     payload = {"quantity": int(form.get("quantity", 1)), "title_id": to_int(form.get("title_id")), "season_id": to_int(form.get("season_id")), "episode_id": to_int(form.get("episode_id")), "status": str(form.get("status", "active")).strip()}
-    titles = MediaService(db).list_titles()
-    seasons = MediaService(db).list_seasons()
-    episodes = MediaService(db).list_episodes()
     try:
         generated = CodeService(db).generate_codes(current_admin.id, payload)
-        return render_template("code_generate.html", request, page_title="Генерация кодов", current_admin=current_admin, db=db, titles=titles, seasons=seasons, episodes=episodes, error=None, success=f"Сгенерировано кодов: {len(generated)}")
+        return admin_codes_generate_page(request, db, generated_codes=generated, success=f"Сгенерировано кодов: {len(generated)}")
     except Exception as exc:
         db.rollback()
-        return render_template("code_generate.html", request, page_title="Генерация кодов", current_admin=current_admin, db=db, titles=titles, seasons=seasons, episodes=episodes, error=str(exc), success=None)
+        return admin_codes_generate_page(request, db, error=str(exc))
+
 
 @router.get("/admin/codes/{code_id}/edit")
 def admin_codes_edit_page(code_id: int, request: Request, db: Session = Depends(get_db_session)):
@@ -310,10 +595,12 @@ def admin_codes_edit_page(code_id: int, request: Request, db: Session = Depends(
     if redirect:
         return redirect
     item = CodeService(db).get_code(code_id)
+    values = {"code": item.code, "title_id": item.title_id, "season_id": item.season_id, "episode_id": item.episode_id, "status": item.status}
     titles = MediaService(db).list_titles()
     seasons = MediaService(db).list_seasons()
     episodes = MediaService(db).list_episodes()
-    return render_template("code_form.html", request, page_title=f"Редактирование кода #{code_id}", current_admin=current_admin, db=db, item=item, titles=titles, seasons=seasons, episodes=episodes, error=None, success=None)
+    return render_template("code_form.html", request, page_title=f"Редактирование кода #{code_id}", current_admin=current_admin, db=db, item=item, values=values, titles=titles, seasons=seasons, episodes=episodes, action_url=f"/admin/codes/{code_id}/edit", error=None, success=None)
+
 
 @router.post("/admin/codes/{code_id}/edit")
 async def admin_codes_edit_submit(code_id: int, request: Request, db: Session = Depends(get_db_session)):
@@ -327,32 +614,44 @@ async def admin_codes_edit_submit(code_id: int, request: Request, db: Session = 
     episodes = MediaService(db).list_episodes()
     try:
         item = CodeService(db).update_code(current_admin.id, code_id, payload)
-        return render_template("code_form.html", request, page_title=f"Редактирование кода #{code_id}", current_admin=current_admin, db=db, item=item, titles=titles, seasons=seasons, episodes=episodes, error=None, success="Код обновлён.")
+        values = {"code": item.code, "title_id": item.title_id, "season_id": item.season_id, "episode_id": item.episode_id, "status": item.status}
+        return render_template("code_form.html", request, page_title=f"Редактирование кода #{code_id}", current_admin=current_admin, db=db, item=item, values=values, titles=titles, seasons=seasons, episodes=episodes, action_url=f"/admin/codes/{code_id}/edit", error=None, success="Код обновлён.")
     except Exception as exc:
         db.rollback()
         item = CodeService(db).get_code(code_id)
-        return render_template("code_form.html", request, page_title=f"Редактирование кода #{code_id}", current_admin=current_admin, db=db, item=item, titles=titles, seasons=seasons, episodes=episodes, error=str(exc), success=None)
+        values = {"code": item.code, "title_id": item.title_id, "season_id": item.season_id, "episode_id": item.episode_id, "status": item.status}
+        return render_template("code_form.html", request, page_title=f"Редактирование кода #{code_id}", current_admin=current_admin, db=db, item=item, values=values, titles=titles, seasons=seasons, episodes=episodes, action_url=f"/admin/codes/{code_id}/edit", error=str(exc), success=None)
+
 
 @router.post("/admin/codes/{code_id}/activate")
 def admin_code_activate(code_id: int, request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect: return redirect
+    if redirect:
+        return redirect
     CodeService(db).set_code_status(current_admin.id, code_id, "active")
+    db.commit()
     return redirect_to("/admin/codes")
+
 
 @router.post("/admin/codes/{code_id}/deactivate")
 def admin_code_deactivate(code_id: int, request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect: return redirect
+    if redirect:
+        return redirect
     CodeService(db).set_code_status(current_admin.id, code_id, "inactive")
+    db.commit()
     return redirect_to("/admin/codes")
+
 
 @router.post("/admin/codes/{code_id}/delete")
 def admin_code_delete(code_id: int, request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect: return redirect
+    if redirect:
+        return redirect
     CodeService(db).delete_code(current_admin.id, code_id)
+    db.commit()
     return redirect_to("/admin/codes")
+
 
 @router.post("/admin/codes/bulk-action")
 async def admin_codes_bulk_action(request: Request, db: Session = Depends(get_db_session)):
@@ -363,18 +662,16 @@ async def admin_codes_bulk_action(request: Request, db: Session = Depends(get_db
     action = str(form.get("bulk_action", "")).strip()
     ids = [int(item) for item in form.getlist("selected_ids")]
     service = CodeService(db)
-    try:
-        for code_id in ids:
-            if action == "activate":
-                service.set_code_status(current_admin.id, code_id, "active")
-            elif action == "deactivate":
-                service.set_code_status(current_admin.id, code_id, "inactive")
-            elif action == "delete":
-                service.delete_code(current_admin.id, code_id)
-        return redirect_to("/admin/codes")
-    except Exception:
-        db.rollback()
-        return redirect_to("/admin/codes")
+    for code_id in ids:
+        if action == "activate":
+            service.set_code_status(current_admin.id, code_id, "active")
+        elif action == "deactivate":
+            service.set_code_status(current_admin.id, code_id, "inactive")
+        elif action == "delete":
+            service.delete_code(current_admin.id, code_id)
+    db.commit()
+    return redirect_to("/admin/codes")
+
 
 # IMPORT/EXPORT
 @router.get("/admin/import-export")
@@ -384,6 +681,7 @@ def admin_import_export_page(request: Request, db: Session = Depends(get_db_sess
         return redirect
     return render_template("import_export.html", request, page_title="Импорт / экспорт", current_admin=current_admin, db=db, error=None, success=None)
 
+
 @router.get("/admin/import-jobs")
 def admin_import_jobs_page(request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
@@ -392,11 +690,37 @@ def admin_import_jobs_page(request: Request, db: Session = Depends(get_db_sessio
     jobs = ImportExportService(db).list_jobs()
     return render_template("import_jobs_list.html", request, page_title="Import jobs", current_admin=current_admin, db=db, jobs=jobs)
 
+
+@router.get("/admin/templates/titles.csv")
+def template_titles_csv(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect: return redirect
+    content = ImportExportService(db).template_titles_csv()
+    return Response(content=content, media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=titles_template.csv"})
+
+
+@router.get("/admin/templates/codes.csv")
+def template_codes_csv(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect: return redirect
+    content = ImportExportService(db).template_codes_csv()
+    return Response(content=content, media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=codes_template.csv"})
+
+
+@router.get("/admin/templates/cards.csv")
+def template_cards_csv(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect: return redirect
+    content = ImportExportService(db).template_cards_csv()
+    return Response(content=content, media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=cards_template.csv"})
+
+
 @router.get("/admin/export/titles.csv")
 def export_titles_csv(request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect: return redirect
     return Response(content=ImportExportService(db).export_titles_csv(), media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=titles.csv"})
+
 
 @router.get("/admin/export/seasons.csv")
 def export_seasons_csv(request: Request, db: Session = Depends(get_db_session)):
@@ -404,11 +728,13 @@ def export_seasons_csv(request: Request, db: Session = Depends(get_db_session)):
     if redirect: return redirect
     return Response(content=ImportExportService(db).export_seasons_csv(), media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=seasons.csv"})
 
+
 @router.get("/admin/export/episodes.csv")
 def export_episodes_csv(request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect: return redirect
     return Response(content=ImportExportService(db).export_episodes_csv(), media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=episodes.csv"})
+
 
 @router.get("/admin/export/assets.csv")
 def export_assets_csv(request: Request, db: Session = Depends(get_db_session)):
@@ -416,11 +742,28 @@ def export_assets_csv(request: Request, db: Session = Depends(get_db_session)):
     if redirect: return redirect
     return Response(content=ImportExportService(db).export_assets_csv(), media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=assets.csv"})
 
+
 @router.get("/admin/export/codes.csv")
 def export_codes_csv(request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect: return redirect
     return Response(content=ImportExportService(db).export_codes_csv(), media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=codes.csv"})
+
+
+@router.get("/admin/export/cards.csv")
+def export_cards_csv(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect: return redirect
+    return Response(content=ImportExportService(db).export_cards_csv(), media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=cards.csv"})
+
+
+@router.get("/admin/export/everything.zip")
+def export_everything_zip(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect: return redirect
+    content = ImportExportService(db).build_everything_zip()
+    return Response(content=content, media_type="application/zip", headers={"Content-Disposition": "attachment; filename=everything.zip"})
+
 
 @router.post("/admin/import/titles/csv")
 async def admin_import_titles_csv(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db_session)):
@@ -434,6 +777,7 @@ async def admin_import_titles_csv(request: Request, file: UploadFile = File(...)
         db.rollback()
         return render_template("import_export.html", request, page_title="Импорт / экспорт", current_admin=current_admin, db=db, error=str(exc), success=None)
 
+
 @router.post("/admin/import/codes/csv")
 async def admin_import_codes_csv(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
@@ -446,210 +790,59 @@ async def admin_import_codes_csv(request: Request, file: UploadFile = File(...),
         db.rollback()
         return render_template("import_export.html", request, page_title="Импорт / экспорт", current_admin=current_admin, db=db, error=str(exc), success=None)
 
-# LOOKUP
-@router.get("/admin/lookup-test")
-def admin_lookup_test(request: Request, db: Session = Depends(get_db_session), code: str | None = None):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect:
-        return redirect
-    result = None
-    error = None
-    if code:
-        try:
-            result = PublicLookupService(db).lookup(code, source="admin_lookup")
-        except Exception as exc:
-            db.rollback()
-            error = str(exc)
-    return render_template("lookup_test.html", request, page_title="Тест lookup", current_admin=current_admin, db=db, code=code or "", result=result, error=error)
 
-# PROFILE / PEOPLE
-@router.get("/admin/profile")
-def admin_profile_page(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect: return redirect
-    achievements = AchievementService(db).list_admin_achievements(current_admin.id)
-    return render_template("profile.html", request, page_title="Мой профиль", current_admin=current_admin, db=db, error=None, success=None, password_error=None, password_success=None, achievements=achievements)
-
-@router.post("/admin/profile")
-async def admin_profile_submit(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect: return redirect
-    form = await request.form()
-    avatar_file = form.get("avatar_file")
-    service = AuthService(db)
-    try:
-        service.update_profile(current_admin, username=str(form.get("username", "")).strip() or None, full_name=str(form.get("full_name", "")).strip() or None, position=str(form.get("position", "")).strip() or None, about=str(form.get("about", "")).strip() or None, avatar_url=str(form.get("avatar_url", "")).strip() or None)
-        if avatar_file and getattr(avatar_file, "filename", ""):
-            content = await avatar_file.read()
-            service.upload_profile_avatar(current_admin.id, file_bytes=content, file_name=avatar_file.filename, content_type=getattr(avatar_file, "content_type", None))
-        refreshed = AuthService(db).get_admin(current_admin.id)
-        achievements = AchievementService(db).list_admin_achievements(refreshed.id)
-        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, db=db, error=None, success="Профиль обновлён.", password_error=None, password_success=None, achievements=achievements)
-    except Exception as exc:
-        db.rollback()
-        refreshed = AuthService(db).get_admin(current_admin.id)
-        achievements = AchievementService(db).list_admin_achievements(refreshed.id)
-        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, db=db, error=str(exc), success=None, password_error=None, password_success=None, achievements=achievements)
-
-@router.post("/admin/profile/password")
-async def admin_profile_password_submit(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect: return redirect
-    form = await request.form()
-    current_password = str(form.get("current_password", "")).strip()
-    new_password = str(form.get("new_password", "")).strip()
-    try:
-        AuthService(db).change_own_password(current_admin.id, current_password, new_password)
-        refreshed = AuthService(db).get_admin(current_admin.id)
-        achievements = AchievementService(db).list_admin_achievements(refreshed.id)
-        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, db=db, error=None, success=None, password_error=None, password_success="Пароль изменён.", achievements=achievements)
-    except Exception as exc:
-        db.rollback()
-        refreshed = AuthService(db).get_admin(current_admin.id)
-        achievements = AchievementService(db).list_admin_achievements(refreshed.id)
-        return render_template("profile.html", request, page_title="Мой профиль", current_admin=refreshed, db=db, error=None, success=None, password_error=str(exc), password_success=None, achievements=achievements)
-
-@router.get("/admin/people")
-def admin_people_page(request: Request, db: Session = Depends(get_db_session), q: str = ""):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect: return redirect
-    people = AuthService(db).list_active_admins()
-    search = (q or "").strip().lower()
-    if search:
-        people = [item for item in people if search in " ".join([item.username or "", item.full_name or "", item.position or "", item.about or ""]).lower()]
-    achievement_service = AchievementService(db)
-    achievements_map = {item.id: achievement_service.list_admin_achievements(item.id) for item in people}
-    return render_template("people_list.html", request, page_title="Сотрудники", current_admin=current_admin, db=db, people=people, q=q, messages_enabled=_messages_enabled(db), achievements_map=achievements_map)
-
-@router.get("/admin/people/{admin_id}")
-def admin_person_profile(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect: return redirect
-    person = AuthService(db).get_admin(admin_id)
-    if not person.is_active:
-        return render_template("forbidden.html", request, page_title="Профиль скрыт", current_admin=current_admin, db=db, error="Этот профиль недоступен.")
-    achievements = AchievementService(db).list_admin_achievements(person.id)
-    return render_template("person_profile.html", request, page_title=person.full_name or person.username, current_admin=current_admin, db=db, person=person, messages_enabled=_messages_enabled(db), achievements=achievements)
-
-@router.post("/admin/people/{admin_id}/message")
-def admin_person_message(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db)
-    if redirect: return redirect
-    try:
-        chat = ChatService(db).get_or_create_direct_chat(current_admin, admin_id)
-        return redirect_to(f"/admin/chats/{chat.id}")
-    except Exception as exc:
-        db.rollback()
-        person = AuthService(db).get_admin(admin_id)
-        return render_template("person_profile.html", request, page_title=person.full_name or person.username, current_admin=current_admin, db=db, person=person, messages_enabled=_messages_enabled(db), error=str(exc))
-
-# TEAM
-@router.get("/admin/team")
-def admin_team_page(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect: return redirect
-    service = AuthService(db)
-    admins = service.list_admins_for_actor(current_admin)
-    return render_template("team_list.html", request, page_title="Пользователи", current_admin=current_admin, db=db, admins=admins, manageable_ids=_team_manageable_ids(current_admin, admins), error=None)
-
-@router.get("/admin/team/new")
-def admin_team_new_page(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect: return redirect
-    allowed_roles = AuthService(db).allowed_create_roles(current_admin)
-    return render_template("team_form.html", request, page_title="Создать пользователя", current_admin=current_admin, db=db, error=None, success=None, credentials=None, values={"role": allowed_roles[0] if allowed_roles else "editor", "is_active": True, "generate_password": True}, allowed_roles=allowed_roles, action_url="/admin/team/new", submit_label="Создать пользователя", is_edit=False)
-
-@router.post("/admin/team/new")
-async def admin_team_new_submit(request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect: return redirect
-    form = await request.form()
-    values = {"username": str(form.get("username", "")).strip(), "role": str(form.get("role", "editor")).strip(), "is_active": form.get("is_active") == "on", "generate_password": form.get("generate_password") == "on", "password": str(form.get("password", "")).strip()}
-    service = AuthService(db)
-    allowed_roles = service.allowed_create_roles(current_admin)
-    try:
-        created, plain_password = service.create_admin(current_admin, username=values["username"], role=values["role"], password=values["password"], generate_password_flag=values["generate_password"], is_active=values["is_active"])
-        return render_template("team_form.html", request, page_title="Создать пользователя", current_admin=current_admin, db=db, error=None, success="Пользователь создан.", credentials={"username": created.username, "password": plain_password}, values={"role": allowed_roles[0] if allowed_roles else "editor", "is_active": True, "generate_password": True}, allowed_roles=allowed_roles, action_url="/admin/team/new", submit_label="Создать пользователя", is_edit=False)
-    except Exception as exc:
-        db.rollback()
-        return render_template("team_form.html", request, page_title="Создать пользователя", current_admin=current_admin, db=db, error=str(exc), success=None, credentials=None, values=values, allowed_roles=allowed_roles, action_url="/admin/team/new", submit_label="Создать пользователя", is_edit=False)
-
-@router.get("/admin/team/{admin_id}/edit")
-def admin_team_edit_page(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect: return redirect
-    service = AuthService(db)
-    item = service.get_manageable_admin(current_admin, admin_id)
-    allowed_roles = service.allowed_create_roles(current_admin)
-    return render_template("team_form.html", request, page_title=f"Редактировать пользователя #{admin_id}", current_admin=current_admin, db=db, error=None, success=None, credentials=None, values={"username": item.username, "role": item.role, "is_active": item.is_active}, allowed_roles=allowed_roles, action_url=f"/admin/team/{admin_id}/edit", submit_label="Сохранить пользователя", is_edit=True)
-
-@router.post("/admin/team/{admin_id}/edit")
-async def admin_team_edit_submit(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect: return redirect
-    service = AuthService(db)
-    allowed_roles = service.allowed_create_roles(current_admin)
-    form = await request.form()
-    values = {"username": str(form.get("username", "")).strip(), "role": str(form.get("role", "editor")).strip(), "is_active": form.get("is_active") == "on"}
-    try:
-        managed = service.update_managed_admin(current_admin, admin_id, username=values["username"], role=values["role"], is_active=values["is_active"])
-        return render_template("team_form.html", request, page_title=f"Редактировать пользователя #{admin_id}", current_admin=current_admin, db=db, error=None, success="Пользователь обновлён.", credentials=None, values={"username": managed.username, "role": managed.role, "is_active": managed.is_active}, allowed_roles=allowed_roles, action_url=f"/admin/team/{admin_id}/edit", submit_label="Сохранить пользователя", is_edit=True)
-    except Exception as exc:
-        db.rollback()
-        target = service.get_admin(admin_id)
-        return render_template("team_form.html", request, page_title=f"Редактировать пользователя #{admin_id}", current_admin=current_admin, db=db, error=str(exc), success=None, credentials=None, values={"username": target.username, "role": values["role"], "is_active": values["is_active"]}, allowed_roles=allowed_roles, action_url=f"/admin/team/{admin_id}/edit", submit_label="Сохранить пользователя", is_edit=True)
-
-@router.post("/admin/team/{admin_id}/reset-password")
-def admin_team_reset_password(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect: return redirect
-    service = AuthService(db)
-    allowed_roles = service.allowed_create_roles(current_admin)
-    try:
-        target, plain_password = service.reset_managed_admin_password(current_admin, admin_id)
-        return render_template("team_form.html", request, page_title=f"Редактировать пользователя #{admin_id}", current_admin=current_admin, db=db, error=None, success="Пароль сброшен.", credentials={"username": target.username, "password": plain_password}, values={"username": target.username, "role": target.role, "is_active": target.is_active}, allowed_roles=allowed_roles, action_url=f"/admin/team/{admin_id}/edit", submit_label="Сохранить пользователя", is_edit=True)
-    except Exception as exc:
-        db.rollback()
-        target = service.get_admin(admin_id)
-        return render_template("team_form.html", request, page_title=f"Редактировать пользователя #{admin_id}", current_admin=current_admin, db=db, error=str(exc), success=None, credentials=None, values={"username": target.username, "role": target.role, "is_active": target.is_active}, allowed_roles=allowed_roles, action_url=f"/admin/team/{admin_id}/edit", submit_label="Сохранить пользователя", is_edit=True)
-
-@router.post("/admin/team/{admin_id}/deactivate")
-def admin_team_deactivate(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
+@router.post("/admin/import/cards/csv")
+async def admin_import_cards_csv(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect: return redirect
     try:
-        AuthService(db).set_managed_admin_active(current_admin, admin_id, False)
-        return redirect_to("/admin/team")
+        content = await file.read()
+        raw = ImportExportService(db)._decode(content)
+        reader = csv.DictReader(io.StringIO(raw))
+        required = {"genre", "title"}
+        missing = required - set(reader.fieldnames or [])
+        if missing:
+            raise ValueError(f"Missing CSV columns: {', '.join(sorted(missing))}")
+        success_rows = 0
+        failed_rows = 0
+        errors = []
+        for index, row in enumerate(reader, start=2):
+            payload = {
+                "genre": (row.get("genre") or "").strip(),
+                "title": (row.get("title") or "").strip(),
+                "status": (row.get("status") or "active").strip(),
+                "season_number": int(row["season_number"]) if (row.get("season_number") or "").strip() else None,
+                "episode_number": int(row["episode_number"]) if (row.get("episode_number") or "").strip() else None,
+                "asset_type": (row.get("asset_type") or "image").strip(),
+                "external_url": (row.get("external_url") or "").strip(),
+                "import_url": (row.get("import_url") or "").strip(),
+                "source_label": (row.get("source_label") or "").strip(),
+                "mime_type": (row.get("mime_type") or "").strip(),
+                "is_primary": True,
+                "generate_code": True,
+            }
+            try:
+                await MediaCardService(db).create_card(current_admin.id, payload)
+                success_rows += 1
+            except Exception as exc:
+                db.rollback()
+                failed_rows += 1
+                errors.append({"row": index, "error": str(exc)})
+        if errors:
+            NotificationService(db).notify_admin(current_admin.id, kind="import_cards", title="Импорт карточек завершён с ошибками", body=f"Ошибок: {len(errors)}", link_url="/admin/import-export")
+        db.commit()
+        return render_template("import_export.html", request, page_title="Импорт / экспорт", current_admin=current_admin, db=db, error=None, success=f"Импорт cards завершён. Успешно: {success_rows}, ошибок: {failed_rows}.")
     except Exception as exc:
         db.rollback()
-        admins = AuthService(db).list_admins_for_actor(current_admin)
-        return render_template("team_list.html", request, page_title="Пользователи", current_admin=current_admin, db=db, admins=admins, manageable_ids=_team_manageable_ids(current_admin, admins), error=str(exc))
+        return render_template("import_export.html", request, page_title="Импорт / экспорт", current_admin=current_admin, db=db, error=str(exc), success=None)
 
-@router.post("/admin/team/{admin_id}/activate")
-def admin_team_activate(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
-    if redirect: return redirect
-    try:
-        AuthService(db).set_managed_admin_active(current_admin, admin_id, True)
-        return redirect_to("/admin/team")
-    except Exception as exc:
-        db.rollback()
-        admins = AuthService(db).list_admins_for_actor(current_admin)
-        return render_template("team_list.html", request, page_title="Пользователи", current_admin=current_admin, db=db, admins=admins, manageable_ids=_team_manageable_ids(current_admin, admins), error=str(exc))
-
-@router.post("/admin/team/{admin_id}/delete")
-def admin_team_delete(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
-    current_admin, redirect = get_admin_or_redirect(request, db, min_role="superadmin")
-    if redirect: return redirect
-    try:
-        AuthService(db).delete_managed_admin(current_admin, admin_id)
-        return redirect_to("/admin/team")
-    except Exception as exc:
-        db.rollback()
-        admins = AuthService(db).list_admins_for_actor(current_admin)
-        return render_template("team_list.html", request, page_title="Пользователи", current_admin=current_admin, db=db, admins=admins, manageable_ids=_team_manageable_ids(current_admin, admins), error=str(exc))
 
 # CHATS
+@router.get("/admin/chats-live")
+def chats_live_alias():
+    return redirect_to("/admin/chats")
+
+
 @router.get("/admin/chats")
 def admin_chats_page(request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db)
@@ -658,6 +851,7 @@ def admin_chats_page(request: Request, db: Session = Depends(get_db_session)):
     chats = chat_service.list_chats_for_admin(current_admin)
     return render_template("chat_list.html", request, page_title="Сообщения", current_admin=current_admin, db=db, chats=chats, error=None, messages_enabled=chat_service.messages_enabled())
 
+
 @router.get("/admin/chats/new")
 def admin_chat_new_page(request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db)
@@ -665,6 +859,7 @@ def admin_chat_new_page(request: Request, db: Session = Depends(get_db_session))
     service = ChatService(db)
     admins = [item for item in service.list_active_admins() if item.id != current_admin.id]
     return render_template("chat_new.html", request, page_title="Создать чат", current_admin=current_admin, db=db, admins=admins, error=None, values={}, selected_ids=[], messages_enabled=service.messages_enabled())
+
 
 @router.post("/admin/chats/new")
 async def admin_chat_new_submit(request: Request, db: Session = Depends(get_db_session)):
@@ -682,6 +877,7 @@ async def admin_chat_new_submit(request: Request, db: Session = Depends(get_db_s
         db.rollback()
         return render_template("chat_new.html", request, page_title="Создать чат", current_admin=current_admin, db=db, admins=admins, error=str(exc), values={"title": title}, selected_ids=selected_ids, messages_enabled=service.messages_enabled())
 
+
 @router.get("/admin/chats/{chat_id}")
 def admin_chat_room(chat_id: int, request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db)
@@ -694,6 +890,7 @@ def admin_chat_room(chat_id: int, request: Request, db: Session = Depends(get_db
         db.rollback()
         chats = service.list_chats_for_admin(current_admin)
         return render_template("chat_list.html", request, page_title="Сообщения", current_admin=current_admin, db=db, chats=chats, error=str(exc), messages_enabled=service.messages_enabled())
+
 
 @router.post("/admin/chats/{chat_id}/message")
 async def admin_chat_message_submit(chat_id: int, request: Request, db: Session = Depends(get_db_session)):
@@ -710,6 +907,7 @@ async def admin_chat_message_submit(chat_id: int, request: Request, db: Session 
         chat = service.get_chat_for_admin(current_admin, chat_id)
         return render_template("chat_room.html", request, page_title=chat.title, current_admin=current_admin, db=db, chat=chat, error=str(exc), messages_enabled=service.messages_enabled())
 
+
 # REPORTS / NOTIFICATIONS
 @router.get("/admin/reports")
 def reports_page(request: Request, db: Session = Depends(get_db_session)):
@@ -718,12 +916,14 @@ def reports_page(request: Request, db: Session = Depends(get_db_session)):
     tickets = ReportService(db).list_tickets()
     return render_template("reports_list.html", request, page_title="Репорты", current_admin=current_admin, db=db, tickets=tickets, error=None)
 
+
 @router.get("/admin/reports/{ticket_id}")
 def reports_detail(ticket_id: int, request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db)
     if redirect: return redirect
     ticket = ReportService(db).get_ticket(ticket_id)
     return render_template("report_detail.html", request, page_title=f"Репорт #{ticket_id}", current_admin=current_admin, db=db, ticket=ticket, error=None, success=None)
+
 
 @router.post("/admin/reports/{ticket_id}/reply")
 async def reports_reply(ticket_id: int, request: Request, db: Session = Depends(get_db_session)):
@@ -740,6 +940,7 @@ async def reports_reply(ticket_id: int, request: Request, db: Session = Depends(
         ticket = service.get_ticket(ticket_id)
         return render_template("report_detail.html", request, page_title=f"Репорт #{ticket_id}", current_admin=current_admin, db=db, ticket=ticket, error=str(exc), success=None)
 
+
 @router.post("/admin/reports/{ticket_id}/close")
 def reports_close(ticket_id: int, request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db)
@@ -752,12 +953,14 @@ def reports_close(ticket_id: int, request: Request, db: Session = Depends(get_db
         ticket = ReportService(db).get_ticket(ticket_id)
         return render_template("report_detail.html", request, page_title=f"Репорт #{ticket_id}", current_admin=current_admin, db=db, ticket=ticket, error=str(exc), success=None)
 
+
 @router.get("/admin/notifications")
 def notifications_page(request: Request, db: Session = Depends(get_db_session), only_unread: bool = False):
     current_admin, redirect = get_admin_or_redirect(request, db)
     if redirect: return redirect
     rows = NotificationService(db).list_for_admin(current_admin, only_unread=only_unread, limit=200)
     return render_template("notifications_list.html", request, page_title="Уведомления", current_admin=current_admin, db=db, rows=rows)
+
 
 @router.post("/admin/notifications/{notification_id}/read")
 def notifications_mark_read(notification_id: int, request: Request, db: Session = Depends(get_db_session)):
@@ -767,25 +970,37 @@ def notifications_mark_read(notification_id: int, request: Request, db: Session 
     db.commit()
     return redirect_to("/admin/notifications")
 
+
 # SETTINGS
+@router.get("/admin/settings/site")
+def admin_settings_site_alias():
+    return redirect_to("/admin/settings/general")
+
+
 @router.get("/admin/settings/general")
 def admin_settings_general_page(request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="superadmin")
     if redirect: return redirect
     service = SiteSettingService(db)
-    return render_template("settings_general.html", request, page_title="Общие настройки", current_admin=current_admin, db=db, messages_enabled=service.is_messages_enabled(), error=None, success=None)
+    return render_template("settings_general.html", request, page_title="Общие настройки", current_admin=current_admin, db=db, messages_enabled=service.is_messages_enabled(), reports_enabled=service.is_reports_enabled(), maintenance_mode=service.is_maintenance_mode(), site_title=service.get_str("site_title", "Media Bridge"), logo_url=service.get_str("logo_url", ""), telegram_help_contact=service.get_str("telegram_help_contact", ""), error=None, success=None)
+
 
 @router.post("/admin/settings/general")
 async def admin_settings_general_submit(request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="superadmin")
     if redirect: return redirect
     form = await request.form()
-    enabled = form.get("messages_enabled") == "on"
     service = SiteSettingService(db)
-    service.set_messages_enabled(enabled)
-    return render_template("settings_general.html", request, page_title="Общие настройки", current_admin=current_admin, db=db, messages_enabled=service.is_messages_enabled(), error=None, success="Настройки обновлены.")
+    service.set_messages_enabled(form.get("messages_enabled") == "on")
+    service.set_reports_enabled(form.get("reports_enabled") == "on")
+    service.set_maintenance_mode(form.get("maintenance_mode") == "on")
+    service.set_str("site_title", str(form.get("site_title", "")).strip() or "Media Bridge")
+    service.set_str("logo_url", str(form.get("logo_url", "")).strip())
+    service.set_str("telegram_help_contact", str(form.get("telegram_help_contact", "")).strip())
+    return render_template("settings_general.html", request, page_title="Общие настройки", current_admin=current_admin, db=db, messages_enabled=service.is_messages_enabled(), reports_enabled=service.is_reports_enabled(), maintenance_mode=service.is_maintenance_mode(), site_title=service.get_str("site_title", "Media Bridge"), logo_url=service.get_str("logo_url", ""), telegram_help_contact=service.get_str("telegram_help_contact", ""), error=None, success="Настройки обновлены.")
 
-# ANALYTICS / ADMIN ACTIONS
+
+# ANALYTICS / ACTIONS
 @router.get("/admin/analytics")
 def admin_analytics_page(request: Request, db: Session = Depends(get_db_session), q: str = "", outcome: str = ""):
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
@@ -793,12 +1008,14 @@ def admin_analytics_page(request: Request, db: Session = Depends(get_db_session)
     service = AnalyticsService(db)
     return render_template("analytics_dashboard.html", request, page_title="Аналитика и аудит", current_admin=current_admin, db=db, summary=service.get_summary(), code_rows=service.list_code_rows(q=q, outcome=outcome), recent_lookup_events=service.list_recent_lookup_events(limit=120), recent_audit_logs=service.list_recent_audit_logs(limit=120), filters={"q": q, "outcome": outcome})
 
+
 @router.get("/admin/analytics/codes/{code_value}")
 def admin_analytics_code_detail(code_value: str, request: Request, db: Session = Depends(get_db_session)):
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
     if redirect: return redirect
     detail = AnalyticsService(db).get_code_detail(code_value)
     return render_template("code_analytics_detail.html", request, page_title=f"Аналитика кода {code_value}", current_admin=current_admin, db=db, detail=detail)
+
 
 @router.get("/admin/admin-actions")
 def admin_actions_page(request: Request, db: Session = Depends(get_db_session), admin_id: int | None = None, action: str = "", date_from: str = "", date_to: str = "", sort: str = "desc"):
@@ -809,6 +1026,7 @@ def admin_actions_page(request: Request, db: Session = Depends(get_db_session), 
     rows = repo.list_filtered(admin_id=admin_id, action=action, date_from=date_from, date_to=date_to, sort=sort, limit=500)
     return render_template("admin_actions.html", request, page_title="Действия админов", current_admin=current_admin, db=db, rows=rows, admins=admins, action_options=repo.list_actions(), filters={"admin_id": admin_id, "action": action, "date_from": date_from, "date_to": date_to, "sort": sort})
 
+
 @router.get("/admin/export/admin-actions.csv")
 def export_admin_actions_csv(request: Request, db: Session = Depends(get_db_session), admin_id: int | None = None, action: str = "", date_from: str = "", date_to: str = "", sort: str = "desc"):
     current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
@@ -816,9 +1034,139 @@ def export_admin_actions_csv(request: Request, db: Session = Depends(get_db_sess
     rows = AuditLogRepository(db).list_filtered(admin_id=admin_id, action=action, date_from=date_from, date_to=date_to, sort=sort, limit=5000)
     csv_lines = ["created_at,admin,action,entity_type,entity_id,payload"]
     for item in rows:
-        admin_name = ""
-        if item.admin:
-            admin_name = item.admin.username
+        admin_name = item.admin.username if item.admin else ""
         payload = (item.payload_json or "").replace('"', '""')
         csv_lines.append(f'{item.created_at},"{admin_name}","{item.action}","{item.entity_type}","{item.entity_id}","{payload}"')
     return Response(content="\n".join(csv_lines), media_type="text/csv; charset=utf-8", headers={"Content-Disposition": "attachment; filename=admin_actions.csv"})
+
+
+# TEAM / USERS
+@router.get("/admin/team")
+def admin_team_page(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect: return redirect
+    service = AuthService(db)
+    admins = service.list_admins_for_actor(current_admin)
+    return render_template("team_list.html", request, page_title="Пользователи", current_admin=current_admin, db=db, admins=admins, manageable_ids=_team_manageable_ids(current_admin, admins), error=None)
+
+
+@router.get("/admin/team/new")
+def admin_team_new_page(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect: return redirect
+    allowed_roles = AuthService(db).allowed_create_roles(current_admin)
+    return render_template("team_form.html", request, page_title="Создать пользователя", current_admin=current_admin, db=db, error=None, success=None, credentials=None, values={"role": allowed_roles[0] if allowed_roles else "editor", "is_active": True, "generate_password": True}, allowed_roles=allowed_roles, action_url="/admin/team/new", submit_label="Создать пользователя", is_edit=False, all_permissions=ALL_PERMISSIONS, selected_permissions=[], reset_password_url=None)
+
+
+@router.post("/admin/team/new")
+async def admin_team_new_submit(request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect: return redirect
+    form = await request.form()
+    values = {"username": str(form.get("username", "")).strip(), "role": str(form.get("role", "editor")).strip(), "is_active": form.get("is_active") == "on", "generate_password": form.get("generate_password") == "on", "password": str(form.get("password", "")).strip()}
+    service = AuthService(db)
+    allowed_roles = service.allowed_create_roles(current_admin)
+    try:
+        created, plain_password = service.create_admin(current_admin, username=values["username"], role=values["role"], password=values["password"], generate_password_flag=values["generate_password"], is_active=values["is_active"])
+        return render_template("team_form.html", request, page_title="Создать пользователя", current_admin=current_admin, db=db, error=None, success="Пользователь создан.", credentials={"username": created.username, "password": plain_password}, values={"role": allowed_roles[0] if allowed_roles else "editor", "is_active": True, "generate_password": True}, allowed_roles=allowed_roles, action_url="/admin/team/new", submit_label="Создать пользователя", is_edit=False, all_permissions=ALL_PERMISSIONS, selected_permissions=[], reset_password_url=None)
+    except Exception as exc:
+        db.rollback()
+        return render_template("team_form.html", request, page_title="Создать пользователя", current_admin=current_admin, db=db, error=str(exc), success=None, credentials=None, values=values, allowed_roles=allowed_roles, action_url="/admin/team/new", submit_label="Создать пользователя", is_edit=False, all_permissions=ALL_PERMISSIONS, selected_permissions=[], reset_password_url=None)
+
+
+@router.get("/admin/team/{admin_id}/edit")
+def admin_team_edit_page(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect: return redirect
+    service = AuthService(db)
+    item = service.get_manageable_admin(current_admin, admin_id)
+    allowed_roles = service.allowed_create_roles(current_admin)
+    return render_template("team_form.html", request, page_title=f"Редактировать пользователя #{admin_id}", current_admin=current_admin, db=db, error=None, success=None, credentials=None, values={"username": item.username, "role": item.role, "is_active": item.is_active}, allowed_roles=allowed_roles, action_url=f"/admin/team/{admin_id}/edit", submit_label="Сохранить пользователя", is_edit=True, all_permissions=ALL_PERMISSIONS, selected_permissions=permissions_service.parse_permissions(getattr(item, "extra_permissions", None)), reset_password_url=f"/admin/team/{admin_id}/reset-password")
+
+
+@router.post("/admin/team/{admin_id}/edit")
+async def admin_team_edit_submit(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect: return redirect
+    service = AuthService(db)
+    allowed_roles = service.allowed_create_roles(current_admin)
+    form = await request.form()
+    values = {"username": str(form.get("username", "")).strip(), "role": str(form.get("role", "editor")).strip(), "is_active": form.get("is_active") == "on"}
+    try:
+        managed = service.update_managed_admin(current_admin, admin_id, username=values["username"], role=values["role"], is_active=values["is_active"])
+        return render_template("team_form.html", request, page_title=f"Редактировать пользователя #{admin_id}", current_admin=current_admin, db=db, error=None, success="Пользователь обновлён.", credentials=None, values={"username": managed.username, "role": managed.role, "is_active": managed.is_active}, allowed_roles=allowed_roles, action_url=f"/admin/team/{admin_id}/edit", submit_label="Сохранить пользователя", is_edit=True, all_permissions=ALL_PERMISSIONS, selected_permissions=permissions_service.parse_permissions(getattr(managed, "extra_permissions", None)), reset_password_url=f"/admin/team/{admin_id}/reset-password")
+    except Exception as exc:
+        db.rollback()
+        target = service.get_admin(admin_id)
+        return render_template("team_form.html", request, page_title=f"Редактировать пользователя #{admin_id}", current_admin=current_admin, db=db, error=str(exc), success=None, credentials=None, values={"username": target.username, "role": values["role"], "is_active": values["is_active"]}, allowed_roles=allowed_roles, action_url=f"/admin/team/{admin_id}/edit", submit_label="Сохранить пользователя", is_edit=True, all_permissions=ALL_PERMISSIONS, selected_permissions=permissions_service.parse_permissions(getattr(target, "extra_permissions", None)), reset_password_url=f"/admin/team/{admin_id}/reset-password")
+
+
+@router.post("/admin/team/{admin_id}/reset-password")
+def admin_team_reset_password(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect: return redirect
+    service = AuthService(db)
+    allowed_roles = service.allowed_create_roles(current_admin)
+    try:
+        target, plain_password = service.reset_managed_admin_password(current_admin, admin_id)
+        return render_template("team_form.html", request, page_title=f"Редактировать пользователя #{admin_id}", current_admin=current_admin, db=db, error=None, success="Пароль сброшен.", credentials={"username": target.username, "password": plain_password}, values={"username": target.username, "role": target.role, "is_active": target.is_active}, allowed_roles=allowed_roles, action_url=f"/admin/team/{admin_id}/edit", submit_label="Сохранить пользователя", is_edit=True, all_permissions=ALL_PERMISSIONS, selected_permissions=permissions_service.parse_permissions(getattr(target, "extra_permissions", None)), reset_password_url=f"/admin/team/{admin_id}/reset-password")
+    except Exception as exc:
+        db.rollback()
+        target = service.get_admin(admin_id)
+        return render_template("team_form.html", request, page_title=f"Редактировать пользователя #{admin_id}", current_admin=current_admin, db=db, error=str(exc), success=None, credentials=None, values={"username": target.username, "role": target.role, "is_active": target.is_active}, allowed_roles=allowed_roles, action_url=f"/admin/team/{admin_id}/edit", submit_label="Сохранить пользователя", is_edit=True, all_permissions=ALL_PERMISSIONS, selected_permissions=permissions_service.parse_permissions(getattr(target, "extra_permissions", None)), reset_password_url=f"/admin/team/{admin_id}/reset-password")
+
+
+@router.post("/admin/team/{admin_id}/deactivate")
+def admin_team_deactivate(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect: return redirect
+    try:
+        AuthService(db).set_managed_admin_active(current_admin, admin_id, False)
+        return redirect_to("/admin/team")
+    except Exception as exc:
+        db.rollback()
+        admins = AuthService(db).list_admins_for_actor(current_admin)
+        return render_template("team_list.html", request, page_title="Пользователи", current_admin=current_admin, db=db, admins=admins, manageable_ids=_team_manageable_ids(current_admin, admins), error=str(exc))
+
+
+@router.post("/admin/team/{admin_id}/activate")
+def admin_team_activate(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="admin")
+    if redirect: return redirect
+    try:
+        AuthService(db).set_managed_admin_active(current_admin, admin_id, True)
+        return redirect_to("/admin/team")
+    except Exception as exc:
+        db.rollback()
+        admins = AuthService(db).list_admins_for_actor(current_admin)
+        return render_template("team_list.html", request, page_title="Пользователи", current_admin=current_admin, db=db, admins=admins, manageable_ids=_team_manageable_ids(current_admin, admins), error=str(exc))
+
+
+@router.post("/admin/team/{admin_id}/delete")
+def admin_team_delete(admin_id: int, request: Request, db: Session = Depends(get_db_session)):
+    current_admin, redirect = get_admin_or_redirect(request, db, min_role="superadmin")
+    if redirect: return redirect
+    try:
+        AuthService(db).delete_managed_admin(current_admin, admin_id)
+        return redirect_to("/admin/team")
+    except Exception as exc:
+        db.rollback()
+        admins = AuthService(db).list_admins_for_actor(current_admin)
+        return render_template("team_list.html", request, page_title="Пользователи", current_admin=current_admin, db=db, admins=admins, manageable_ids=_team_manageable_ids(current_admin, admins), error=str(exc))
+
+
+# LOOKUP
+@router.get("/admin/lookup-test")
+def admin_lookup_test(request: Request, db: Session = Depends(get_db_session), code: str | None = None):
+    current_admin, redirect = get_admin_or_redirect(request, db)
+    if redirect:
+        return redirect
+    result = None
+    error = None
+    if code:
+        try:
+            result = PublicLookupService(db).lookup(code, source="admin_lookup")
+        except Exception as exc:
+            db.rollback()
+            error = str(exc)
+    return render_template("lookup_test.html", request, page_title="Тест lookup", current_admin=current_admin, db=db, code=code or "", result=result, error=error)

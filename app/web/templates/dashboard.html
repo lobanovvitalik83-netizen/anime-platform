@@ -9,7 +9,7 @@
   <div class="card"><div class="stat">{{ unread_notifications }}</div><div class="muted">Новых уведомлений</div></div>
 </div>
 
-<div class="grid" style="grid-template-columns: 2fr 1fr; align-items:start;">
+<div class="grid two">
   <div class="card">
     <h2 style="margin-top:0;">Быстрые действия</h2>
     <div class="btn-row">
@@ -17,20 +17,18 @@
       <a class="btn green" href="/admin/card-builder">Создать карточку</a>
       <a class="btn secondary" href="/admin/media">Открыть медиа</a>
       {% endif %}
-      {% if current_admin.role == "superadmin" or "codes_manage" in current_permissions %}
-      <a class="btn secondary" href="/admin/codes/generate">Сгенерировать коды</a>
-      {% endif %}
       {% if current_admin.role == "superadmin" or "messages_manage" in current_permissions %}
-      <a class="btn secondary" href="/admin/chats">Чаты</a>
+      <a class="btn secondary" href="/admin/chats">Сообщения</a>
       {% endif %}
       {% if current_admin.role == "superadmin" or "reports_view" in current_permissions %}
       <a class="btn secondary" href="/admin/reports">Репорты</a>
       {% endif %}
+      <a class="btn ghost" href="/admin/profile">Мой профиль</a>
     </div>
 
-    <div style="margin-top:20px;">
-      <h3 style="margin:0 0 10px 0;">Последние уведомления</h3>
-      <table class="compact-table">
+    <h3 style="margin:24px 0 10px;">Последние уведомления</h3>
+    <div class="table-wrap">
+      <table>
         <thead><tr><th>Тип</th><th>Заголовок</th><th>Когда</th></tr></thead>
         <tbody>
         {% for item in recent_notifications %}
@@ -49,7 +47,7 @@
 
   <div class="card">
     <h2 style="margin-top:0;">Мой доступ</h2>
-    <div class="btn-row">
+    <div class="ach-badges" style="margin-bottom:12px;">
       {% for code in current_permissions %}
       <span class="chip">{{ permission_labels.get(code, code) }}</span>
       {% endfor %}
@@ -57,6 +55,17 @@
       <span class="muted">Нет дополнительных разрешений.</span>
       {% endif %}
     </div>
+
+    {% if my_achievements %}
+    <h3 style="margin:20px 0 10px;">Мои ачивки</h3>
+    <div class="ach-badges">
+      {% for item in my_achievements %}
+      <div class="ach-badge" title="{{ item.achievement.title }}{% if item.achievement.description %} — {{ item.achievement.description }}{% endif %}{% if item.reason %} | За что: {{ item.reason }}{% endif %}">
+        {% if item.achievement.icon_url %}<img src="{{ item.achievement.icon_url }}" alt="{{ item.achievement.title }}">{% else %}<span style="font-size:11px;">★</span>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

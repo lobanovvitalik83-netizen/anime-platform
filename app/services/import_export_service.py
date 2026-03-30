@@ -1,4 +1,3 @@
-import asyncio
 import csv
 import io
 import json
@@ -77,24 +76,6 @@ class ImportExportService:
             rows.append({"id": item.id, "code": item.code, "title_id": item.title_id or "", "season_id": item.season_id or "", "episode_id": item.episode_id or "", "status": item.status, "created_at": item.created_at.isoformat() if item.created_at else ""})
         return self._render_csv(rows)
 
-    def export_cards_csv(self) -> str:
-        rows = []
-        for item in self.media_cards.list_cards():
-            rows.append({
-                "title_id": item.title_id,
-                "genre": item.genre,
-                "title": item.title,
-                "status": item.status,
-                "season_number": item.season_number or "",
-                "episode_number": item.episode_number or "",
-                "asset_type": item.asset_type or "",
-                "source_label": item.source_label or "",
-                "storage_provider": item.storage_provider or "",
-                "external_url": item.external_url or "",
-                "code_value": item.code_value or "",
-            })
-        return self._render_csv(rows)
-
     def export_users_csv(self) -> str:
         rows = []
         for item in self.admins.list_all():
@@ -108,25 +89,29 @@ class ImportExportService:
         return self._render_csv(rows)
 
     def export_analytics_csv(self) -> str:
-        return self._render_csv(self.analytics.export_summary_rows())
+        rows = []
+        summary = self.analytics.get_summary()
+        for key, value in summary.items():
+            rows.append({"metric": key, "value": value})
+        return self._render_csv(rows)
 
-    def export_everything_zip(self) -> bytes:
-        buffer = io.BytesIO()
-        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
-            files = {
-                "titles.csv": self.export_titles_csv(),
-                "seasons.csv": self.export_seasons_csv(),
-                "episodes.csv": self.export_episodes_csv(),
-                "assets.csv": self.export_assets_csv(),
-                "codes.csv": self.export_codes_csv(),
-                "cards.csv": self.export_cards_csv(),
-                "users.csv": self.export_users_csv(),
-                "reports.csv": self.export_reports_csv(),
-                "analytics.csv": self.export_analytics_csv(),
-            }
-            for name, content in files.items():
-                zf.writestr(name, content)
-        return buffer.getvalue()
+    def export_cards_csv(self) -> str:
+        rows = []
+        for item in self.media_cards.list_cards():
+            rows.append({
+                "title_id": item.title_id,
+                "genre": item.genre,
+                "title": item.title,
+                "status": item.status,
+                "season_number": item.season_number or "",
+                "episode_number": item.episode_number or "",
+                "asset_type": item.asset_type or "",
+                "external_url": item.external_url or "",
+                "storage_provider": item.storage_provider or "",
+                "source_label": item.source_label or "",
+                "code_value": item.code_value or "",
+            })
+        return self._render_csv(rows)
 
     def template_titles_csv(self) -> str:
         return "type,title,status\nanime,Naruto,draft\n"
@@ -135,10 +120,28 @@ class ImportExportService:
         return "code,title_id,season_id,episode_id,status\n12345678,1,1,1,active\n"
 
     def template_cards_csv(self) -> str:
-        return (
-            "genre,title,season_number,episode_number,status,asset_type,source_label,mime_type,import_url,external_url,is_primary,generate_code\n"
-            "anime,Naruto,1,1,active,poster,poster_ep01,image/jpeg,https://example.com/file.jpg,,true,true\n"
-        )
+        return "genre,title,status,season_number,episode_number,asset_type,external_url,source_label,mime_type\nanime,Naruto,active,1,1,image,https://example.com/image.jpg,public image,image/jpeg\n"
+
+    def build_everything_zip(self) -> bytes:
+        files = {
+            "titles.csv": self.export_titles_csv(),
+            "seasons.csv": self.export_seasons_csv(),
+            "episodes.csv": self.export_episodes_csv(),
+            "assets.csv": self.export_assets_csv(),
+            "codes.csv": self.export_codes_csv(),
+            "users.csv": self.export_users_csv(),
+            "reports.csv": self.export_reports_csv(),
+            "analytics.csv": self.export_analytics_csv(),
+            "cards.csv": self.export_cards_csv(),
+            "titles_template.csv": self.template_titles_csv(),
+            "codes_template.csv": self.template_codes_csv(),
+            "cards_template.csv": self.template_cards_csv(),
+        }
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+            for name, content in files.items():
+                archive.writestr(name, content)
+        return buffer.getvalue()
 
     def import_titles_csv(self, admin_id: int, filename: str, content: bytes):
         decoded = self._decode(content)
@@ -149,7 +152,7 @@ class ImportExportService:
             raise ValidationError(f"Missing CSV columns: {', '.join(sorted(missing))}")
         success_rows = 0
         failed_rows = 0
-        errors: list[dict] = []
+        errors = []
         for index, row in enumerate(reader, start=2):
             try:
                 self.media.create_title({"type": (row.get("type") or "").strip(), "title": (row.get("title") or "").strip(), "original_title": None, "description": None, "year": None, "status": (row.get("status") or "draft").strip()})
@@ -170,7 +173,7 @@ class ImportExportService:
             raise ValidationError(f"Missing CSV columns: {', '.join(sorted(missing))}")
         success_rows = 0
         failed_rows = 0
-        errors: list[dict] = []
+        errors = []
         for index, row in enumerate(reader, start=2):
             try:
                 self.codes.create_code(admin_id, {"code": (row.get("code") or "").strip(), "title_id": int(row["title_id"]) if (row.get("title_id") or "").strip() else None, "season_id": int(row["season_id"]) if (row.get("season_id") or "").strip() else None, "episode_id": int(row["episode_id"]) if (row.get("episode_id") or "").strip() else None, "status": (row.get("status") or "active").strip()})
@@ -179,41 +182,6 @@ class ImportExportService:
                 failed_rows += 1
                 errors.append({"row": index, "error": str(exc), "data": row})
         job = self.jobs.create_job(admin_id=admin_id, job_type="import_codes_csv", file_name=filename, status="completed" if failed_rows == 0 else "completed_with_errors", success_rows=success_rows, failed_rows=failed_rows, payload_json=json.dumps(errors[:100], ensure_ascii=False))
-        self.session.commit()
-        return job
-
-    def import_cards_csv(self, admin_id: int, filename: str, content: bytes):
-        decoded = self._decode(content)
-        reader = csv.DictReader(io.StringIO(decoded))
-        required_columns = {"genre", "title"}
-        missing = required_columns - set(reader.fieldnames or [])
-        if missing:
-            raise ValidationError(f"Missing CSV columns: {', '.join(sorted(missing))}")
-        success_rows = 0
-        failed_rows = 0
-        errors: list[dict] = []
-        for index, row in enumerate(reader, start=2):
-            try:
-                payload = {
-                    "genre": (row.get("genre") or "").strip(),
-                    "title": (row.get("title") or "").strip(),
-                    "season_number": int(row["season_number"]) if (row.get("season_number") or "").strip() else None,
-                    "episode_number": int(row["episode_number"]) if (row.get("episode_number") or "").strip() else None,
-                    "status": (row.get("status") or "active").strip(),
-                    "asset_type": (row.get("asset_type") or "image").strip(),
-                    "source_label": (row.get("source_label") or "").strip(),
-                    "mime_type": (row.get("mime_type") or "").strip(),
-                    "import_url": (row.get("import_url") or "").strip(),
-                    "external_url": (row.get("external_url") or "").strip(),
-                    "is_primary": str(row.get("is_primary") or "true").strip().lower() in {"1","true","yes","on"},
-                    "generate_code": str(row.get("generate_code") or "true").strip().lower() in {"1","true","yes","on"},
-                }
-                asyncio.run(self.media_cards.create_card(admin_id, payload))
-                success_rows += 1
-            except Exception as exc:
-                failed_rows += 1
-                errors.append({"row": index, "error": str(exc), "data": row})
-        job = self.jobs.create_job(admin_id=admin_id, job_type="import_cards_csv", file_name=filename, status="completed" if failed_rows == 0 else "completed_with_errors", success_rows=success_rows, failed_rows=failed_rows, payload_json=json.dumps(errors[:100], ensure_ascii=False))
         self.session.commit()
         return job
 
@@ -226,9 +194,9 @@ class ImportExportService:
         raise ValidationError("Не удалось прочитать CSV. Используй UTF-8 или CP1251.")
 
     def _render_csv(self, rows: list[dict]) -> str:
+        buffer = io.StringIO()
         if not rows:
             return ""
-        buffer = io.StringIO()
         writer = csv.DictWriter(buffer, fieldnames=list(rows[0].keys()))
         writer.writeheader()
         for row in rows:

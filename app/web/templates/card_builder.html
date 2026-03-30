@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="card">
-  <h1 class="section-title">{{ page_title }}</h1>
-  <p class="muted">BotHost хранит только метаданные. Медиа грузится во внешний storage, предпочтительно в Яндекс Диск, либо используется как внешняя ссылка.</p>
+  <h1>{{ page_title }}</h1>
+  <p class="muted">BotHost хранит только метаданные. Медиа либо загружается в Яндекс Диск / внешний storage, либо используется как готовая внешняя ссылка.</p>
 
   {% if not upload_ready %}
     <div class="error">{{ upload_help_text }}</div>
@@ -99,7 +99,7 @@
         <div class="card">
           <h4>2. Импортировать по прямому URL с копированием в storage</h4>
           <input name="import_url" value="{{ values.get('import_url', '') }}" placeholder="Прямая ссылка на файл" {% if not upload_ready %}disabled{% endif %}>
-          <div class="muted" style="margin-top:8px;">Система скачает файл по ссылке и перельёт его в твой внешний storage. Для share-страниц без прямой отдачи файла нужна прямая download-ссылка.</div>
+          <div class="muted" style="margin-top:8px;">Система скачает файл по ссылке и перельёт его в твой внешний storage. Для share-страниц без прямой отдачи файла может потребоваться прямая download-ссылка.</div>
         </div>
 
         <div class="card">
@@ -112,8 +112,15 @@
 
     <div class="card" style="background:#f9fafb;">
       <h3>Код</h3>
-      <p class="muted">Код создаётся автоматически внутри карточки. Отдельная кнопка генерации не нужна.</p>
-      <input type="hidden" name="generate_code" value="on">
+      <p class="muted">Код вводить не нужно. Он генерируется внутри карточки.</p>
+      <div class="form-grid">
+        <div>
+          <label style="display:flex; gap:8px; align-items:center; font-weight:600; margin-top:30px;">
+            <input type="checkbox" name="generate_code" {% if values.get('generate_code') %}checked{% endif %} style="width:auto;">
+            Автогенерация кода
+          </label>
+        </div>
+      </div>
     </div>
 
     <div class="btn-row">

@@ -4,45 +4,26 @@
 <div class="card">
   <div class="btn-row" style="justify-content:space-between; margin-bottom:16px;">
     <div>
-      <h1 style="margin:0;">Сообщения</h1>
-      <div class="muted">Диалоги команды. Открой чат, чтобы продолжить переписку.</div>
+      <h1 class="page-title">Сообщения</h1>
+      <div class="page-subtitle">Командные диалоги и личные переписки внутри панели.</div>
     </div>
-    {% if messages_enabled %}
-    <a class="btn green" href="/admin/chats/new">Новый чат</a>
-    {% endif %}
+    {% if messages_enabled %}<a class="btn green" href="/admin/chats/new">Новый чат</a>{% endif %}
   </div>
-
-  <div class="form-grid" style="margin-bottom:16px;">
-    <div><input placeholder="Поиск по диалогам" disabled></div>
-  </div>
-
-  <div class="grid" style="grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); align-items:start;">
+  <div class="grid two">
     <div class="card" style="background:#f8fafc;">
       {% for item in chats %}
       <a href="/admin/chats/{{ item.id }}" style="display:flex; gap:12px; text-decoration:none; padding:12px; border-radius:14px; background:#fff; border:1px solid #e5e7eb; margin-bottom:10px;">
-        <div class="avatar">
-          {% set label = item.title[0] if item.title else 'Ч' %}
-          <span>{{ label }}</span>
-        </div>
+        <div class="avatar"><span>{{ item.title[0] if item.title else 'Ч' }}</span></div>
         <div style="min-width:0;">
           <div style="font-weight:700;">{{ item.title }}</div>
-          <div class="muted">
-            {% if item.messages %}
-              {{ item.messages[-1].content }}
-            {% else %}
-              Нет сообщений
-            {% endif %}
-          </div>
+          <div class="muted">{% if item.messages %}{{ item.messages[-1].content }}{% else %}Нет сообщений{% endif %}</div>
         </div>
       </a>
       {% else %}
       <div class="muted">Чатов пока нет.</div>
       {% endfor %}
     </div>
-
-    <div class="card">
-      <div class="muted">Выбери чат слева.</div>
-    </div>
+    <div class="card"><div class="muted">Выбери чат слева.</div></div>
   </div>
 </div>
 {% endblock %}

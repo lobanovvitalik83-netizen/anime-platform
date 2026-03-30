@@ -1,23 +1,26 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="card">
-  <h1>Общие настройки</h1>
-  {% if error %}<div class="error">{{ error }}</div>{% endif %}
-  {% if success %}<div class="success">{{ success }}</div>{% endif %}
+  <h1 class="page-title">Общие настройки</h1>
+  <div class="page-subtitle">Основные параметры сайта и интеграции с Telegram / Yandex Disk.</div>
+  {% if error %}<div class="error" style="margin-top:16px;">{{ error }}</div>{% endif %}
+  {% if success %}<div class="success" style="margin-top:16px;">{{ success }}</div>{% endif %}
 
-  <form method="post" action="/admin/settings/general" class="grid">
+  <form method="post" action="/admin/settings/general" class="grid" style="margin-top:16px;">
     <div class="form-grid">
-      <div>
-        <label style="display:flex; gap:8px; align-items:center; font-weight:600; margin-top:30px;">
-          <input type="checkbox" name="messages_enabled" {% if messages_enabled %}checked{% endif %} style="width:auto;">
-          Включить сообщения на сайте
-        </label>
-      </div>
+      <div><label>Название сайта</label><input name="site_title" value="{{ site_title }}"></div>
+      <div><label>Лого URL</label><input name="logo_url" value="{{ logo_url }}"></div>
+      <div><label>Контакт помощи в Telegram</label><input name="telegram_help_contact" value="{{ telegram_help_contact }}"></div>
+      <div><label style="display:flex; gap:8px; align-items:center; margin-top:30px;"><input type="checkbox" name="messages_enabled" style="width:auto;" {% if messages_enabled %}checked{% endif %}>Включить сообщения</label></div>
+      <div><label style="display:flex; gap:8px; align-items:center; margin-top:30px;"><input type="checkbox" name="reports_enabled" style="width:auto;" {% if reports_enabled %}checked{% endif %}>Включить репорты</label></div>
+      <div><label style="display:flex; gap:8px; align-items:center; margin-top:30px;"><input type="checkbox" name="maintenance_mode" style="width:auto;" {% if maintenance_mode %}checked{% endif %}>Режим обслуживания</label></div>
     </div>
-
+    <div class="info">
+      Медиа-файлы должны храниться во внешнем storage. В БД хранятся только ссылки, ключи и метаданные. Для текущей сборки ориентир — Yandex Disk / внешний URL.
+    </div>
     <div class="btn-row">
       <button class="btn green" type="submit">Сохранить настройки</button>
-      <a class="btn secondary" href="/admin">Назад</a>
+      <a class="btn ghost" href="/admin">Назад</a>
     </div>
   </form>
 </div>

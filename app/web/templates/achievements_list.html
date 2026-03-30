@@ -1,29 +1,29 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="btn-row" style="justify-content:space-between; margin-bottom:16px;">
-  <div>
-    <h1 class="section-title" style="margin-bottom:6px;">Ачивки</h1>
-    <div class="muted">Создавай награды, поддерживай мотивацию команды и выдавай достижения сотрудникам.</div>
+<div class="card" style="margin-bottom:18px;">
+  <div class="btn-row" style="justify-content:space-between;">
+    <div>
+      <h1 class="page-title">Ачивки</h1>
+      <div class="page-subtitle">Создание, редактирование и выдача достижений сотрудникам.</div>
+    </div>
+    <a class="btn green" href="/admin/achievements/new">Создать ачивку</a>
   </div>
-  <a class="btn green" href="/admin/achievements/new">Создать ачивку</a>
 </div>
 
-<div class="people-grid">
+<div class="grid cards">
   {% for item in achievements %}
   <div class="card">
-    <div class="btn-row" style="justify-content:space-between;">
-      <div class="achievement-list">
-        {% if item.icon_url %}
-        <img class="achievement-badge" src="{{ item.icon_url }}" alt="icon">
-        {% else %}
-        <span class="achievement-badge">🏆</span>
-        {% endif %}
+    <div class="btn-row" style="align-items:center; justify-content:space-between;">
+      <div class="btn-row" style="align-items:center;">
+        <div class="ach-badge" style="width:56px;height:56px;">
+          {% if item.icon_url %}<img src="{{ item.icon_url }}" alt="{{ item.title }}">{% else %}<span>★</span>{% endif %}
+        </div>
         <div>
-          <div style="font-weight:700;">{{ item.title }}</div>
+          <div style="font-weight:800; font-size:20px;">{{ item.title }}</div>
           <div class="muted">{{ item.slug }}</div>
         </div>
       </div>
-      <span class="chip {% if item.is_active %}green{% else %}gray{% endif %}">{{ 'active' if item.is_active else 'inactive' }}</span>
+      <span class="chip {% if item.is_active %}green{% else %}gray{% endif %}">{{ "Активна" if item.is_active else "Выключена" }}</span>
     </div>
     <div style="margin-top:12px;">{{ item.description or "Без описания" }}</div>
     <div class="btn-row" style="margin-top:16px;">
@@ -34,7 +34,7 @@
     </div>
   </div>
   {% else %}
-  <div class="card"><div class="muted">Ачивок пока нет.</div></div>
+  <div class="card"><span class="muted">Ачивок пока нет.</span></div>
   {% endfor %}
 </div>
 {% endblock %}

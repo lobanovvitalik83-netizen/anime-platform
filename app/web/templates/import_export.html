@@ -1,61 +1,60 @@
 {% extends "base.html" %}
 {% block content %}
-<h1 class="section-title">Импорт / экспорт</h1>
-<div class="muted" style="margin-bottom:16px;">Здесь можно выгружать данные проекта и загружать карточки сразу с нужными полями. Фото и видео в БД не хранятся — только пути и ссылки на storage.</div>
+<div class="card" style="margin-bottom:18px;">
+  <h1 class="page-title">Импорт / экспорт</h1>
+  <div class="page-subtitle">Выгрузка и загрузка сущностей проекта, включая карточки целиком.</div>
+  {% if error %}<div class="error" style="margin-top:16px;">{{ error }}</div>{% endif %}
+  {% if success %}<div class="success" style="margin-top:16px;">{{ success }}</div>{% endif %}
+</div>
 
-{% if error %}<div class="error">{{ error }}</div>{% endif %}
-{% if success %}<div class="success">{{ success }}</div>{% endif %}
-
-<div class="grid cards" style="margin-bottom:18px;">
-  <div class="card">
-    <h3>Экспорт CSV</h3>
-    <div class="btn-row">
-      <a class="btn secondary" href="/admin/export/titles.csv">Тайтлы</a>
-      <a class="btn secondary" href="/admin/export/seasons.csv">Сезоны</a>
-      <a class="btn secondary" href="/admin/export/episodes.csv">Эпизоды</a>
-      <a class="btn secondary" href="/admin/export/assets.csv">Ассеты</a>
-      <a class="btn secondary" href="/admin/export/codes.csv">Коды</a>
-      <a class="btn secondary" href="/admin/export/cards.csv">Карточки</a>
-      <a class="btn secondary" href="/admin/export/everything.zip">Всё архивом</a>
-    </div>
+<div class="card" style="margin-bottom:18px;">
+  <h3 style="margin-top:0;">Экспорт CSV</h3>
+  <div class="btn-row">
+    <a class="btn secondary" href="/admin/export/titles.csv">Тайтлы</a>
+    <a class="btn secondary" href="/admin/export/seasons.csv">Сезоны</a>
+    <a class="btn secondary" href="/admin/export/episodes.csv">Эпизоды</a>
+    <a class="btn secondary" href="/admin/export/assets.csv">Ассеты</a>
+    <a class="btn secondary" href="/admin/export/codes.csv">Коды</a>
+    <a class="btn secondary" href="/admin/export/cards.csv">Карточки</a>
+    <a class="btn green" href="/admin/export/everything.zip">everything.zip</a>
   </div>
 </div>
 
-<div class="grid cards">
+<div class="grid two">
   <div class="card">
-    <h3>Импорт тайтлов из CSV</h3>
-    <p class="muted">Обязательные колонки: <span class="code">type,title</span></p>
+    <h3 style="margin-top:0;">Импорт тайтлов из CSV</h3>
+    <div class="muted" style="margin-bottom:8px;">Обязательные колонки: <span class="code">type,title</span></div>
     <form method="post" action="/admin/import/titles/csv" enctype="multipart/form-data" class="grid">
       <div><label>CSV файл</label><input type="file" name="file" accept=".csv,text/csv" required></div>
       <button class="btn" type="submit">Импортировать titles</button>
     </form>
   </div>
-
   <div class="card">
-    <h3>Импорт кодов из CSV</h3>
-    <p class="muted">Обязательная колонка: <span class="code">code</span></p>
+    <h3 style="margin-top:0;">Импорт кодов из CSV</h3>
+    <div class="muted" style="margin-bottom:8px;">Обязательная колонка: <span class="code">code</span></div>
     <form method="post" action="/admin/import/codes/csv" enctype="multipart/form-data" class="grid">
       <div><label>CSV файл</label><input type="file" name="file" accept=".csv,text/csv" required></div>
       <button class="btn" type="submit">Импортировать codes</button>
     </form>
   </div>
-
-  <div class="card">
-    <h3>Импорт карточек из CSV</h3>
-    <p class="muted">CSV сразу создаёт карточки с теми же полями, что и в ручной форме. Для медиа используй <span class="code">import_url</span> или <span class="code">external_url</span>.</p>
-    <form method="post" action="/admin/import/cards/csv" enctype="multipart/form-data" class="grid">
-      <div><label>CSV файл</label><input type="file" name="file" accept=".csv,text/csv" required></div>
-      <button class="btn green" type="submit">Импортировать cards</button>
-    </form>
-  </div>
 </div>
 
 <div class="card" style="margin-top:18px;">
-  <h3>Пример cards CSV</h3>
-  <pre class="code" style="display:block; white-space:pre-wrap; padding:12px;">genre,title,season_number,episode_number,status,asset_type,source_label,mime_type,import_url,external_url,is_primary,generate_code
-anime,Naruto,1,1,active,poster,poster_ep01,image/jpeg,https://example.com/file.jpg,,true,true</pre>
-  <div class="btn-row" style="margin-top:12px;">
-    <a class="btn secondary" href="/admin/templates/cards.csv">Скачать шаблон cards</a>
+  <h3 style="margin-top:0;">Импорт карточек целиком</h3>
+  <div class="muted" style="margin-bottom:8px;">Карточка создаётся сразу с её данными: жанр, название, сезон, серия, тип медиа, ссылка на внешний media URL.</div>
+  <form method="post" action="/admin/import/cards/csv" enctype="multipart/form-data" class="grid">
+    <div><label>CSV файл</label><input type="file" name="file" accept=".csv,text/csv" required></div>
+    <button class="btn green" type="submit">Импортировать cards</button>
+  </form>
+</div>
+
+<div class="card" style="margin-top:18px;">
+  <h3 style="margin-top:0;">Шаблоны CSV</h3>
+  <div class="btn-row">
+    <a class="btn ghost" href="/admin/templates/titles.csv">Шаблон titles</a>
+    <a class="btn ghost" href="/admin/templates/codes.csv">Шаблон codes</a>
+    <a class="btn ghost" href="/admin/templates/cards.csv">Шаблон cards</a>
+    <a class="btn ghost" href="/admin/import-jobs">История импортов</a>
   </div>
 </div>
 {% endblock %}

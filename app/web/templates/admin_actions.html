@@ -3,8 +3,8 @@
 <div class="card">
   <div class="btn-row" style="justify-content:space-between; margin-bottom:16px;">
     <div>
-      <h1 style="margin:0;">Действия админов</h1>
-      <div class="muted">Компактный журнал аудита с фильтрами по пользователю, действию и дате.</div>
+      <h1 class="page-title">Действия админов</h1>
+      <div class="page-subtitle">Компактный журнал аудита по пользователям, датам и типу действия.</div>
     </div>
     <a class="btn secondary" href="/admin/export/admin-actions.csv">Экспорт CSV</a>
   </div>
@@ -30,11 +30,11 @@
     </div>
     <div><label>От даты</label><input type="date" name="date_from" value="{{ filters.date_from }}"></div>
     <div><label>До даты</label><input type="date" name="date_to" value="{{ filters.date_to }}"></div>
-    <div><label>Сортировка</label><select name="sort"><option value="desc" {% if filters.sort=='desc' %}selected{% endif %}>Новые сначала</option><option value="asc" {% if filters.sort=='asc' %}selected{% endif %}>Старые сначала</option></select></div>
+    <div><label>Сортировка</label><select name="sort"><option value="desc" {% if filters.sort == 'desc' %}selected{% endif %}>Новые</option><option value="asc" {% if filters.sort == 'asc' %}selected{% endif %}>Старые</option></select></div>
     <div class="btn-row" style="align-items:flex-end;"><button class="btn" type="submit">Применить</button></div>
   </form>
 
-  <table class="compact-table">
+  <table>
     <thead><tr><th>Когда</th><th>Кто</th><th>Действие</th><th>Сущность</th><th>ID</th><th>Payload</th></tr></thead>
     <tbody>
       {% for item in rows %}

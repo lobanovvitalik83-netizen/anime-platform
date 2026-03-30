@@ -1,0 +1,34 @@
+Release stage 3 - consolidated project
+
+Что реально включено:
+- hotfix Telegram report IDs -> BIGINT
+- стабильный bot dispatcher/router order
+- рабочий report handler
+- achievements:
+  - model Achievement
+  - model AdminAchievement
+  - list/new/edit/delete
+  - grant/revoke to employee
+  - badges in profile / people
+- forgot password page with internal notification to superadmin
+- stabilized admin router:
+  - /admin
+  - /admin/profile
+  - /admin/people
+  - /admin/achievements
+  - /admin/media
+  - /admin/card-builder
+  - /admin/codes
+  - /admin/chats
+  - /admin/reports
+  - /admin/notifications
+  - /admin/admin-actions
+  - /admin/import-export
+  - /admin/settings/general
+- cards export/import csv
+- everything.zip export bundle
+- no photo/video blobs in DB, only metadata/links
+
+Что важно:
+- media flow ориентирован на external_url/import_url/Yandex-like external storage
+- бот help contact now can be stored in site settings key telegram_help_contact
