@@ -1,48 +1,50 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card" style="margin-bottom:16px;">
-  <div class="btn-row" style="justify-content:space-between; align-items:center;">
-    <div>
-      <h1 style="margin-bottom:6px;">{{ chat.title }}</h1>
-      <div class="muted">
-        Участники:
-        {% for participant in chat.participants if participant.admin and participant.admin.is_active %}
-          {{ participant.admin.full_name or participant.admin.username }}{% if not loop.last %}, {% endif %}
-        {% endfor %}
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+<div class="grid" style="grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); align-items:start;">
+  <div class="card" style="background:#f8fafc;">
+    <div style="font-weight:800; margin-bottom:12px;">Диалоги</div>
+    <a href="/admin/chats" class="btn ghost" style="margin-bottom:12px;">Назад к списку</a>
+    <div class="muted">Этот экран открыт в рабочем режиме, сообщение справа.</div>
+  </div>
+
+  <div class="card">
+    <div class="btn-row" style="justify-content:space-between; margin-bottom:16px;">
+      <div>
+        <h1 style="margin:0;">{{ chat.title }}</h1>
+        <div class="muted">
+          {% for participant in chat.participants if participant.admin %}
+            {{ participant.admin.full_name or participant.admin.username }}{% if not loop.last %}, {% endif %}
+          {% endfor %}
+        </div>
       </div>
     </div>
-    <a class="btn secondary" href="/admin/chats">Назад к чатам</a>
+
+    <div style="display:grid; gap:10px; margin-bottom:16px;">
+      {% for item in chat.messages %}
+      <div style="display:flex; {% if item.admin_id == current_admin.id %}justify-content:flex-end;{% endif %}">
+        <div style="max-width:72%; background:{% if item.admin_id == current_admin.id %}#dcfce7{% else %}#f3f4f6{% endif %}; padding:10px 12px; border-radius:14px;">
+          <div>{{ item.content }}</div>
+          <div class="muted" style="margin-top:6px;">
+            {% if item.admin %}{{ item.admin.full_name or item.admin.username }}{% else %}Система{% endif %} · {{ item.created_at }}
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="muted">Сообщений пока нет.</div>
+      {% endfor %}
+    </div>
+
+    {% if messages_enabled %}
+    <form method="post" action="/admin/chats/{{ chat.id }}/message" class="grid">
+      <textarea name="content" placeholder="Напиши сообщение" required></textarea>
+      <div class="btn-row">
+        <button class="btn green" type="submit">Отправить</button>
+      </div>
+    </form>
+    {% else %}
+    <div class="error">Сообщения отключены в настройках сайта.</div>
+    {% endif %}
   </div>
-</div>
-
-{% if not messages_enabled %}
-<div class="error">Сообщения сейчас отключены superadmin. Просмотр чата доступен, отправка новых сообщений выключена.</div>
-{% endif %}
-{% if error %}<div class="error">{{ error }}</div>{% endif %}
-
-<div class="grid" style="margin-bottom:16px;">
-  {% for message in chat.messages %}
-  <div class="message-box {% if message.admin_id == current_admin.id %}me{% endif %}">
-    <div class="muted" style="margin-bottom:6px;">
-      {{ message.admin.full_name if message.admin and message.admin.full_name else (message.admin.username if message.admin else "Удалённый пользователь") }}
-      · {{ message.created_at }}
-    </div>
-    <div>{{ message.content }}</div>
-  </div>
-  {% else %}
-  <div class="card"><div class="muted">Сообщений пока нет.</div></div>
-  {% endfor %}
-</div>
-
-<div class="card">
-  <form method="post" action="/admin/chats/{{ chat.id }}/message" class="grid">
-    <div>
-      <label>Новое сообщение</label>
-      <textarea name="content" required {% if not messages_enabled %}disabled{% endif %}></textarea>
-    </div>
-    <div class="btn-row">
-      <button class="btn green" type="submit" {% if not messages_enabled %}disabled{% endif %}>Отправить</button>
-    </div>
-  </form>
 </div>
 {% endblock %}
