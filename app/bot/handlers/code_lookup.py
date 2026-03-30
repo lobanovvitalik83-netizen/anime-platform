@@ -10,6 +10,7 @@ from app.services.public_lookup_service import PublicLookupService
 
 router = Router()
 
+
 @router.message(F.text.regexp(r"^\d+$"))
 async def code_lookup_handler(message: Message) -> None:
     code = (message.text or "").strip()
@@ -46,7 +47,7 @@ async def code_lookup_handler(message: Message) -> None:
             if result.asset_type in {"image", "poster"}:
                 await message.answer_photo(photo=result.external_url, caption=caption, reply_markup=build_main_menu())
                 return
-
-        await message.answer(text_fallback, disable_web_page_preview=False, reply_markup=build_main_menu())
     except Exception:
-        await message.answer(text_fallback, disable_web_page_preview=False, reply_markup=build_main_menu())
+        pass
+
+    await message.answer(text_fallback, reply_markup=build_main_menu())

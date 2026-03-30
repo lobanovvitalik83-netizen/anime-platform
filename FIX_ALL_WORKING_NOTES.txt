@@ -1,0 +1,39 @@
+Что добавлено и исправлено:
+1. Telegram lookup:
+- отвечает картинкой, если у карточки есть image/poster
+- в подписи только:
+  - название
+  - жанр
+  - сезон
+  - серия
+- служебные поля убраны
+
+2. VK callback:
+- /api/vk/callback
+- confirmation token
+- message_new
+- anti-spam по event_id
+- plain-text ответы
+- репорты
+- поиск по коду
+- если есть external_url картинки, бот пытается загрузить её во вложение и отправить как фото
+
+3. Reset password by link:
+- POST /admin/team/{id}/create-reset-link
+- GET/POST /admin/reset-password/{token}
+- ссылка одноразовая и имеет TTL 24 часа
+
+4. Achievements:
+- /admin/achievements
+- /admin/achievements/new
+- /admin/achievements/{id}/edit
+- /admin/people/{id}/achievements/grant
+- отзыв ачивки
+- бейджи в профиле и в карточке сотрудника
+
+Что проверить:
+- Telegram код -> фото + название + жанр + сезон + серия
+- VK callback confirm
+- VK поиск по коду
+- reset-link из редактирования пользователя
+- achievements CRUD

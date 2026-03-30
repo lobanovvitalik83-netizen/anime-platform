@@ -1,34 +1,32 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% block content %}
-<div class='card'>
+<div class="card">
   <h1>{{ page_title }}</h1>
-  {% if error %}<div class='error'>{{ error }}</div>{% endif %}
-  {% if success %}<div class='success'>{{ success }}</div>{% endif %}
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  {% if success %}<div class="success">{{ success }}</div>{% endif %}
   {% if credentials %}
-  <div class='success'><b>Показывается только сейчас.</b><br>Логин: <span class='code'>{{ credentials.username }}</span><br>Пароль: <span class='code'>{{ credentials.password }}</span></div>
+  <div class="success"><b>Показывается только сейчас.</b><br>Логин: <span class="code">{{ credentials.username }}</span><br>Пароль: <span class="code">{{ credentials.password }}</span></div>
   {% endif %}
-  {% if reset_link %}
-  <div class='info'><b>Ссылка сброса:</b><br><span class='code'>{{ reset_link }}</span><br><span class='muted'>Скопируй эту ссылку и отправь сотруднику. Ссылка одноразовая и действует ограниченное время.</span></div>
-  {% endif %}
+  {% if reset_link %}<div class="success"><b>Ссылка для сброса пароля:</b><br><span class="code">{{ reset_link }}</span></div>{% endif %}
 
-  <form method='post' action='{{ action_url }}' class='grid'>
-    <div class='form-grid'>
-      <div><label>Логин</label><input name='username' value='{{ values.get("username", "") }}' required></div>
-      <div><label>Роль</label><select name='role' required>{% for role in allowed_roles %}<option value='{{ role }}' {% if values.get('role') == role %}selected{% endif %}>{{ role }}</option>{% endfor %}</select></div>
+  <form method="post" action="{{ action_url }}" class="grid">
+    <div class="form-grid">
+      <div><label>Логин</label><input name="username" value="{{ values.get('username', '') }}" required></div>
+      <div><label>Роль</label><select name="role" required>{% for role in allowed_roles %}<option value="{{ role }}" {% if values.get('role') == role %}selected{% endif %}>{{ role }}</option>{% endfor %}</select></div>
       {% if not is_edit %}
-      <div><label>Пароль</label><input type='text' name='password' value='{{ values.get("password", "") }}' placeholder='Оставь пусто для автогенерации'></div>
-      <div><label style='display:flex; gap:8px; align-items:center; margin-top:30px;'><input type='checkbox' name='generate_password' style='width:auto;' {% if values.get('generate_password', True) %}checked{% endif %}>Сгенерировать пароль</label></div>
+      <div><label>Пароль</label><input type="text" name="password" value="{{ values.get('password', '') }}" placeholder="Оставь пусто для автогенерации"></div>
+      <div><label style="display:flex; gap:8px; align-items:center; margin-top:30px;"><input type="checkbox" name="generate_password" style="width:auto;" {% if values.get('generate_password', True) %}checked{% endif %}>Сгенерировать пароль</label></div>
       {% endif %}
-      <div><label style='display:flex; gap:8px; align-items:center; margin-top:30px;'><input type='checkbox' name='is_active' style='width:auto;' {% if values.get('is_active', True) %}checked{% endif %}>Активен</label></div>
+      <div><label style="display:flex; gap:8px; align-items:center; margin-top:30px;"><input type="checkbox" name="is_active" style="width:auto;" {% if values.get('is_active', True) %}checked{% endif %}>Активен</label></div>
     </div>
 
-    {% if current_admin.role in ['assistant', 'superadmin'] %}
-    <div class='card' style='background:#f9fafb;'>
+    {% if current_admin.role in ["assistant", "superadmin"] %}
+    <div class="card" style="background:#f9fafb;">
       <h3>Дополнительные разрешения</h3>
-      <div class='form-grid'>
+      <div class="form-grid">
         {% for perm in all_permissions %}
-        <label style='display:flex; gap:8px; align-items:center;'>
-          <input type='checkbox' name='extra_permissions' value='{{ perm }}' {% if perm in selected_permissions %}checked{% endif %} style='width:auto;'>
+        <label style="display:flex; gap:8px; align-items:center;">
+          <input type="checkbox" name="extra_permissions" value="{{ perm }}" {% if perm in selected_permissions %}checked{% endif %} style="width:auto;">
           {{ permission_labels.get(perm, perm) }}
         </label>
         {% endfor %}
@@ -36,13 +34,11 @@
     </div>
     {% endif %}
 
-    <div class='btn-row'>
-      <button class='btn green' type='submit'>{{ submit_label }}</button>
-      {% if is_edit %}
-      <button class='btn secondary' type='submit' formaction='{{ reset_password_url }}' formmethod='post'>Сбросить пароль</button>
-      <button class='btn secondary' type='submit' formaction='{{ action_url | replace("/edit", "/create-reset-link") }}' formmethod='post'>Создать ссылку сброса</button>
-      {% endif %}
-      <a class='btn secondary' href='/admin/team'>Назад</a>
+    <div class="btn-row">
+      <button class="btn green" type="submit">{{ submit_label }}</button>
+      {% if is_edit %}<button class="btn secondary" type="submit" formaction="{{ reset_password_url }}" formmethod="post">Сбросить пароль</button>{% endif %}
+      {% if is_edit %}<button class="btn secondary" type="submit" formaction="{{ create_reset_link_url or (action_url.replace('/edit', '/create-reset-link')) }}" formmethod="post">Создать ссылку сброса</button>{% endif %}
+      <a class="btn secondary" href="/admin/team">Назад</a>
     </div>
   </form>
 </div>

@@ -9,7 +9,6 @@ from app.repositories.report_repository import ReportRepository
 from app.services.audit_service import AuditService
 from app.services.notification_service import NotificationService
 from app.services.site_setting_service import SiteSettingService
-from app.services.vk_bot_service import VKBotService
 
 
 class ReportService:
@@ -22,7 +21,7 @@ class ReportService:
 
     def ensure_reports_enabled(self):
         if not self.settings.is_reports_enabled():
-            raise ValidationError('Репорты временно отключены.')
+            raise ValidationError("Репорты временно отключены.")
 
     def list_tickets(self):
         return self.reports.list_tickets()
@@ -30,103 +29,60 @@ class ReportService:
     def get_ticket(self, ticket_id: int):
         ticket = self.reports.get_ticket(ticket_id)
         if not ticket:
-            raise NotFoundError('Репорт не найден.')
+            raise NotFoundError("Репорт не найден.")
         return ticket
 
-    def create_or_append_from_telegram(self, *, tg_user_id: int, tg_chat_id: int, tg_username: str | None, tg_full_name: str | None, body: str):
+    def create_or_append_from_telegram(
+        self,
+        *,
+        tg_user_id: int,
+        tg_chat_id: int,
+        tg_username: str | None,
+        tg_full_name: str | None,
+        body: str,
+    ):
         self.ensure_reports_enabled()
         body = body.strip()
         if not body:
-            raise ValidationError('Пустой репорт не создаётся.')
+            raise ValidationError("Пустой репорт не создаётся.")
 
         ticket = self.reports.get_open_ticket_by_tg_user_id(tg_user_id)
         is_new = False
         if not ticket:
-            topic = f'Support: @{tg_username}' if tg_username else f'Support #{tg_user_id}'
+            topic = f"Support: @{tg_username}" if tg_username else f"Support #{tg_user_id}"
             ticket = self.reports.create_ticket(
                 tg_user_id=tg_user_id,
                 tg_chat_id=tg_chat_id,
                 tg_username=tg_username,
                 tg_full_name=tg_full_name,
-                source_platform='telegram',
-                status='open',
+                status="open",
                 topic=topic,
                 last_message_preview=body[:200],
                 assigned_admin_id=None,
             )
-            self.audit.log(None, 'create_report_ticket', 'report_ticket', str(ticket.id), {'tg_user_id': tg_user_id, 'source_platform': 'telegram'})
+            self.audit.log(None, "create_report_ticket", "report_ticket", str(ticket.id), {"tg_user_id": tg_user_id})
             is_new = True
         else:
-            ticket = self.reports.update_ticket(ticket, status='open', last_message_preview=body[:200])
+            ticket = self.reports.update_ticket(ticket, status="open", last_message_preview=body[:200])
 
         self.reports.create_message(
             ticket_id=ticket.id,
-            direction='user',
+            direction="user",
             admin_id=None,
             tg_user_id=tg_user_id,
             body=body,
         )
 
-        title = f'Новый репорт #{ticket.id}' if is_new else f'Новое сообщение в репорте #{ticket.id}'
-        author = tg_full_name or (f'@{tg_username}' if tg_username else str(tg_user_id))
+        title = f"Новый репорт #{ticket.id}" if is_new else f"Новое сообщение в репорте #{ticket.id}"
+        author = tg_full_name or (f"@{tg_username}" if tg_username else str(tg_user_id))
         self.notifications.notify_by_permission(
-            'reports_view',
-            kind='report',
+            "reports_view",
+            kind="report",
             title=title,
-            body=f'От {author}: {body[:180]}',
-            link_url=f'/admin/reports/{ticket.id}',
+            body=f"От {author}: {body[:180]}",
+            link_url=f"/admin/reports/{ticket.id}",
         )
 
-        self.session.commit()
-        return ticket
-
-    def create_or_append_from_vk(self, *, vk_user_id: int, vk_peer_id: int, vk_full_name: str | None, body: str):
-        self.ensure_reports_enabled()
-        body = body.strip()
-        if not body:
-            raise ValidationError('Пустой репорт не создаётся.')
-
-        ticket = self.reports.get_open_ticket_by_vk_user_id(vk_user_id)
-        is_new = False
-        if not ticket:
-            topic = f'VK support #{vk_user_id}'
-            ticket = self.reports.create_ticket(
-                tg_user_id=vk_user_id,
-                tg_chat_id=vk_peer_id,
-                tg_username=None,
-                tg_full_name=vk_full_name,
-                source_platform='vk',
-                vk_user_id=vk_user_id,
-                vk_peer_id=vk_peer_id,
-                vk_full_name=vk_full_name,
-                status='open',
-                topic=topic,
-                last_message_preview=body[:200],
-                assigned_admin_id=None,
-            )
-            self.audit.log(None, 'create_report_ticket', 'report_ticket', str(ticket.id), {'vk_user_id': vk_user_id, 'source_platform': 'vk'})
-            is_new = True
-        else:
-            ticket = self.reports.update_ticket(ticket, status='open', last_message_preview=body[:200], vk_full_name=vk_full_name or ticket.vk_full_name)
-
-        self.reports.create_message(
-            ticket_id=ticket.id,
-            direction='user',
-            admin_id=None,
-            tg_user_id=None,
-            vk_user_id=vk_user_id,
-            body=body,
-        )
-
-        title = f'Новый VK-репорт #{ticket.id}' if is_new else f'Новое сообщение в VK-репорте #{ticket.id}'
-        author = vk_full_name or f'VK user {vk_user_id}'
-        self.notifications.notify_by_permission(
-            'reports_view',
-            kind='report',
-            title=title,
-            body=f'От {author}: {body[:180]}',
-            link_url=f'/admin/reports/{ticket.id}',
-        )
         self.session.commit()
         return ticket
 
@@ -134,38 +90,37 @@ class ReportService:
         self.ensure_reports_enabled()
         body = body.strip()
         if not body:
-            raise ValidationError('Сообщение пустое.')
+            raise ValidationError("Сообщение пустое.")
         ticket = self.get_ticket(ticket_id)
-        ticket = self.reports.update_ticket(ticket, status='in_progress', assigned_admin_id=actor.id, last_message_preview=body[:200])
+        ticket = self.reports.update_ticket(
+            ticket,
+            status="in_progress",
+            assigned_admin_id=actor.id,
+            last_message_preview=body[:200],
+        )
         self.reports.create_message(
             ticket_id=ticket.id,
-            direction='admin',
+            direction="admin",
             admin_id=actor.id,
-            tg_user_id=ticket.tg_user_id if ticket.source_platform == 'telegram' else None,
-            vk_user_id=ticket.vk_user_id if ticket.source_platform == 'vk' else None,
+            tg_user_id=ticket.tg_user_id,
             body=body,
         )
-        if ticket.source_platform == 'vk':
-            if not ticket.vk_peer_id:
-                raise ValidationError('VK peer id не найден.')
-            VKBotService(self.session).send_text(ticket.vk_peer_id, body)
-        else:
-            await self._send_to_telegram(ticket.tg_chat_id, body)
-        self.audit.log(actor.id, 'reply_report_ticket', 'report_ticket', str(ticket.id), {'source_platform': ticket.source_platform})
+        await self._send_to_telegram(ticket.tg_chat_id, body)
+        self.audit.log(actor.id, "reply_report_ticket", "report_ticket", str(ticket.id), {"tg_user_id": ticket.tg_user_id})
         self.session.commit()
         return self.get_ticket(ticket.id)
 
     def close_ticket(self, actor: Admin, ticket_id: int):
         ticket = self.get_ticket(ticket_id)
-        self.reports.update_ticket(ticket, status='closed', assigned_admin_id=actor.id)
-        self.audit.log(actor.id, 'close_report_ticket', 'report_ticket', str(ticket.id), {'source_platform': ticket.source_platform})
+        self.reports.update_ticket(ticket, status="closed", assigned_admin_id=actor.id)
+        self.audit.log(actor.id, "close_report_ticket", "report_ticket", str(ticket.id), {"tg_user_id": ticket.tg_user_id})
         self.session.commit()
         return ticket
 
     async def _send_to_telegram(self, chat_id: int, body: str):
         if not settings.telegram_bot_token:
-            raise ValidationError('TELEGRAM_BOT_TOKEN не настроен.')
-        bot = Bot(token=settings.telegram_bot_token, default=DefaultBotProperties(parse_mode='HTML'))
+            raise ValidationError("TELEGRAM_BOT_TOKEN не настроен.")
+        bot = Bot(token=settings.telegram_bot_token, default=DefaultBotProperties(parse_mode="HTML"))
         try:
             await bot.send_message(chat_id=chat_id, text=body)
         finally:

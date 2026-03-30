@@ -1,32 +1,24 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="grid two">
+<div class="grid" style="grid-template-columns: minmax(320px, 1fr) minmax(360px, 480px); align-items:start;">
   <div class="card">
-    <h1 class="page-title">Мой профиль</h1>
-    {% if error %}<div class="error" style="margin-top:16px;">{{ error }}</div>{% endif %}
-    {% if success %}<div class="success" style="margin-top:16px;">{{ success }}</div>{% endif %}
-    <div class="btn-row" style="align-items:center; margin:18px 0;">
+    <h1>Мой профиль</h1>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    {% if success %}<div class="success">{{ success }}</div>{% endif %}
+
+    <div class="btn-row" style="align-items:center; margin-bottom:18px;">
       <div class="avatar">
-        {% if current_admin.avatar_url %}<img src="{{ current_admin.avatar_url }}" alt="avatar">{% else %}<span>{{ (current_admin.full_name or current_admin.username)[0] }}</span>{% endif %}
+        {% if current_admin.avatar_url %}
+          <img src="{{ current_admin.avatar_url }}" alt="avatar">
+        {% else %}
+          <span class="muted">avatar</span>
+        {% endif %}
       </div>
       <div>
-        <div style="font-size:26px; font-weight:800;">{{ current_admin.full_name or current_admin.username }}</div>
-        <div class="muted">@{{ current_admin.username }} · {{ current_admin.role }}</div>
+        <div><b>{{ current_admin.username }}</b></div>
+        <div class="muted">{{ current_admin.role }}</div>
       </div>
     </div>
-
-    {% if achievements %}
-    <div style="margin-bottom:16px;">
-      <div class="muted" style="margin-bottom:8px;">Мои ачивки</div>
-      <div class="ach-badges">
-        {% for grant in achievements %}
-        <div class="ach-badge" title="{{ grant.achievement.title }}{% if grant.achievement.description %} — {{ grant.achievement.description }}{% endif %}{% if grant.reason %} | За что: {{ grant.reason }}{% endif %}">
-          {% if grant.achievement.icon_url %}<img src="{{ grant.achievement.icon_url }}" alt="{{ grant.achievement.title }}">{% else %}<span style="font-size:11px;">★</span>{% endif %}
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
 
     <form method="post" action="/admin/profile" enctype="multipart/form-data" class="grid">
       <div class="form-grid">
@@ -38,26 +30,75 @@
           <input value="{{ current_admin.username }}" readonly disabled>
           {% endif %}
         </div>
-        <div><label>Роль</label><input value="{{ current_admin.role }}" readonly disabled></div>
-        <div><label>Имя</label><input name="full_name" value="{{ current_admin.full_name or '' }}"></div>
-        <div><label>Должность</label><input name="position" value="{{ current_admin.position or '' }}"></div>
-        <div><label>Аватар URL</label><input name="avatar_url" value="{{ current_admin.avatar_url or '' }}"></div>
-        <div><label>Загрузить аватар</label><input type="file" name="avatar_file" accept="image/*"></div>
+        <div>
+          <label>Роль</label>
+          <input value="{{ current_admin.role }}" readonly disabled>
+        </div>
+        <div>
+          <label>Имя</label>
+          <input name="full_name" value="{{ current_admin.full_name or '' }}">
+        </div>
+        <div>
+          <label>Должность</label>
+          <input name="position" value="{{ current_admin.position or '' }}">
+        </div>
       </div>
-      <div><label>О себе</label><textarea name="about">{{ current_admin.about or '' }}</textarea></div>
-      <div class="btn-row"><button class="btn green" type="submit">Сохранить профиль</button></div>
+
+      <div>
+        <label>About</label>
+        <textarea name="about">{{ current_admin.about or '' }}</textarea>
+      </div>
+
+      <div class="form-grid">
+        <div>
+          <label>Аватар по ссылке</label>
+          <input name="avatar_url" value="{{ current_admin.avatar_url or '' }}" placeholder="https://... или /uploads/avatars/...">
+        </div>
+        <div>
+          <label>Или загрузить аватар</label>
+          <input type="file" name="avatar_file" accept="image/*">
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn green" type="submit">Сохранить профиль</button>
+      </div>
     </form>
   </div>
 
   <div class="card">
-    <h2 style="margin-top:0;">Смена пароля</h2>
+    <h2>Смена пароля</h2>
     {% if password_error %}<div class="error">{{ password_error }}</div>{% endif %}
     {% if password_success %}<div class="success">{{ password_success }}</div>{% endif %}
+
     <form method="post" action="/admin/profile/password" class="grid">
-      <div><label>Текущий пароль</label><input type="password" name="current_password" required></div>
-      <div><label>Новый пароль</label><input type="password" name="new_password" required></div>
-      <div class="btn-row"><button class="btn secondary" type="submit">Изменить пароль</button></div>
+      <div>
+        <label>Текущий пароль</label>
+        <input type="password" name="current_password" required>
+      </div>
+      <div>
+        <label>Новый пароль</label>
+        <input type="password" name="new_password" required>
+      </div>
+      <div class="btn-row">
+        <button class="btn green" type="submit">Изменить пароль</button>
+      </div>
     </form>
+  </div>
+</div>
+
+  <div class="card">
+    <h2>Мои ачивки</h2>
+    <div class="btn-row">
+      {% for grant in current_admin_achievements|default([]) %}
+        <div title="Название: {{ grant.achievement.name }}&#10;Описание: {{ grant.achievement.description or '—' }}&#10;За что: {{ grant.reason or '—' }}&#10;Кем выдана: {{ grant.granted_by_admin.full_name if grant.granted_by_admin else '—' }}&#10;Дата: {{ grant.created_at }}" style="display:flex; align-items:center; gap:8px; background:#f9fafb; border-radius:10px; padding:8px 10px;">
+          {% if grant.achievement.icon_url %}<img src="{{ grant.achievement.icon_url }}" alt="icon" style="width:28px; height:28px; object-fit:cover; border-radius:8px;">{% endif %}
+          <span>{{ grant.achievement.name }}</span>
+        </div>
+      {% else %}
+        <span class="muted">Пока нет ачивок.</span>
+      {% endfor %}
+    </div>
   </div>
 </div>
 {% endblock %}

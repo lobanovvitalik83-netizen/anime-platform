@@ -8,43 +8,25 @@ from app.bot.keyboards.main_menu import (
     build_main_menu,
 )
 from app.bot.state.session_state import USER_MODE_REPORT, get_user_mode
-from app.core.config import settings
 from app.core.database import SessionLocal
-from app.core.security import report_rate_limiter
 from app.services.report_service import ReportService
 
 router = Router()
 
 
-@router.message(
-    F.text,
-    ~F.text.startswith('/'),
-    ~F.text.in_({MAIN_MENU_BUTTON_HELP, MAIN_MENU_BUTTON_LOOKUP, MAIN_MENU_BUTTON_REPORT}),
-)
+@router.message(F.text)
 async def report_support_handler(message: Message) -> None:
-    text = (message.text or '').strip()
-    if not text:
+    text = (message.text or "").strip()
+    if not text or text.startswith("/"):
+        return
+    if text in {MAIN_MENU_BUTTON_HELP, MAIN_MENU_BUTTON_LOOKUP, MAIN_MENU_BUTTON_REPORT}:
         return
     if text.isdigit():
         return
     if get_user_mode(message.from_user.id) != USER_MODE_REPORT:
         return
 
-    allowed, retry_after = report_rate_limiter.is_allowed(
-        f'report:{message.from_user.id}',
-        attempts=settings.report_rate_limit_attempts,
-        window_seconds=settings.report_rate_limit_window_seconds,
-    )
-    if not allowed:
-        await message.answer(
-            f'Слишком часто отправляешь обращения. Повтори через {retry_after} сек.',
-            reply_markup=build_main_menu(),
-        )
-        return
-
-    full_name = ' '.join(
-        [part for part in [message.from_user.first_name, message.from_user.last_name] if part]
-    ).strip() or None
+    full_name = " ".join([part for part in [message.from_user.first_name, message.from_user.last_name] if part]).strip() or None
 
     with SessionLocal() as session:
         try:
@@ -57,12 +39,12 @@ async def report_support_handler(message: Message) -> None:
             )
         except Exception as exc:
             await message.answer(
-                f'Не удалось отправить обращение. Ошибка: {exc}',
+                f"Не удалось отправить обращение. Ошибка: {exc}",
                 reply_markup=build_main_menu(),
             )
             return
 
     await message.answer(
-        f'Обращение отправлено в поддержку. Номер обращения: #{ticket.id}',
+        f"Обращение отправлено в поддержку. Номер обращения: #{ticket.id}",
         reply_markup=build_main_menu(),
     )

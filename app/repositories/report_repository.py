@@ -4,7 +4,6 @@ from sqlalchemy.orm import Session, selectinload
 from app.models.report_message import ReportMessage
 from app.models.report_ticket import ReportTicket
 
-
 class ReportRepository:
     def __init__(self, session: Session):
         self.session = session
@@ -25,17 +24,8 @@ class ReportRepository:
 
     def get_open_ticket_by_tg_user_id(self, tg_user_id: int):
         statement = select(ReportTicket).where(
-            ReportTicket.source_platform == 'telegram',
             ReportTicket.tg_user_id == tg_user_id,
-            ReportTicket.status.in_(['open', 'in_progress']),
-        ).order_by(ReportTicket.id.desc())
-        return self.session.scalar(statement)
-
-    def get_open_ticket_by_vk_user_id(self, vk_user_id: int):
-        statement = select(ReportTicket).where(
-            ReportTicket.source_platform == 'vk',
-            ReportTicket.vk_user_id == vk_user_id,
-            ReportTicket.status.in_(['open', 'in_progress']),
+            ReportTicket.status.in_(["open", "in_progress"]),
         ).order_by(ReportTicket.id.desc())
         return self.session.scalar(statement)
 

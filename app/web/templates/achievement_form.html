@@ -1,21 +1,22 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% block content %}
-<div class='card'>
-  <h1 class='page-title'>{{ page_title }}</h1>
-  {% if error %}<div class='error' style='margin-top:16px;'>{{ error }}</div>{% endif %}
-  {% if success %}<div class='success' style='margin-top:16px;'>{{ success }}</div>{% endif %}
-  <form method='post' action='{{ action_url }}' enctype='multipart/form-data' class='grid' style='margin-top:16px;'>
-    <div class='form-grid'>
-      <div><label>Slug</label><input name='slug' value='{{ values.slug }}' required></div>
-      <div><label>Название</label><input name='title' value='{{ values.title }}' required></div>
-      <div><label>Icon URL</label><input name='icon_url' value='{{ values.icon_url }}'></div>
-      <div><label>Загрузить иконку</label><input type='file' name='icon_file' accept='image/*'></div>
-      <div><label style='display:flex; gap:8px; align-items:center; margin-top:30px;'><input type='checkbox' name='is_active' style='width:auto;' {% if values.is_active %}checked{% endif %}>Активна</label></div>
+<div class="card">
+  <h1>{{ page_title }}</h1>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  {% if success %}<div class="success">{{ success }}</div>{% endif %}
+  <form method="post" action="{{ action_url }}" class="grid">
+    <div class="form-grid">
+      <div><label>Название</label><input name="name" value="{{ values.get('name', '') }}" required></div>
+      <div><label>Иконка URL</label><input name="icon_url" value="{{ values.get('icon_url', '') }}" placeholder="https://..."></div>
+      <div><label style="display:flex; gap:8px; align-items:center; margin-top:30px;"><input type="checkbox" name="is_active" style="width:auto;" {% if values.get('is_active', True) %}checked{% endif %}>Активна</label></div>
     </div>
-    <div><label>Описание</label><textarea name='description'>{{ values.description }}</textarea></div>
-    <div class='btn-row'>
-      <button class='btn green' type='submit'>{{ submit_label }}</button>
-      <a class='btn ghost' href='/admin/achievements'>Назад</a>
+    <div><label>Описание</label><textarea name="description">{{ values.get('description', '') }}</textarea></div>
+    {% if values.get('icon_url') %}
+    <div><img src="{{ values.get('icon_url') }}" alt="preview" style="width:64px; height:64px; object-fit:cover; border-radius:10px;"></div>
+    {% endif %}
+    <div class="btn-row">
+      <button class="btn green" type="submit">{{ submit_label }}</button>
+      <a class="btn secondary" href="/admin/achievements">Назад</a>
     </div>
   </form>
 </div>

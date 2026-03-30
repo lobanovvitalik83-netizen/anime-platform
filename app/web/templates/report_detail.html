@@ -16,17 +16,11 @@
   <div class="card">
     <h3>Данные</h3>
     <div class="grid">
-      <div><b>Источник:</b> {{ ticket.source_platform or 'telegram' }}</div>
       <div><b>Статус:</b> {{ ticket.status }}</div>
-      <div><b>Пользователь:</b> {{ ticket.vk_full_name if ticket.source_platform == 'vk' else (ticket.tg_full_name or '—') }}</div>
-      {% if ticket.source_platform == 'vk' %}
-      <div><b>VK user id:</b> {{ ticket.vk_user_id }}</div>
-      <div><b>VK peer id:</b> {{ ticket.vk_peer_id }}</div>
-      {% else %}
+      <div><b>Пользователь:</b> {{ ticket.tg_full_name or "—" }}</div>
       <div><b>Username:</b> {% if ticket.tg_username %}<a href="https://t.me/{{ ticket.tg_username }}" target="_blank">@{{ ticket.tg_username }}</a>{% else %}—{% endif %}</div>
       <div><b>TG user id:</b> {{ ticket.tg_user_id }}</div>
       <div><b>Ссылка:</b> <a href="tg://user?id={{ ticket.tg_user_id }}">Открыть TG</a></div>
-      {% endif %}
     </div>
   </div>
 
@@ -52,9 +46,9 @@
     {% if ticket.status != "closed" %}
     <div class="tg-compose">
       <form method="post" action="/admin/reports/{{ ticket.id }}/reply" class="grid">
-        <textarea name="body" placeholder="Ответ пользователю в {{ 'VK' if ticket.source_platform == 'vk' else 'Telegram' }}" required></textarea>
+        <textarea name="body" placeholder="Ответ пользователю в Telegram" required></textarea>
         <div class="btn-row">
-          <button class="btn green" type="submit">Отправить</button>
+          <button class="btn green" type="submit">Отправить в Telegram</button>
         </div>
       </form>
     </div>
