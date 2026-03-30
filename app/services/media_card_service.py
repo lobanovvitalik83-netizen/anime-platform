@@ -80,6 +80,10 @@ class MediaCardService:
             asset = self._pick_asset(assets, episode.id if episode else None, season.id if season else None)
             code = codes[0] if codes else None
 
+            final_external_url = None
+            if asset:
+                final_external_url = self._finalize_asset_external_url(asset, asset.external_url)
+
             rows.append(
                 MediaCardRow(
                     title_id=title.id,
@@ -94,7 +98,7 @@ class MediaCardService:
                     asset_type=asset.asset_type if asset else None,
                     storage_kind=asset.storage_kind if asset else None,
                     telegram_file_id=asset.telegram_file_id if asset else None,
-                    external_url=asset.external_url if asset else None,
+                    external_url=final_external_url,
                     storage_provider=getattr(asset, "storage_provider", None) if asset else None,
                     source_label=getattr(asset, "source_label", None) if asset else None,
                     code_id=code.id if code else None,

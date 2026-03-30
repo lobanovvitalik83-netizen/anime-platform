@@ -39,8 +39,8 @@
       </div>
 
       {% if item.external_url and item.asset_type in ['image','poster'] %}
-      <div style="margin-bottom:12px; height:240px; border-radius:12px; background:#f3f4f6; overflow:hidden; display:flex; align-items:center; justify-content:center;">
-        <img src="{{ item.external_url }}" alt="preview" style="width:100%; height:100%; object-fit:contain; display:block; background:#f3f4f6;" loading="lazy">
+      <div style="margin-bottom:12px; height:320px; display:flex; align-items:center; justify-content:center; background:#f3f4f6; border-radius:12px; overflow:hidden;">
+        <img src="{{ item.external_url }}" alt="{{ item.title }}" style="display:block; width:100%; height:100%; object-fit:contain;">
       </div>
       {% endif %}
 
@@ -51,7 +51,6 @@
         <div><b>Серия:</b> {{ item.episode_number or "—" }}</div>
         <div><b>Тип медиа:</b> {{ item.asset_type or "—" }}</div>
         <div><b>Хранилище:</b> {{ item.storage_provider or item.storage_kind or "—" }}</div>
-        <div><b>Источник:</b> {{ item.source_label or "—" }}</div>
         <div><b>Код доступа:</b> {% if item.code_value %}<span class="code">{{ item.code_value }}</span>{% else %}—{% endif %}</div>
       </div>
       <div class="btn-row" style="margin-top:12px;">
