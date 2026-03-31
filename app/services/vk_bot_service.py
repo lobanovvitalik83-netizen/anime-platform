@@ -4,7 +4,7 @@ from urllib import parse, request as urllib_request
 
 from sqlalchemy.orm import Session
 
-from app.bot.utils.formatter import build_lookup_caption, build_lookup_text
+from app.bot.utils.formatter import build_lookup_plain_text
 from app.core.config import settings
 from app.core.exceptions import ValidationError
 from app.core.logging import get_logger
@@ -87,22 +87,90 @@ class VKBotService:
             self.send_text(peer_id, 'Код не найден или неактивен.', keyboard=self.build_main_keyboard())
             return
 
-        caption = build_lookup_caption(result)
-        text = build_lookup_text(result)
+        text = build_lookup_plain_text(result)
         if result.asset_type in {'image', 'poster'}:
             try:
-                media = MediaDeliveryService(self.session).resolve_media(result)
-                if media is not None:
-                    attachment = MediaDeliveryService(self.session).upload_vk_photo_and_get_attachment(
-                        peer_id=peer_id,
-                        file_bytes=media.file_bytes,
-                        file_name=media.file_name,
-                    )
-                    self.send_text(peer_id, caption, keyboard=self.build_main_keyboard(), attachment=attachment)
+                payload = MediaDeliveryService().resolve_media_payload(
+                    asset_id=result.asset_id,
+                    external_url=result.external_url,
+                    asset_type=result.asset_type,
+                    mime_type=result.mime_type,
+                )
+                if payload:
+                    attachment = self._upload_photo(peer_id=peer_id, content=payload.content, filename=payload.filename)
+                    self.send_text(peer_id, text, keyboard=self.build_main_keyboard(), attachment=attachment)
                     return
             except Exception as exc:
-                logger.warning('VK photo delivery failed for asset=%s: %s', result.asset_id, exc)
+                logger.warning('VK photo send failed for code %s: %s', code, exc)
+
         self.send_text(peer_id, text, keyboard=self.build_main_keyboard())
+
+    def _upload_photo(self, *, peer_id: int, content: bytes, filename: str) -> str:
+        upload_url = self._get_messages_upload_server(peer_id)
+        boundary = '----CodeCinemaBoundary' + secrets.token_hex(8)
+        body = self._build_multipart(boundary=boundary, field_name='photo', filename=filename, content=content)
+        req = urllib_request.Request(
+            upload_url,
+            data=body,
+            headers={'Content-Type': f'multipart/form-data; boundary={boundary}'},
+        )
+        with urllib_request.urlopen(req, timeout=30) as response:
+            upload_raw = response.read().decode('utf-8')
+        upload_parsed = json.loads(upload_raw)
+        save_payload = {
+            'photo': upload_parsed['photo'],
+            'server': upload_parsed['server'],
+            'hash': upload_parsed['hash'],
+            'access_token': settings.vk_bot_token,
+            'v': settings.vk_api_version,
+        }
+        save_req = urllib_request.Request(
+            'https://api.vk.com/method/photos.saveMessagesPhoto',
+            data=parse.urlencode(save_payload).encode('utf-8'),
+        )
+        with urllib_request.urlopen(save_req, timeout=30) as response:
+            raw = response.read().decode('utf-8')
+        parsed = json.loads(raw)
+        if 'error' in parsed:
+            raise ValidationError(f"VK API error: {parsed['error'].get('error_msg', 'unknown error')}")
+        item = (parsed.get('response') or [{}])[0]
+        owner_id = item.get('owner_id')
+        photo_id = item.get('id')
+        if owner_id is None or photo_id is None:
+            raise ValidationError('VK photo upload returned incomplete response.')
+        return f'photo{owner_id}_{photo_id}'
+
+    def _get_messages_upload_server(self, peer_id: int) -> str:
+        payload = {
+            'peer_id': peer_id,
+            'access_token': settings.vk_bot_token,
+            'v': settings.vk_api_version,
+        }
+        req = urllib_request.Request(
+            'https://api.vk.com/method/photos.getMessagesUploadServer',
+            data=parse.urlencode(payload).encode('utf-8'),
+        )
+        with urllib_request.urlopen(req, timeout=20) as response:
+            raw = response.read().decode('utf-8')
+        parsed = json.loads(raw)
+        if 'error' in parsed:
+            raise ValidationError(f"VK API error: {parsed['error'].get('error_msg', 'unknown error')}")
+        upload_url = (parsed.get('response') or {}).get('upload_url')
+        if not upload_url:
+            raise ValidationError('VK upload server URL is missing.')
+        return upload_url
+
+    def _build_multipart(self, *, boundary: str, field_name: str, filename: str, content: bytes) -> bytes:
+        lines = [
+            f'--{boundary}'.encode('utf-8'),
+            f'Content-Disposition: form-data; name="{field_name}"; filename="{filename}"'.encode('utf-8'),
+            b'Content-Type: application/octet-stream',
+            b'',
+            content,
+            f'--{boundary}--'.encode('utf-8'),
+            b'',
+        ]
+        return b'\r\n'.join(lines)
 
     def _handle_report(self, vk_user_id: int, peer_id: int, body: str) -> None:
         if self.session is None:
