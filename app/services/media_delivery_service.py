@@ -1,24 +1,28 @@
+import asyncio
+import json
 import mimetypes
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urljoin, urlparse
-from urllib.request import Request, urlopen
+from urllib import parse as urllib_parse
+from urllib import request as urllib_request
+from urllib.error import HTTPError, URLError
 
+from aiogram.types import BufferedInputFile
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.logging import get_logger
+from app.core.exceptions import ValidationError
+from app.models.media_asset import MediaAsset
 from app.repositories.media_asset_repository import MediaAssetRepository
 from app.schemas.public_lookup import PublicLookupResponse
 from app.services.yandex_disk_storage_service import YandexDiskStorageService
 
-logger = get_logger(__name__)
 
-_IMAGE_ASSET_TYPES = {'image', 'poster'}
-
-
-@dataclass(slots=True)
-class MediaPayload:
+@dataclass
+class ResolvedMedia:
+    asset: MediaAsset | None
+    source_url: str | None
     file_bytes: bytes
     file_name: str
     mime_type: str | None
@@ -28,116 +32,187 @@ class MediaPayload:
 class MediaDeliveryService:
     def __init__(self, session: Session | None = None):
         self.session = session
+        self.assets = MediaAssetRepository(session) if session is not None else None
 
-    def resolve_media_payload(self, result: PublicLookupResponse) -> MediaPayload | None:
-        if result.asset_type not in _IMAGE_ASSET_TYPES:
+    async def resolve_for_telegram(self, result: PublicLookupResponse) -> ResolvedMedia | None:
+        return await asyncio.to_thread(self.resolve_media, result)
+
+    def resolve_media(self, result: PublicLookupResponse) -> ResolvedMedia | None:
+        asset = self._get_asset(result)
+        source_url = self._resolve_source_url(result, asset)
+        if not source_url:
             return None
-
-        asset = self._get_asset(result.asset_id)
-        if asset is not None:
-            payload = self._resolve_payload_from_asset(asset)
-            if payload is not None:
-                return payload
-
-        url = self.resolve_media_url(result)
-        if not url:
-            return None
-        return self._download_payload(url, mime_type=result.mime_type, asset_type=result.asset_type)
-
-    def resolve_media_url(self, result: PublicLookupResponse) -> str | None:
-        if result.external_url:
-            return self._normalize_url(result.external_url)
-
-        asset = self._get_asset(result.asset_id)
-        if asset is None:
-            return None
-
-        if getattr(asset, 'storage_provider', None) == 'yandex_disk' and asset.id:
-            return self._build_proxy_url(asset.id)
-
-        raw_external_url = getattr(asset, 'external_url', None)
-        if raw_external_url:
-            return self._normalize_url(raw_external_url)
-        return None
-
-    def _get_asset(self, asset_id: int | None):
-        if not asset_id or self.session is None:
-            return None
-        return MediaAssetRepository(self.session).get_by_id(asset_id)
-
-    def _resolve_payload_from_asset(self, asset) -> MediaPayload | None:
-        download_url: str | None = None
-
-        if getattr(asset, 'storage_provider', None) == 'yandex_disk' and getattr(asset, 'storage_object_key', None):
-            try:
-                download_url = YandexDiskStorageService().get_download_href(asset.storage_object_key)
-            except Exception as exc:
-                logger.warning('Failed to resolve Yandex Disk href for asset_id=%s: %s', asset.id, exc)
-
-        if not download_url and getattr(asset, 'external_url', None):
-            download_url = self._normalize_url(asset.external_url)
-
-        if not download_url:
-            proxy_url = self._build_proxy_url(getattr(asset, 'id', None))
-            if proxy_url:
-                download_url = proxy_url
-
-        if not download_url:
-            return None
-
-        return self._download_payload(
-            download_url,
-            mime_type=getattr(asset, 'mime_type', None),
-            asset_type=getattr(asset, 'asset_type', None),
-        )
-
-    def _build_proxy_url(self, asset_id: int | None) -> str | None:
-        if not asset_id or not settings.public_base_url:
-            return None
-        return f"{settings.public_base_url}/media/yandex-disk/{asset_id}"
-
-    def _normalize_url(self, value: str) -> str | None:
-        raw = (value or '').strip()
-        if not raw:
-            return None
-        if raw.startswith('http://') or raw.startswith('https://'):
-            return raw
-        if raw.startswith('/') and settings.public_base_url:
-            return urljoin(f'{settings.public_base_url}/', raw.lstrip('/'))
-        return None
-
-    def _download_payload(self, url: str, *, mime_type: str | None, asset_type: str | None) -> MediaPayload | None:
-        try:
-            request = Request(url, headers={'User-Agent': 'MediaBridgeBot/1.0'})
-            with urlopen(request, timeout=60) as response:
-                file_bytes = response.read()
-                content_type = response.headers.get('Content-Type') or mime_type or 'application/octet-stream'
-        except Exception as exc:
-            logger.warning('Failed to download media from %s: %s', url, exc)
-            return None
-
-        if not file_bytes:
-            return None
-
-        clean_mime = (content_type or mime_type or 'application/octet-stream').split(';', 1)[0].strip().lower()
-        file_name = self._build_file_name(url=url, mime_type=clean_mime, asset_type=asset_type)
-        return MediaPayload(
+        file_bytes, mime_type, final_url = self._download_bytes(source_url)
+        file_name = self._build_file_name(result=result, asset=asset, source_url=final_url, mime_type=mime_type)
+        return ResolvedMedia(
+            asset=asset,
+            source_url=final_url,
             file_bytes=file_bytes,
             file_name=file_name,
-            mime_type=clean_mime,
-            asset_type=asset_type,
+            mime_type=mime_type or result.mime_type,
+            asset_type=(asset.asset_type if asset else result.asset_type),
         )
 
-    def _build_file_name(self, *, url: str, mime_type: str | None, asset_type: str | None) -> str:
-        path = urlparse(url).path
-        candidate = Path(path).name or ''
-        if candidate and '.' in candidate:
-            return candidate[:128]
+    def build_telegram_input_file(self, media: ResolvedMedia) -> BufferedInputFile:
+        return BufferedInputFile(media.file_bytes, filename=media.file_name)
 
-        extension = ''
-        if mime_type:
-            extension = mimetypes.guess_extension(mime_type) or ''
-        if not extension:
-            extension = '.jpg' if asset_type in _IMAGE_ASSET_TYPES else '.bin'
-        base_name = 'media' if asset_type in _IMAGE_ASSET_TYPES else 'file'
-        return f'{base_name}{extension}'
+    def persist_telegram_file_id(self, asset_id: int | None, telegram_file_id: str | None) -> None:
+        if self.session is None or self.assets is None or not asset_id or not telegram_file_id:
+            return
+        asset = self.assets.get_by_id(asset_id)
+        if not asset:
+            return
+        if asset.telegram_file_id == telegram_file_id:
+            return
+        asset.telegram_file_id = telegram_file_id
+        self.session.commit()
+        self.session.refresh(asset)
+
+    def _get_asset(self, result: PublicLookupResponse) -> MediaAsset | None:
+        if self.assets is None or not result.asset_id:
+            return None
+        return self.assets.get_by_id(result.asset_id)
+
+    def _resolve_source_url(self, result: PublicLookupResponse, asset: MediaAsset | None) -> str | None:
+        if asset and asset.storage_provider == 'yandex_disk' and asset.storage_object_key:
+            return YandexDiskStorageService().get_download_href(asset.storage_object_key)
+        if result.external_url:
+            return self._absolutize_url(result.external_url)
+        if asset and asset.external_url:
+            return self._absolutize_url(asset.external_url)
+        return None
+
+    def _absolutize_url(self, url: str) -> str:
+        value = (url or '').strip()
+        if not value:
+            return value
+        if value.startswith('http://') or value.startswith('https://'):
+            return value
+        base = settings.public_base_url
+        if not base:
+            raise ValidationError('PUBLIC_BASE_URL не настроен для относительных media URL.')
+        return urllib_parse.urljoin(base + '/', value.lstrip('/'))
+
+    def _download_bytes(self, url: str) -> tuple[bytes, str | None, str]:
+        request = urllib_request.Request(
+            url,
+            headers={
+                'User-Agent': 'Mozilla/5.0 (MediaBridgeBot/1.0)',
+                'Accept': '*/*',
+            },
+        )
+        try:
+            with urllib_request.urlopen(request, timeout=30) as response:
+                file_bytes = response.read()
+                if not file_bytes:
+                    raise ValidationError('Пустой ответ при загрузке медиа.')
+                mime_type = response.headers.get_content_type()
+                final_url = response.geturl()
+                return file_bytes, mime_type, final_url
+        except HTTPError as exc:
+            body = exc.read().decode('utf-8', errors='ignore')
+            raise ValidationError(f'Не удалось загрузить медиа: HTTP {exc.code} {body or exc.reason}') from exc
+        except URLError as exc:
+            raise ValidationError(f'Не удалось загрузить медиа: {exc.reason}') from exc
+
+    def _build_file_name(
+        self,
+        *,
+        result: PublicLookupResponse,
+        asset: MediaAsset | None,
+        source_url: str,
+        mime_type: str | None,
+    ) -> str:
+        parsed = urllib_parse.urlparse(source_url)
+        name = Path(parsed.path).name
+        if not name or '.' not in name:
+            suffix = mimetypes.guess_extension(mime_type or result.mime_type or '') or ''
+            prefix = 'video' if (asset.asset_type if asset else result.asset_type) == 'video' else 'image'
+            name = f'{prefix}-{result.asset_id or uuid.uuid4().hex}{suffix}'
+        return name[:200]
+
+    def upload_vk_photo_and_get_attachment(self, *, peer_id: int, file_bytes: bytes, file_name: str) -> str:
+        upload_server = self._vk_api_call(
+            'photos.getMessagesUploadServer',
+            {'peer_id': peer_id},
+        )
+        upload_url = upload_server.get('upload_url')
+        if not upload_url:
+            raise ValidationError('VK не вернул upload_url для изображения.')
+
+        uploaded = self._vk_upload_photo(upload_url=upload_url, file_bytes=file_bytes, file_name=file_name)
+        saved_items = self._vk_api_call(
+            'photos.saveMessagesPhoto',
+            {
+                'photo': uploaded.get('photo', ''),
+                'server': uploaded.get('server', ''),
+                'hash': uploaded.get('hash', ''),
+            },
+        )
+        if not saved_items:
+            raise ValidationError('VK не сохранил изображение.')
+        photo = saved_items[0]
+        owner_id = photo.get('owner_id')
+        photo_id = photo.get('id')
+        access_key = photo.get('access_key')
+        if owner_id is None or photo_id is None:
+            raise ValidationError('VK вернул неполный photo attachment.')
+        attachment = f'photo{owner_id}_{photo_id}'
+        if access_key:
+            attachment = f'{attachment}_{access_key}'
+        return attachment
+
+    def _vk_upload_photo(self, *, upload_url: str, file_bytes: bytes, file_name: str) -> dict:
+        boundary = f'----MediaBridge{uuid.uuid4().hex}'
+        content_type = mimetypes.guess_type(file_name)[0] or 'application/octet-stream'
+        body = self._build_multipart_body(boundary=boundary, file_name=file_name, file_bytes=file_bytes, content_type=content_type)
+        request = urllib_request.Request(
+            upload_url,
+            data=body,
+            headers={
+                'Content-Type': f'multipart/form-data; boundary={boundary}',
+                'Content-Length': str(len(body)),
+                'User-Agent': 'Mozilla/5.0 (MediaBridgeBot/1.0)',
+            },
+            method='POST',
+        )
+        try:
+            with urllib_request.urlopen(request, timeout=60) as response:
+                raw = response.read().decode('utf-8')
+        except HTTPError as exc:
+            body = exc.read().decode('utf-8', errors='ignore')
+            raise ValidationError(f'VK upload failed: HTTP {exc.code} {body or exc.reason}') from exc
+        data = json.loads(raw)
+        if data.get('error'):
+            raise ValidationError(f"VK upload failed: {data['error']}")
+        return data
+
+    def _build_multipart_body(self, *, boundary: str, file_name: str, file_bytes: bytes, content_type: str) -> bytes:
+        boundary_bytes = boundary.encode('utf-8')
+        chunks = [
+            b'--' + boundary_bytes + b'\r\n',
+            f'Content-Disposition: form-data; name="photo"; filename="{file_name}"\r\n'.encode('utf-8'),
+            f'Content-Type: {content_type}\r\n\r\n'.encode('utf-8'),
+            file_bytes,
+            b'\r\n--' + boundary_bytes + b'--\r\n',
+        ]
+        return b''.join(chunks)
+
+    def _vk_api_call(self, method: str, params: dict) -> dict | list:
+        token = settings.vk_bot_token.strip()
+        if not token:
+            raise ValidationError('VK_BOT_TOKEN не настроен.')
+        payload = {
+            **params,
+            'access_token': token,
+            'v': settings.vk_api_version,
+        }
+        data = urllib_parse.urlencode(payload).encode('utf-8')
+        request = urllib_request.Request(f'https://api.vk.com/method/{method}', data=data, method='POST')
+        with urllib_request.urlopen(request, timeout=30) as response:
+            raw = response.read().decode('utf-8')
+        parsed = json.loads(raw)
+        if 'error' in parsed:
+            error = parsed['error']
+            raise ValidationError(f"VK API error: {error.get('error_msg', 'unknown error')}")
+        return parsed.get('response')
