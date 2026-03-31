@@ -2,79 +2,73 @@ from __future__ import annotations
 
 import mimetypes
 from dataclasses import dataclass
-from pathlib import Path
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 from urllib.request import Request, urlopen
 
 from app.core.config import settings
+from app.schemas.public_lookup import PublicLookupResponse
+from app.services.yandex_disk_storage_service import YandexDiskStorageService
 
 
 @dataclass(slots=True)
 class MediaPayload:
-    content: bytes
+    data: bytes
     filename: str
-    content_type: str
-    asset_type: str | None
+    mime_type: str
+    asset_type: str
 
 
 class MediaDeliveryService:
-    def resolve_media_payload(
-        self,
-        *,
-        asset_id: int | None,
-        external_url: str | None,
-        asset_type: str | None,
-        mime_type: str | None,
-    ) -> MediaPayload | None:
-        url = self._resolve_download_url(asset_id=asset_id, external_url=external_url)
-        if not url:
+    def resolve_payload(self, result: PublicLookupResponse) -> MediaPayload | None:
+        if not result.has_media:
+            return None
+        if result.asset_type not in {"image", "poster"}:
+            return None
+
+        direct_url = self._resolve_direct_url(result)
+        if not direct_url:
             return None
 
         request = Request(
-            url,
+            direct_url,
             headers={
                 "User-Agent": "CodeCinemaBot/1.0",
-                "Accept": "*/*",
+                "Accept": "image/*,application/octet-stream;q=0.9,*/*;q=0.8",
             },
         )
-        with urlopen(request, timeout=25) as response:
-            content = response.read()
-            response_type = response.headers.get_content_type() or mime_type or "application/octet-stream"
-            final_url = response.geturl() or url
+        with urlopen(request, timeout=20) as response:
+            data = response.read()
+            content_type = (response.headers.get_content_type() or "").strip().lower()
 
-        if not content:
+        if not data:
             return None
 
-        filename = self._guess_filename(final_url=final_url, asset_type=asset_type, mime_type=response_type)
+        mime_type = self._normalize_mime_type(content_type or result.mime_type)
+        filename = self._build_filename(result, mime_type)
         return MediaPayload(
-            content=content,
+            data=data,
             filename=filename,
-            content_type=response_type,
-            asset_type=asset_type,
+            mime_type=mime_type,
+            asset_type=result.asset_type or "image",
         )
 
-    def _resolve_download_url(self, *, asset_id: int | None, external_url: str | None) -> str | None:
-        if asset_id and settings.public_base_url:
-            return f"{settings.public_base_url}/media/yandex-disk/{asset_id}"
-        if not external_url:
-            return None
-        if external_url.startswith("http://") or external_url.startswith("https://"):
-            return external_url
-        if settings.public_base_url:
-            return urljoin(f"{settings.public_base_url}/", external_url.lstrip("/"))
-        return external_url
+    def _resolve_direct_url(self, result: PublicLookupResponse) -> str | None:
+        if result.storage_provider == "yandex_disk" and result.storage_object_key:
+            return YandexDiskStorageService().get_download_href(result.storage_object_key)
+        if result.external_url:
+            if result.external_url.startswith("http://") or result.external_url.startswith("https://"):
+                return result.external_url
+            if settings.public_base_url:
+                return urljoin(settings.public_base_url + "/", result.external_url.lstrip("/"))
+        return None
 
-    def _guess_filename(self, *, final_url: str, asset_type: str | None, mime_type: str | None) -> str:
-        parsed = urlparse(final_url)
-        raw_name = Path(parsed.path).name or "media"
-        base, ext = Path(raw_name).stem, Path(raw_name).suffix
-        if not ext:
-            guessed = mimetypes.guess_extension(mime_type or "") or self._fallback_extension(asset_type)
-            ext = guessed or ""
-        safe_base = (base or "media").strip() or "media"
-        return f"{safe_base[:80]}{ext}"
+    def _normalize_mime_type(self, mime_type: str | None) -> str:
+        value = (mime_type or "").split(";")[0].strip().lower()
+        if value in {"image/jpeg", "image/png", "image/webp"}:
+            return value
+        return "image/jpeg"
 
-    def _fallback_extension(self, asset_type: str | None) -> str:
-        if asset_type == "video":
-            return ".mp4"
-        return ".jpg"
+    def _build_filename(self, result: PublicLookupResponse, mime_type: str) -> str:
+        ext = mimetypes.guess_extension(mime_type) or ".jpg"
+        asset_id = result.asset_id or 0
+        return f"card_{asset_id}{ext}"

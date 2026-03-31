@@ -15,6 +15,7 @@ from app.services.public_lookup_service import PublicLookupService
 logger = get_logger(__name__)
 
 _USER_MODES: dict[int, str] = {}
+_VK_ATTACHMENT_CACHE: dict[int, str] = {}
 USER_MODE_LOOKUP = 'lookup'
 USER_MODE_REPORT = 'report'
 
@@ -88,89 +89,28 @@ class VKBotService:
             return
 
         text = build_lookup_plain_text(result)
-        if result.asset_type in {'image', 'poster'}:
-            try:
-                payload = MediaDeliveryService().resolve_media_payload(
-                    asset_id=result.asset_id,
-                    external_url=result.external_url,
-                    asset_type=result.asset_type,
-                    mime_type=result.mime_type,
-                )
-                if payload:
-                    attachment = self._upload_photo(peer_id=peer_id, content=payload.content, filename=payload.filename)
+        if result.asset_type in {'image', 'poster'} and result.asset_id:
+            cached = _VK_ATTACHMENT_CACHE.get(result.asset_id)
+            if cached:
+                try:
+                    self.send_text(peer_id, text, keyboard=self.build_main_keyboard(), attachment=cached)
+                    return
+                except Exception:
+                    _VK_ATTACHMENT_CACHE.pop(result.asset_id, None)
+
+        try:
+            payload = MediaDeliveryService().resolve_payload(result)
+            if payload:
+                attachment = self._upload_photo(peer_id=peer_id, file_bytes=payload.data, filename=payload.filename)
+                if attachment and result.asset_id:
+                    _VK_ATTACHMENT_CACHE[result.asset_id] = attachment
+                if attachment:
                     self.send_text(peer_id, text, keyboard=self.build_main_keyboard(), attachment=attachment)
                     return
-            except Exception as exc:
-                logger.warning('VK photo send failed for code %s: %s', code, exc)
+        except Exception as exc:
+            logger.warning('VK media send failed for code %s: %s', code, exc)
 
         self.send_text(peer_id, text, keyboard=self.build_main_keyboard())
-
-    def _upload_photo(self, *, peer_id: int, content: bytes, filename: str) -> str:
-        upload_url = self._get_messages_upload_server(peer_id)
-        boundary = '----CodeCinemaBoundary' + secrets.token_hex(8)
-        body = self._build_multipart(boundary=boundary, field_name='photo', filename=filename, content=content)
-        req = urllib_request.Request(
-            upload_url,
-            data=body,
-            headers={'Content-Type': f'multipart/form-data; boundary={boundary}'},
-        )
-        with urllib_request.urlopen(req, timeout=30) as response:
-            upload_raw = response.read().decode('utf-8')
-        upload_parsed = json.loads(upload_raw)
-        save_payload = {
-            'photo': upload_parsed['photo'],
-            'server': upload_parsed['server'],
-            'hash': upload_parsed['hash'],
-            'access_token': settings.vk_bot_token,
-            'v': settings.vk_api_version,
-        }
-        save_req = urllib_request.Request(
-            'https://api.vk.com/method/photos.saveMessagesPhoto',
-            data=parse.urlencode(save_payload).encode('utf-8'),
-        )
-        with urllib_request.urlopen(save_req, timeout=30) as response:
-            raw = response.read().decode('utf-8')
-        parsed = json.loads(raw)
-        if 'error' in parsed:
-            raise ValidationError(f"VK API error: {parsed['error'].get('error_msg', 'unknown error')}")
-        item = (parsed.get('response') or [{}])[0]
-        owner_id = item.get('owner_id')
-        photo_id = item.get('id')
-        if owner_id is None or photo_id is None:
-            raise ValidationError('VK photo upload returned incomplete response.')
-        return f'photo{owner_id}_{photo_id}'
-
-    def _get_messages_upload_server(self, peer_id: int) -> str:
-        payload = {
-            'peer_id': peer_id,
-            'access_token': settings.vk_bot_token,
-            'v': settings.vk_api_version,
-        }
-        req = urllib_request.Request(
-            'https://api.vk.com/method/photos.getMessagesUploadServer',
-            data=parse.urlencode(payload).encode('utf-8'),
-        )
-        with urllib_request.urlopen(req, timeout=20) as response:
-            raw = response.read().decode('utf-8')
-        parsed = json.loads(raw)
-        if 'error' in parsed:
-            raise ValidationError(f"VK API error: {parsed['error'].get('error_msg', 'unknown error')}")
-        upload_url = (parsed.get('response') or {}).get('upload_url')
-        if not upload_url:
-            raise ValidationError('VK upload server URL is missing.')
-        return upload_url
-
-    def _build_multipart(self, *, boundary: str, field_name: str, filename: str, content: bytes) -> bytes:
-        lines = [
-            f'--{boundary}'.encode('utf-8'),
-            f'Content-Disposition: form-data; name="{field_name}"; filename="{filename}"'.encode('utf-8'),
-            b'Content-Type: application/octet-stream',
-            b'',
-            content,
-            f'--{boundary}--'.encode('utf-8'),
-            b'',
-        ]
-        return b'\r\n'.join(lines)
 
     def _handle_report(self, vk_user_id: int, peer_id: int, body: str) -> None:
         if self.session is None:
@@ -220,6 +160,63 @@ class VKBotService:
         if 'error' in parsed:
             logger.error('VK messages.send failed: %s', parsed)
             raise ValidationError(f"VK API error: {parsed['error'].get('error_msg', 'unknown error')}")
+
+    def _upload_photo(self, *, peer_id: int, file_bytes: bytes, filename: str) -> str | None:
+        server_response = self._vk_api_call('photos.getMessagesUploadServer', {'peer_id': peer_id})
+        upload_url = (server_response or {}).get('upload_url')
+        if not upload_url:
+            raise ValidationError('VK upload server is unavailable.')
+
+        boundary = f'----CodeCinema{secrets.token_hex(8)}'
+        body = self._build_multipart(boundary=boundary, field_name='photo', filename=filename, file_bytes=file_bytes)
+        request = urllib_request.Request(
+            upload_url,
+            data=body,
+            headers={'Content-Type': f'multipart/form-data; boundary={boundary}'},
+        )
+        with urllib_request.urlopen(request, timeout=30) as response:
+            uploaded_raw = response.read().decode('utf-8')
+        uploaded = json.loads(uploaded_raw)
+        saved = self._vk_api_call(
+            'photos.saveMessagesPhoto',
+            {
+                'photo': uploaded.get('photo', ''),
+                'server': uploaded.get('server', ''),
+                'hash': uploaded.get('hash', ''),
+            },
+        )
+        if not saved:
+            return None
+        photo = saved[0]
+        owner_id = photo.get('owner_id')
+        photo_id = photo.get('id')
+        if owner_id is None or photo_id is None:
+            return None
+        return f'photo{owner_id}_{photo_id}'
+
+    def _vk_api_call(self, method: str, params: dict) -> dict | list:
+        payload = {
+            **params,
+            'access_token': settings.vk_bot_token,
+            'v': settings.vk_api_version,
+        }
+        data = parse.urlencode(payload).encode('utf-8')
+        req = urllib_request.Request(f'https://api.vk.com/method/{method}', data=data)
+        with urllib_request.urlopen(req, timeout=20) as response:
+            raw = response.read().decode('utf-8')
+        parsed = json.loads(raw)
+        if 'error' in parsed:
+            raise ValidationError(parsed['error'].get('error_msg', 'unknown error'))
+        return parsed.get('response')
+
+    def _build_multipart(self, *, boundary: str, field_name: str, filename: str, file_bytes: bytes) -> bytes:
+        head = (
+            f'--{boundary}\r\n'
+            f'Content-Disposition: form-data; name="{field_name}"; filename="{filename}"\r\n'
+            f'Content-Type: application/octet-stream\r\n\r\n'
+        ).encode('utf-8')
+        tail = f'\r\n--{boundary}--\r\n'.encode('utf-8')
+        return head + file_bytes + tail
 
     def build_main_keyboard(self) -> dict:
         return {

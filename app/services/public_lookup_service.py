@@ -59,7 +59,7 @@ class PublicLookupService:
             episode_id=episode.id if episode else None,
         )
 
-        has_media = bool(selected_asset and (selected_asset.telegram_file_id or selected_asset.external_url))
+        has_media = bool(selected_asset and (selected_asset.telegram_file_id or selected_asset.external_url or selected_asset.storage_object_key))
 
         return PublicLookupResponse(
             code=access_code.code,
@@ -111,16 +111,16 @@ class PublicLookupService:
             return 0 if asset.is_primary else 1
 
         def media_priority(asset: MediaAsset) -> int:
-            if asset.asset_type == "video":
-                return 0
             if asset.asset_type in {"image", "poster"}:
+                return 0
+            if asset.asset_type == "video":
                 return 1
             return 2
 
         def source_priority(asset: MediaAsset) -> int:
-            if asset.storage_kind == "telegram_file_id" and asset.telegram_file_id:
+            if asset.telegram_file_id:
                 return 0
-            if asset.storage_kind == "external_url" and asset.external_url:
+            if asset.external_url or asset.storage_object_key:
                 return 1
             return 2
 
